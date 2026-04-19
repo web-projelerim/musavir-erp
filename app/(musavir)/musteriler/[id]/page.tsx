@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle, Plus, MessageCircle } from "lucide-react";
 import Link from "next/link";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge, RiskBadge, TahsilatBadge, TebligatBadge, BeyannameBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
@@ -11,15 +10,24 @@ import { Button } from "@/components/ui/Button";
 import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
 } from "@/components/ui/Table";
+import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
+import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
+import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
+import { useToast } from "@/lib/context/ToastContext";
 import {
   MOCK_MUSTERILER, MOCK_GOREVLER, MOCK_TEBLIGATLAR, MOCK_BEYANNAMELER, MOCK_RAPORLAR, MOCK_TAHSILATLAR
 } from "@/lib/data/mock";
 import { formatTarih, formatPara } from "@/lib/utils/format";
+import type { Gorev, GorevDurum } from "@/lib/types";
 
 const TABS = ["Özet", "Görevler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat"];
 
 export default function MusteriDetayPage({ params }: { params: { id: string } }) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("Özet");
+  const [showGorevModal, setShowGorevModal] = useState(false);
+  const [showWaModal, setShowWaModal] = useState(false);
+  const [seciliGorev, setSeciliGorev] = useState<Gorev | null>(null);
   const musteri = MOCK_MUSTERILER.find((m) => m.id === params.id) ?? MOCK_MUSTERILER[0];
 
   const gorevler = MOCK_GOREVLER.filter((g) => g.musteriId === musteri.id);
@@ -57,7 +65,23 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" icon={<Edit className="w-3.5 h-3.5" />}>Düzenle</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<MessageCircle className="w-3.5 h-3.5" />}
+            onClick={() => setShowWaModal(true)}
+          >
+            WhatsApp
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            onClick={() => setShowGorevModal(true)}
+          >
+            Görev Ekle
+          </Button>
+          <Button variant="outline" size="sm" icon={<Edit className="w-3.5 h-3.5" />} onClick={() => toast.info("Düzenleme modu")}>Düzenle</Button>
           <Button variant="outline" size="sm" icon={<MoreHorizontal className="w-3.5 h-3.5" />} />
         </div>
       </div>
@@ -388,6 +412,23 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           </Table>
         </div>
       )}
+
+      {/* Modaller */}
+      <YeniGorevModal
+        open={showGorevModal}
+        onClose={() => setShowGorevModal(false)}
+        musteriId={musteri.id}
+        onSuccess={() => toast.success("Görev oluşturuldu")}
+      />
+      <WhatsAppGonderimModal
+        open={showWaModal}
+        onClose={() => setShowWaModal(false)}
+        musteriId={musteri.id}
+      />
+      <GorevDetayDrawer
+        gorev={seciliGorev}
+        onClose={() => setSeciliGorev(null)}
+      />
     </div>
   );
 }

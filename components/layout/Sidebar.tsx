@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
@@ -12,49 +13,24 @@ import {
   AlertTriangle,
   Calculator,
   Settings,
-  ChevronRight,
   Building2,
   LogOut,
 } from "lucide-react";
+import { MOCK_GOREVLER, MOCK_TEBLIGATLAR } from "@/lib/data/mock";
 
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Müşteriler",
-    href: "/musteriler",
-    icon: Users,
-  },
-  {
-    label: "Görevler",
-    href: "/gorevler",
-    icon: CheckSquare,
-    badge: 6,
-  },
-  {
-    label: "Raporlar",
-    href: "/raporlar",
-    icon: FileText,
-  },
-  {
-    label: "Tebligat & Beyan",
-    href: "/tebligatlar",
-    icon: Bell,
-    badge: 2,
-  },
-  {
-    label: "Risk Merkezi",
-    href: "/risk",
-    icon: AlertTriangle,
-  },
-  {
-    label: "KDV2 Hesaplama",
-    href: "/kdv2",
-    icon: Calculator,
-  },
+const navItems: {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  badge: string | number | null;
+}[] = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
+  { label: "Müşteriler", href: "/musteriler", icon: Users, badge: null },
+  { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
+  { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
+  { label: "Tebligat & Beyan", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
+  { label: "Risk Merkezi", href: "/risk", icon: AlertTriangle, badge: null },
+  { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
 ];
 
 const bottomItems = [
@@ -96,6 +72,15 @@ export function Sidebar() {
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const badgeValue =
+            item.badge === "gorevler"
+              ? MOCK_GOREVLER.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal").length
+              : item.badge === "tebligatlar"
+              ? MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length
+              : typeof item.badge === "number"
+              ? item.badge
+              : null;
+
           return (
             <Link
               key={item.href}
@@ -111,12 +96,12 @@ export function Sidebar() {
                 <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
                 <span className="font-medium">{item.label}</span>
               </span>
-              {item.badge && (
+              {badgeValue !== null && badgeValue > 0 && (
                 <span className={cn(
                   "text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center",
-                  isActive ? "bg-blue-500 text-white" : "bg-slate-700 text-slate-300"
+                  isActive ? "bg-blue-500 text-white" : "bg-red-500 text-white"
                 )}>
-                  {item.badge}
+                  {badgeValue}
                 </span>
               )}
             </Link>

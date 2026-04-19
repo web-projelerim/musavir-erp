@@ -6,23 +6,51 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricCard } from "@/components/ui/Card";
 import { Badge, TebligatBadge, BeyannameBadge } from "@/components/ui/Badge";
 import {
-  Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
+  Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty,
 } from "@/components/ui/Table";
-import { MOCK_TEBLIGATLAR, MOCK_BEYANNAMELER } from "@/lib/data/mock";
+import { SkeletonTable } from "@/components/ui/Skeleton";
+import { useTebligatlar } from "@/lib/hooks/useTebligatlar";
+import { useBeyannameler } from "@/lib/hooks/useBeyannameler";
+import { tebligatDurumGuncelle } from "@/lib/services/tebligat.service";
+import { FB_CONFIGURED } from "@/lib/firebase/ready";
+import { useToast } from "@/lib/context/ToastContext";
 import { formatTarih } from "@/lib/utils/format";
 
 const TABS = ["Tebligatlar", "Beyannameler"];
 
 export default function TebligatlarPage() {
+  const toast = useToast();
+  const { data: tebligatlar, loading: tebLoading } = useTebligatlar();
+  const { data: beyannameler, loading: beyanLoading } = useBeyannameler();
   const [activeTab, setActiveTab] = useState("Tebligatlar");
   const [filterDurum, setFilterDurum] = useState("tumu");
+  const [isleniyorId, setIsleniyorId] = useState<string | null>(null);
 
-  const filteredTebligatlar = MOCK_TEBLIGATLAR.filter(
+  const filteredTebligatlar = tebligatlar.filter(
     (t) => filterDurum === "tumu" || t.durum === filterDurum
   );
-  const filteredBeyanlar = MOCK_BEYANNAMELER.filter(
+  const filteredBeyanlar = beyannameler.filter(
     (b) => filterDurum === "tumu" || b.durum === filterDurum
   );
+
+  const handleIslendi = async (id: string) => {
+    setIsleniyorId(id);
+    try {
+      if (FB_CONFIGURED) await tebligatDurumGuncelle(id, "islendi");
+      toast.success("Tebligat işlendi olarak işaretlendi");
+    } catch {
+      toast.error("İşlem başarısız");
+    } finally {
+      setIsleniyorId(null);
+    }
+  };
+
+  const selectStyle: React.CSSProperties = {
+    background: "#fff", border: "1px solid #e5e7eb", fontSize: 12,
+    color: "#374151", borderRadius: 6, padding: "6px 10px", outline: "none",
+  };
+
+  const yeniTebligatSayi = tebligatlar.filter((t) => t.durum === "yeni").length;
 
   return (
     <div>
@@ -32,49 +60,35 @@ export default function TebligatlarPage() {
       />
 
       {/* Metrikler */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Toplam Tebligat"
-          value={MOCK_TEBLIGATLAR.length}
-          subtitle="Bu dönem"
-        />
-        <MetricCard
-          title="Yeni Tebligat"
-          value={MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length}
-          subtitle="İşlem bekliyor"
-          variant="danger"
-        />
-        <MetricCard
-          title="Bekleyen Beyan"
-          value={MOCK_BEYANNAMELER.filter((b) => b.durum === "bekliyor").length}
-          subtitle="Son tarih yaklaşıyor"
-          variant="warning"
-        />
-        <MetricCard
-          title="Geciken Beyan"
-          value={MOCK_BEYANNAMELER.filter((b) => b.durum === "gecikti").length}
-          subtitle="Acil işlem gerekiyor"
-          variant="danger"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <MetricCard title="Toplam Tebligat" value={tebligatlar.length} subtitle="Bu dönem" />
+        <MetricCard title="Yeni Tebligat" value={yeniTebligatSayi}
+          subtitle="İşlem bekliyor" variant="danger" />
+        <MetricCard title="Bekleyen Beyan"
+          value={beyannameler.filter((b) => b.durum === "bekliyor").length}
+          subtitle="Son tarih yaklaşıyor" variant="warning" />
+        <MetricCard title="Geciken Beyan"
+          value={beyannameler.filter((b) => b.durum === "gecikti").length}
+          subtitle="Acil işlem gerekiyor" variant="danger" />
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 mb-5">
-        <nav className="flex gap-0">
+      <div className="mb-4" style={{ borderBottom: "1px solid #e5e7eb" }}>
+        <nav className="flex">
           {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
+            <button key={tab} onClick={() => { setActiveTab(tab); setFilterDurum("tumu"); }}
+              style={{
+                padding: "8px 16px", fontSize: 12, fontWeight: 500, border: "none",
+                background: "transparent", cursor: "pointer",
+                borderBottom: `2px solid ${activeTab === tab ? "#2563eb" : "transparent"}`,
+                color: activeTab === tab ? "#2563eb" : "#6b7280",
+                marginBottom: -1,
+              }}>
               {tab}
-              {tab === "Tebligatlar" && (
-                <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                  {MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length}
+              {tab === "Tebligatlar" && yeniTebligatSayi > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 10, background: "#fee2e2",
+                  color: "#b91c1c", padding: "1px 5px", borderRadius: 10 }}>
+                  {yeniTebligatSayi}
                 </span>
               )}
             </button>
@@ -83,13 +97,10 @@ export default function TebligatlarPage() {
       </div>
 
       {/* Filtre */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 mb-5">
+      <div className="bg-white rounded-md mb-4"
+        style={{ border: "1px solid #e5e7eb", padding: "10px 14px" }}>
         <div className="flex items-center gap-3">
-          <select
-            value={filterDurum}
-            onChange={(e) => setFilterDurum(e.target.value)}
-            className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
-          >
+          <select value={filterDurum} onChange={(e) => setFilterDurum(e.target.value)} style={selectStyle}>
             <option value="tumu">Tüm Durumlar</option>
             {activeTab === "Tebligatlar" ? (
               <>
@@ -106,7 +117,7 @@ export default function TebligatlarPage() {
               </>
             )}
           </select>
-          <span className="text-xs text-slate-500">
+          <span style={{ fontSize: 11, color: "#9ca3af" }}>
             {activeTab === "Tebligatlar" ? filteredTebligatlar.length : filteredBeyanlar.length} kayıt
           </span>
         </div>
@@ -114,7 +125,7 @@ export default function TebligatlarPage() {
 
       {/* Tebligatlar tablosu */}
       {activeTab === "Tebligatlar" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="bg-white rounded-md overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
           <Table>
             <TableHead>
               <tr>
@@ -128,42 +139,56 @@ export default function TebligatlarPage() {
               </tr>
             </TableHead>
             <TableBody>
-              {filteredTebligatlar.length === 0 ? (
+              {tebLoading ? (
+                <SkeletonTable rows={6} cols={7} />
+              ) : filteredTebligatlar.length === 0 ? (
                 <TableEmpty colSpan={7} />
               ) : (
                 filteredTebligatlar.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>
-                      <span className="text-xs font-medium text-slate-700">{formatTarih(t.tarih)}</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: "#374151" }}>
+                        {formatTarih(t.tarih)}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs font-semibold text-slate-800">{t.musteriAdi}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>
+                        {t.musteriAdi}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs font-mono text-slate-500">{t.vknTckn}</span>
+                      <span style={{ fontSize: 11, fontFamily: "monospace", color: "#6b7280" }}>
+                        {t.vknTckn}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="text-xs font-medium text-slate-800">{t.baslik}</p>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: "#111827" }}>{t.baslik}</p>
                         {t.notlar && (
-                          <p className="text-xs text-amber-600 mt-0.5">{t.notlar}</p>
+                          <p style={{ fontSize: 11, color: "#d97706", marginTop: 2 }}>{t.notlar}</p>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="neutral">{t.tur}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <TebligatBadge durum={t.durum} />
-                    </TableCell>
+                    <TableCell><Badge variant="neutral">{t.tur}</Badge></TableCell>
+                    <TableCell><TebligatBadge durum={t.durum} /></TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="PDF görüntüle">
-                          <FileText className="w-3.5 h-3.5" />
+                        <button
+                          style={{ padding: "5px", color: "#2563eb", borderRadius: 4,
+                            background: "transparent", border: "none", cursor: "pointer" }}
+                          title="PDF görüntüle">
+                          <FileText style={{ width: 13, height: 13 }} />
                         </button>
                         {t.durum !== "islendi" && (
-                          <button className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="İşlendi olarak işaretle">
-                            <CheckCircle className="w-3.5 h-3.5" />
+                          <button
+                            onClick={() => handleIslendi(t.id)}
+                            disabled={isleniyorId === t.id}
+                            style={{ padding: "5px", color: "#16a34a", borderRadius: 4,
+                              background: "transparent", border: "none",
+                              cursor: isleniyorId === t.id ? "not-allowed" : "pointer",
+                              opacity: isleniyorId === t.id ? 0.5 : 1 }}
+                            title="İşlendi olarak işaretle">
+                            <CheckCircle style={{ width: 13, height: 13 }} />
                           </button>
                         )}
                       </div>
@@ -178,7 +203,7 @@ export default function TebligatlarPage() {
 
       {/* Beyannameler tablosu */}
       {activeTab === "Beyannameler" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="bg-white rounded-md overflow-hidden" style={{ border: "1px solid #e5e7eb" }}>
           <Table>
             <TableHead>
               <tr>
@@ -192,38 +217,39 @@ export default function TebligatlarPage() {
               </tr>
             </TableHead>
             <TableBody>
-              {filteredBeyanlar.length === 0 ? (
+              {beyanLoading ? (
+                <SkeletonTable rows={6} cols={7} />
+              ) : filteredBeyanlar.length === 0 ? (
                 <TableEmpty colSpan={7} />
               ) : (
                 filteredBeyanlar.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell>
-                      <span className="text-xs font-semibold text-slate-800">{b.musteriAdi}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>
+                        {b.musteriAdi}
+                      </span>
+                    </TableCell>
+                    <TableCell><Badge variant="info">{b.tur}</Badge></TableCell>
+                    <TableCell>
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>{b.donem}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="info">{b.tur}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-slate-600">{b.donem}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`text-xs font-medium ${b.durum === "gecikti" ? "text-red-600" : "text-slate-800"}`}>
+                      <span style={{ fontSize: 11, fontWeight: 500,
+                        color: b.durum === "gecikti" ? "#dc2626" : "#374151" }}>
                         {formatTarih(b.sonTarih)}
                       </span>
                     </TableCell>
                     <TableCell>
                       {b.verilmeTarihi ? (
-                        <span className="text-xs text-emerald-600">{formatTarih(b.verilmeTarihi)}</span>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+                        <span style={{ fontSize: 11, color: "#16a34a" }}>
+                          {formatTarih(b.verilmeTarihi)}
+                        </span>
+                      ) : <span style={{ fontSize: 11, color: "#d1d5db" }}>—</span>}
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs text-slate-600">{b.sorumlu}</span>
+                      <span style={{ fontSize: 11, color: "#6b7280" }}>{b.sorumlu}</span>
                     </TableCell>
-                    <TableCell>
-                      <BeyannameBadge durum={b.durum} />
-                    </TableCell>
+                    <TableCell><BeyannameBadge durum={b.durum} /></TableCell>
                   </TableRow>
                 ))
               )}

@@ -1,27 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
-import { MOCK_MUSTERILER } from "@/lib/data/mock";
+import { gorevEkle } from "@/lib/services/gorev.service";
+import { useMusteriler } from "@/lib/hooks/useMusteriler";
+import { FB_CONFIGURED } from "@/lib/firebase/ready";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   musteriId?: string;
-  onSuccess?: () => void;
+  onSuccess?: (id: string) => void;
+}
+
+const fieldStyle: React.CSSProperties = {
+  width: "100%", padding: "8px 10px", fontSize: 12, color: "#374151",
+  background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, outline: "none",
+};
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#374151", marginBottom: 4 }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 export function YeniGorevModal({ open, onClose, musteriId, onSuccess }: Props) {
   const toast = useToast();
+  const { data: musteriler } = useMusteriler();
   const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split("T")[0];
 
   const [form, setForm] = useState({
-    baslik: "",
-    aciklama: "",
+    baslik: "", aciklama: "",
     musteriId: musteriId ?? "",
     atananKisi: "Selin Kaya",
     terminTarihi: today,
@@ -29,95 +46,113 @@ export function YeniGorevModal({ open, onClose, musteriId, onSuccess }: Props) {
     tip: "beyanname",
   });
 
+  useEffect(() => {
+    if (musteriId) setForm((p) => ({ ...p, musteriId }));
+  }, [musteriId]);
+
+  const set = (k: keyof typeof form, v: string) =>
+    setForm((p) => ({ ...p, [k]: v }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.baslik.trim()) {
-      toast.error("Görev başlığı zorunludur");
-      return;
-    }
+    if (!form.baslik.trim()) { toast.error("Görev başlığı zorunludur"); return; }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setLoading(false);
-    toast.success("Görev oluşturuldu", `"${form.baslik}" görevi atandı`);
-    onClose();
-    onSuccess?.();
+    try {
+      const musteri = musteriler.find((m) => m.id === form.musteriId);
+      const data = {
+        baslik: form.baslik.trim(),
+        aciklama: form.aciklama,
+        musteriId: form.musteriId,
+        musteriAdi: musteri?.firmaAdi ?? "",
+        atananKisi: form.atananKisi,
+        atayanKisi: "Ali Müşavir",
+        terminTarihi: form.terminTarihi,
+        oncelik: form.oncelik as any,
+        durum: "beklemede" as const,
+        tip: form.tip as any,
+        createdAt: new Date().toISOString(),
+      };
+
+      let id = `g-${Date.now()}`;
+      if (FB_CONFIGURED) {
+        id = await gorevEkle(data);
+      }
+      toast.success("Görev oluşturuldu", `"${form.baslik}" görevi atandı`);
+      onSuccess?.(id);
+      onClose();
+      setForm({ baslik: "", aciklama: "", musteriId: musteriId ?? "",
+        atananKisi: "Selin Kaya", terminTarihi: today, oncelik: "normal", tip: "beyanname" });
+    } catch {
+      toast.error("Görev eklenemedi", "Lütfen tekrar deneyin");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const f = (field: keyof typeof form) => ({
-    value: form[field],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-      setForm({ ...form, [field]: e.target.value }),
-  });
-
-  const musteriOptions = [
-    { value: "", label: "— Müşteri seçin (isteğe bağlı) —" },
-    ...MOCK_MUSTERILER.map((m) => ({ value: m.id, label: m.firmaAdi })),
-  ];
-
   return (
-    <Modal open={open} onClose={onClose} title="Yeni Görev Oluştur" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="Görev Başlığı *"
-          placeholder="Örn: KDV Beyannamesi Hazırla - Temmuz 2024"
-          {...f("baslik")}
-          required
-        />
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Açıklama</label>
-          <textarea
-            value={form.aciklama}
-            onChange={(e) => setForm({ ...form, aciklama: e.target.value })}
-            rows={2}
-            placeholder="Görev hakkında ek bilgi..."
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-          />
-        </div>
-        <Select label="Müşteri" {...f("musteriId")} options={musteriOptions} />
+    <Modal open={open} onClose={onClose} title="Yeni Görev Oluştur"
+      subtitle="Bir müşteriye görev oluşturun ve personele atayın" size="md">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <Field label="Görev Başlığı *">
+          <input value={form.baslik} onChange={(e) => set("baslik", e.target.value)}
+            placeholder="Örn: KDV Beyannamesi Hazırla - Temmuz 2024" required style={fieldStyle} />
+        </Field>
+        <Field label="Açıklama">
+          <textarea value={form.aciklama} onChange={(e) => set("aciklama", e.target.value)}
+            rows={2} placeholder="Görev hakkında ek bilgi..."
+            style={{ ...fieldStyle, resize: "none" }} />
+        </Field>
+        <Field label="Müşteri">
+          <select value={form.musteriId} onChange={(e) => set("musteriId", e.target.value)}
+            style={fieldStyle}>
+            <option value="">— Müşteri seçin —</option>
+            {musteriler.map((m) => (
+              <option key={m.id} value={m.id}>{m.firmaAdi}</option>
+            ))}
+          </select>
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Select
-            label="Öncelik"
-            {...f("oncelik")}
-            options={[
-              { value: "dusuk", label: "Düşük" },
-              { value: "normal", label: "Normal" },
-              { value: "yuksek", label: "Yüksek" },
-              { value: "kritik", label: "Kritik" },
-            ]}
-          />
-          <Select
-            label="Görev Türü"
-            {...f("tip")}
-            options={[
-              { value: "beyanname", label: "Beyanname" },
-              { value: "tebligat", label: "Tebligat" },
-              { value: "tahsilat", label: "Tahsilat" },
-              { value: "belge", label: "Belge" },
-              { value: "kdv2", label: "KDV2" },
-              { value: "diger", label: "Diğer" },
-            ]}
-          />
+          <Field label="Öncelik">
+            <select value={form.oncelik} onChange={(e) => set("oncelik", e.target.value)}
+              style={fieldStyle}>
+              <option value="dusuk">Düşük</option>
+              <option value="normal">Normal</option>
+              <option value="yuksek">Yüksek</option>
+              <option value="kritik">Kritik</option>
+            </select>
+          </Field>
+          <Field label="Görev Türü">
+            <select value={form.tip} onChange={(e) => set("tip", e.target.value)}
+              style={fieldStyle}>
+              <option value="beyanname">Beyanname</option>
+              <option value="tebligat">Tebligat</option>
+              <option value="tahsilat">Tahsilat</option>
+              <option value="belge">Belge</option>
+              <option value="kdv2">KDV2</option>
+              <option value="diger">Diğer</option>
+            </select>
+          </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Termin Tarihi" type="date" {...f("terminTarihi")} required />
-          <Select
-            label="Atanan Kişi"
-            {...f("atananKisi")}
-            options={[
-              { value: "Selin Kaya", label: "Selin Kaya" },
-              { value: "Murat Çelik", label: "Murat Çelik" },
-              { value: "Ali Müşavir", label: "Ali Müşavir" },
-            ]}
-          />
+          <Field label="Termin Tarihi *">
+            <input type="date" value={form.terminTarihi}
+              onChange={(e) => set("terminTarihi", e.target.value)} required style={fieldStyle} />
+          </Field>
+          <Field label="Atanan Kişi">
+            <select value={form.atananKisi} onChange={(e) => set("atananKisi", e.target.value)}
+              style={fieldStyle}>
+              {["Selin Kaya", "Murat Çelik", "Ali Müşavir"].map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </Field>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            İptal
-          </Button>
-          <Button type="submit" loading={loading}>
-            Görevi Oluştur
-          </Button>
+        <div className="flex items-center justify-end gap-2 pt-3"
+          style={{ borderTop: "1px solid #f3f4f6" }}>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>İptal</Button>
+          <Button type="submit" size="sm" loading={loading}>Görevi Oluştur</Button>
         </div>
       </form>
     </Modal>

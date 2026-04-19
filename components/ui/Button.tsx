@@ -3,23 +3,24 @@ import { forwardRef } from "react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "outline";
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   loading?: boolean;
   icon?: React.ReactNode;
 }
 
 const variantStyles = {
-  primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow-sm",
-  secondary: "bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300",
-  ghost: "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
-  danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm",
-  outline: "border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100 bg-white",
+  primary:   "bg-blue-600 text-white hover:bg-blue-700 border border-transparent shadow-xs",
+  secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-transparent",
+  ghost:     "text-gray-600 hover:bg-gray-100 border border-transparent",
+  danger:    "bg-red-600 text-white hover:bg-red-700 border border-transparent shadow-xs",
+  outline:   "bg-white text-gray-700 hover:bg-gray-50 border border-gray-200",
 };
 
 const sizeStyles = {
-  sm: "px-3 py-1.5 text-xs gap-1.5",
-  md: "px-4 py-2 text-sm gap-2",
-  lg: "px-5 py-2.5 text-base gap-2",
+  xs: "h-6 px-2 text-[10px] gap-1 rounded",
+  sm: "h-7 px-2.5 text-[11px] gap-1.5 rounded",
+  md: "h-8 px-3 text-[12px] gap-2 rounded",
+  lg: "h-9 px-4 text-[13px] gap-2 rounded-md",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -29,9 +30,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          "inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-150",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "inline-flex items-center justify-center font-medium transition-colors",
+          "disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap select-none",
           variantStyles[variant],
           sizeStyles[size],
           className
@@ -39,10 +39,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-        ) : (
-          icon
-        )}
+          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : icon}
         {children}
       </button>
     );

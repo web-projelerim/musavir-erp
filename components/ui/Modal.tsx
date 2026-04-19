@@ -1,74 +1,71 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { cn } from "@/lib/utils/cn";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
 interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  subtitle?: string;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
+  footer?: React.ReactNode;
   className?: string;
 }
 
-const sizeStyles = {
-  sm: "max-w-md",
-  md: "max-w-lg",
-  lg: "max-w-2xl",
-  xl: "max-w-4xl",
-};
+const maxWidths = { sm: 400, md: 520, lg: 680, xl: 880 };
 
-export function Modal({ open, onClose, title, children, size = "md", className }: ModalProps) {
+export function Modal({ open, onClose, title, subtitle, children, size = "md", footer, className }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", fn);
+    return () => document.removeEventListener("keydown", fn);
   }, [onClose]);
 
   if (!open) return null;
 
   return (
-    <div
-      ref={overlayRef}
+    <div ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-    >
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
-      <div
-        className={cn(
-          "relative bg-white rounded-2xl shadow-xl w-full",
-          "animate-in fade-in-0 zoom-in-95 duration-200",
-          sizeStyles[size],
-          className
-        )}
-      >
+      style={{ background: "rgb(0 0 0 / 0.4)" }}
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}>
+
+      <div className={cn("relative bg-white w-full animate-scale-in", className)}
+        style={{ maxWidth: maxWidths[size], borderRadius: 10,
+          boxShadow: "0 20px 40px -8px rgb(0 0 0 / .2), 0 8px 16px -4px rgb(0 0 0 / .1)" }}>
+
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
+          <div className="flex items-start justify-between px-5 py-4"
+            style={{ borderBottom: "1px solid #e5e7eb" }}>
+            <div>
+              <h2 style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{title}</h2>
+              {subtitle && <p style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{subtitle}</p>}
+            </div>
+            <button onClick={onClose}
+              className="rounded transition-colors hover:bg-gray-100 flex items-center justify-center"
+              style={{ width: 28, height: 28, color: "#9ca3af", marginLeft: 12, flexShrink: 0 }}>
+              <X style={{ width: 14, height: 14 }} />
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+
+        <div className="p-5">{children}</div>
+
+        {footer && (
+          <div className="flex items-center justify-end gap-2 px-5 py-4"
+            style={{ borderTop: "1px solid #e5e7eb" }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

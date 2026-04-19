@@ -3,27 +3,17 @@ import { cn } from "@/lib/utils/cn";
 interface CardProps {
   children: React.ReactNode;
   className?: string;
-  hover?: boolean;
-  padding?: "none" | "sm" | "md" | "lg";
+  padding?: "none" | "sm" | "md";
 }
 
-const paddingStyles = {
-  none: "",
-  sm: "p-4",
-  md: "p-5",
-  lg: "p-6",
-};
-
-export function Card({ children, className, hover, padding = "md" }: CardProps) {
+export function Card({ children, className, padding = "md" }: CardProps) {
   return (
-    <div
-      className={cn(
-        "bg-white rounded-xl border border-slate-200 shadow-card",
-        hover && "hover:shadow-card-hover transition-shadow duration-200 cursor-pointer",
-        paddingStyles[padding],
-        className
-      )}
-    >
+    <div className={cn(
+      "bg-white border border-gray-200 rounded-md",
+      padding === "sm" && "p-4",
+      padding === "md" && "p-5",
+      className
+    )}>
       {children}
     </div>
   );
@@ -40,10 +30,10 @@ export function CardHeader({ title, subtitle, action, className }: CardHeaderPro
   return (
     <div className={cn("flex items-start justify-between", className)}>
       <div>
-        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{title}</h3>
+        {subtitle && <p style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{subtitle}</p>}
       </div>
-      {action && <div className="ml-4">{action}</div>}
+      {action && <div>{action}</div>}
     </div>
   );
 }
@@ -58,35 +48,46 @@ interface MetricCardProps {
   className?: string;
 }
 
-const metricVariants = {
-  default: "border-slate-200",
-  warning: "border-amber-200 bg-amber-50",
-  danger: "border-red-200 bg-red-50",
-  success: "border-emerald-200 bg-emerald-50",
+const metricBg: Record<string, string> = {
+  default: "#fff",
+  warning: "#fffbeb",
+  danger:  "#fef2f2",
+  success: "#f0fdf4",
+};
+
+const metricBorder: Record<string, string> = {
+  default: "#e5e7eb",
+  warning: "#fde68a",
+  danger:  "#fecaca",
+  success: "#bbf7d0",
 };
 
 export function MetricCard({ title, value, subtitle, icon, trend, variant = "default", className }: MetricCardProps) {
   return (
-    <div
-      className={cn(
-        "bg-white rounded-xl border shadow-card p-5",
-        metricVariants[variant],
-        className
-      )}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{title}</p>
-          <p className="mt-1.5 text-2xl font-bold text-slate-900">{value}</p>
-          {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+    <div className={cn("rounded-md p-4", className)}
+      style={{ background: metricBg[variant], border: `1px solid ${metricBorder[variant]}` }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p style={{ fontSize: 10, fontWeight: 500, color: "#6b7280", textTransform: "uppercase",
+            letterSpacing: "0.05em" }}>
+            {title}
+          </p>
+          <p style={{ fontSize: 22, fontWeight: 700, color: "#111827", lineHeight: 1.2, marginTop: 4 }}>
+            {value}
+          </p>
+          {subtitle && (
+            <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>{subtitle}</p>
+          )}
           {trend && (
-            <p className={cn("mt-1 text-xs font-medium", trend.value >= 0 ? "text-emerald-600" : "text-red-600")}>
+            <p style={{ fontSize: 11, fontWeight: 500, marginTop: 3,
+              color: trend.value >= 0 ? "#059669" : "#dc2626" }}>
               {trend.value >= 0 ? "↑" : "↓"} {Math.abs(trend.value)}% {trend.label}
             </p>
           )}
         </div>
         {icon && (
-          <div className="ml-4 p-2.5 rounded-lg bg-blue-50 text-blue-600">
+          <div className="flex-shrink-0 rounded flex items-center justify-center"
+            style={{ width: 32, height: 32, background: "#f3f4f6" }}>
             {icon}
           </div>
         )}

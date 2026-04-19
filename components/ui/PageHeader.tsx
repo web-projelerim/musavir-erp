@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils/cn";
+import Link from "next/link";
 
 interface PageHeaderProps {
   title: string;
@@ -10,18 +11,20 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, action, breadcrumb, className }: PageHeaderProps) {
   return (
-    <div className={cn("mb-6", className)}>
+    <div className={cn("mb-5", className)}>
       {breadcrumb && (
-        <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+        <nav className="flex items-center gap-1 mb-2" style={{ fontSize: 11, color: "#9ca3af" }}>
           {breadcrumb.map((item, i) => (
-            <span key={i} className="flex items-center gap-1.5">
-              {i > 0 && <span>/</span>}
+            <span key={i} className="flex items-center gap-1">
+              {i > 0 && <span style={{ color: "#d1d5db" }}>/</span>}
               {item.href ? (
-                <a href={item.href} className="hover:text-blue-600 transition-colors">
+                <Link href={item.href} style={{ color: "#6b7280" }}
+                  className="hover:text-gray-900 transition-colors">
                   {item.label}
-                </a>
+                </Link>
               ) : (
-                <span className={i === breadcrumb.length - 1 ? "text-slate-700 font-medium" : ""}>
+                <span style={{ color: i === breadcrumb.length - 1 ? "#374151" : undefined,
+                  fontWeight: i === breadcrumb.length - 1 ? 500 : undefined }}>
                   {item.label}
                 </span>
               )}
@@ -29,12 +32,16 @@ export function PageHeader({ title, subtitle, action, breadcrumb, className }: P
           ))}
         </nav>
       )}
-      <div className="flex items-start justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">{title}</h1>
-          {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+          <h1 style={{ fontSize: 18, fontWeight: 600, color: "#111827", letterSpacing: "-0.01em" }}>
+            {title}
+          </h1>
+          {subtitle && (
+            <p style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{subtitle}</p>
+          )}
         </div>
-        {action && <div className="ml-6 flex-shrink-0">{action}</div>}
+        {action && <div className="flex-shrink-0">{action}</div>}
       </div>
     </div>
   );

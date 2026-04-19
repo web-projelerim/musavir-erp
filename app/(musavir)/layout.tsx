@@ -3,11 +3,11 @@ import { TopBar } from "@/components/layout/TopBar";
 
 export default function MusavirLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen" style={{ background: "#f9fafb" }}>
       <Sidebar />
-      <div className="ml-60 flex flex-col min-h-screen">
+      <div style={{ marginLeft: "var(--sidebar-w, 220px)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         <TopBar />
-        <main className="flex-1 p-6">{children}</main>
+        <main style={{ flex: 1, padding: "20px 24px" }}>{children}</main>
       </div>
     </div>
   );

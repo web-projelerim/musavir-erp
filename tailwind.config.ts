@@ -37,11 +37,30 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "Consolas", "monospace"],
+      },
+      fontSize: {
+        "2xs": ["10px", { lineHeight: "14px" }],
       },
       boxShadow: {
-        card: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        "card-hover": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "card-hover": "0 4px 8px -2px rgb(0 0 0 / 0.10), 0 2px 4px -2px rgb(0 0 0 / 0.06)",
+        overlay: "0 8px 24px -4px rgb(0 0 0 / 0.14), 0 4px 8px -4px rgb(0 0 0 / 0.10)",
+      },
+      keyframes: {
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(2px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-right": {
+          from: { opacity: "0", transform: "translateX(12px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in 0.12s ease-out",
+        "slide-right": "slide-right 0.18s ease-out",
       },
     },
   },

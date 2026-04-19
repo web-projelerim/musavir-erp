@@ -1,0 +1,170 @@
+"use client";
+
+import { useState } from "react";
+import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users } from "lucide-react";
+import Link from "next/link";
+
+export default function GirisPage() {
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 800));
+    window.location.href = "/dashboard";
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex">
+      {/* Sol panel - bilgi */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg">MusavirERP</p>
+              <p className="text-slate-400 text-xs">Mali Müşavir Yönetim Platformu</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+            Mali müşavirliği<br />
+            <span className="text-blue-400">dijital çağa</span><br />
+            taşıyın.
+          </h1>
+          <p className="text-slate-300 text-lg leading-relaxed mb-10">
+            Tüm müşterilerinizi tek ekranda yönetin. GİB ve Luca verilerini takip edin, raporları otomatik üretin.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              { icon: Users, title: "Portföy Yönetimi", desc: "Tüm müşterilerinizi tek ekranda görün" },
+              { icon: Shield, title: "Resmi Veri Takibi", desc: "GİB/Luca entegrasyon altyapısı" },
+              { icon: TrendingUp, title: "Akıllı Risk Skoru", desc: "Riskli müşterileri erken fark edin" },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="flex items-center gap-4">
+                <div className="w-9 h-9 bg-blue-600/20 border border-blue-500/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-semibold">{title}</p>
+                  <p className="text-slate-400 text-xs">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-slate-500 text-xs">© 2024 MusavirERP. Tüm hakları saklıdır.</p>
+      </div>
+
+      {/* Sağ panel - giriş formu */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-sm">
+          {/* Mobil logo */}
+          <div className="flex items-center gap-3 mb-8 lg:hidden">
+            <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-white font-bold text-lg">MusavirERP</p>
+          </div>
+
+          <h2 className="text-2xl font-bold text-white mb-1">Giriş Yap</h2>
+          <p className="text-slate-400 text-sm mb-8">Hesabınıza erişmek için bilgilerinizi girin</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                E-posta Adresi
+              </label>
+              <input
+                type="email"
+                defaultValue="ali@musavir.com"
+                required
+                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
+                           placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                placeholder="ad@musavir.com"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-slate-300">Şifre</label>
+                <a href="#" className="text-xs text-blue-400 hover:text-blue-300">
+                  Şifremi Unuttum
+                </a>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPass ? "text" : "password"}
+                  defaultValue="sifre123"
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 pr-10 text-sm
+                             placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                >
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="remember"
+                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="remember" className="text-sm text-slate-400">
+                Beni hatırla
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold
+                         py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm
+                         disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  Giriş Yap
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Demo hesaplar */}
+          <div className="mt-8 border border-slate-700/50 rounded-xl p-4">
+            <p className="text-xs text-slate-500 font-medium mb-3 uppercase tracking-wide">Demo Hesaplar</p>
+            <div className="space-y-2">
+              {[
+                { rol: "Mali Müşavir", email: "ali@musavir.com" },
+                { rol: "Personel", email: "selin@musavir.com" },
+                { rol: "Mükellef", email: "ahmet@akdeniz.com" },
+              ].map(({ rol, email }) => (
+                <div key={email} className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">{rol}</span>
+                  <span className="text-slate-300 font-mono">{email}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

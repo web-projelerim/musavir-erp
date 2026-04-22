@@ -5,19 +5,26 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
-import { MOCK_MUSTERILER } from "@/lib/data/mock";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { createGorev } from "@/lib/firebase/repositories";
+import type { Gorev, GorevOncelik, GorevTip } from "@/lib/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   musteriId?: string;
+  onCreated?: (gorev: Gorev) => void;
   onSuccess?: () => void;
 }
 
-export function YeniGorevModal({ open, onClose, musteriId, onSuccess }: Props) {
+export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess }: Props) {
   const toast = useToast();
+  const logAudit = useAuditLog();
   const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split("T")[0];
+  const { musteriler } = useAppData();
 
   const [form, setForm] = useState({
     baslik: "",
@@ -36,11 +43,63 @@ export function YeniGorevModal({ open, onClose, musteriId, onSuccess }: Props) {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setLoading(false);
-    toast.success("Görev oluşturuldu", `"${form.baslik}" görevi atandı`);
-    onClose();
-    onSuccess?.();
+
+    try {
+      const seciliMusteri = musteriler.find((m) => m.id === form.musteriId);
+      let createdGorev: Gorev;
+
+      if (isFirebaseConfigured) {
+        createdGorev = await createGorev({
+          baslik: form.baslik,
+          aciklama: form.aciklama,
+          musteriId: form.musteriId,
+          musteriAdi: seciliMusteri?.firmaAdi ?? "Genel",
+          atananKisi: form.atananKisi,
+          atayanKisi: "Ali Müşavir",
+          terminTarihi: form.terminTarihi,
+          oncelik: form.oncelik as GorevOncelik,
+          tip: form.tip as GorevTip,
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 700));
+        createdGorev = {
+          id: `g-${Date.now()}`,
+          baslik: form.baslik,
+          aciklama: form.aciklama,
+          musteriId: form.musteriId,
+          musteriAdi: seciliMusteri?.firmaAdi ?? "Genel",
+          atananKisi: form.atananKisi,
+          atayanKisi: "Ali Müşavir",
+          terminTarihi: form.terminTarihi,
+          oncelik: form.oncelik as GorevOncelik,
+          durum: "beklemede",
+          tip: form.tip as GorevTip,
+          createdAt: new Date().toISOString(),
+        };
+      }
+
+      await logAudit({
+        action: "create",
+        entityType: "gorev",
+        entityId: createdGorev.id,
+        entityLabel: createdGorev.baslik,
+        summary: "Gorev olusturuldu",
+        after: {
+          tip: createdGorev.tip,
+          oncelik: createdGorev.oncelik,
+          musteriId: createdGorev.musteriId,
+        },
+      });
+      toast.success("Görev oluşturuldu", `"${form.baslik}" görevi atandı`);
+      onCreated?.(createdGorev);
+      onClose();
+      onSuccess?.();
+    } catch (error) {
+      console.error(error);
+      toast.error("Görev kaydedilemedi", "Firebase bağlantısı veya yetkileri kontrol edin");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const f = (field: keyof typeof form) => ({
@@ -51,7 +110,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onSuccess }: Props) {
 
   const musteriOptions = [
     { value: "", label: "— Müşteri seçin (isteğe bağlı) —" },
-    ...MOCK_MUSTERILER.map((m) => ({ value: m.id, label: m.firmaAdi })),
+    ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
 
   return (

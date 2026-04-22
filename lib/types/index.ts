@@ -8,6 +8,7 @@ export interface User {
   email: string;
   rol: UserRole;
   avatar?: string;
+  musteriId?: string;
   aktif: boolean;
   createdAt: string;
 }
@@ -51,6 +52,13 @@ export type GorevTip =
   | "kdv2"
   | "diger";
 
+export interface GorevNot {
+  id: string;
+  metin: string;
+  tarih: string;
+  yazar?: string;
+}
+
 export interface Gorev {
   id: string;
   baslik: string;
@@ -64,7 +72,7 @@ export interface Gorev {
   durum: GorevDurum;
   tip: GorevTip;
   tamamlanmaTarihi?: string;
-  notlar?: string;
+  notlar?: GorevNot[] | string;
   createdAt: string;
 }
 
@@ -126,6 +134,7 @@ export interface Rapor {
   gonderimTarihi?: string;
   kanal?: "whatsapp" | "email" | "panel";
   pdfUrl?: string;
+  pdfStoragePath?: string;
 }
 
 // ─── Risk Sinyali ────────────────────────────────────────────
@@ -163,12 +172,39 @@ export interface KDV2Hesaplama {
   createdAt: string;
 }
 
+export type BelgeKategori =
+  | "beyanname"
+  | "tebligat"
+  | "rapor"
+  | "sozlesme"
+  | "fatura"
+  | "diger";
+export type BelgeGorunurluk = "musavir" | "mukellef";
+
+export interface Belge {
+  id: string;
+  musteriId: string;
+  musteriAdi: string;
+  dosyaAdi: string;
+  dosyaTipi: string;
+  boyut: number;
+  url: string;
+  storagePath?: string;
+  kategori: BelgeKategori;
+  gorunurluk: BelgeGorunurluk;
+  yukleyen: string;
+  yukleyenRol: UserRole;
+  notlar?: string;
+  createdAt: string;
+}
+
 // ─── Tahsilat ────────────────────────────────────────────────
 export interface Tahsilat {
   id: string;
   musteriId: string;
   musteriAdi: string;
   tutar: number;
+  odenenTutar?: number;
   donem: string;
   vadeTarihi: string;
   odemeTarihi?: string;
@@ -194,6 +230,63 @@ export interface Bildirim {
   durum: BildirimDurum;
   tarih: string;
   link?: string;
+}
+
+// ─── Gönderim Kaydı ─────────────────────────────────────────
+export type GonderimKanal = "whatsapp" | "email" | "panel";
+export type GonderimDurum = "bekliyor" | "gonderildi" | "basarisiz";
+
+export interface GonderimKaydi {
+  id: string;
+  kanal: GonderimKanal;
+  musteriId: string;
+  musteriAdi: string;
+  sablonId?: string;
+  icerikRef?: string;
+  mesaj?: string;
+  durum: GonderimDurum;
+  hataMesaji?: string;
+  denemeSayisi: number;
+  createdAt: string;
+  sentAt?: string;
+}
+
+// --- Audit Log --------------------------------------------------------------
+export type AuditActorRole = UserRole | "system";
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "status_change"
+  | "upload"
+  | "send"
+  | "seed";
+
+export type AuditEntityType =
+  | "musteri"
+  | "gorev"
+  | "tebligat"
+  | "beyanname"
+  | "tahsilat"
+  | "belge"
+  | "rapor"
+  | "gonderim"
+  | "kdv2"
+  | "sistem";
+
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorRole: AuditActorRole;
+  action: AuditAction;
+  entityType: AuditEntityType;
+  entityId: string;
+  entityLabel?: string;
+  summary: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  createdAt: string;
 }
 
 // ─── Filtre ve Sayfalama ─────────────────────────────────────

@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/kullanicilar/$(request.auth.uid));
+    }
+
+    function role() {
+      return isSignedIn() && userDoc().data.rol != null ? userDoc().data.rol : null;
+    }
+
+    function isStaff() {
+      return role() in ['musavir', 'personel'];
+    }
+
+    function isMukellefFor(musteriId) {
+      return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
+    }
+
+    match /belgeler/{musteriId}/{fileName} {
+      allow read: if isStaff() || isMukellefFor(musteriId);
+      allow write: if isStaff() || isMukellefFor(musteriId);
+    }
+
+    match /raporlar/{musteriId}/{fileName} {
+      allow read: if isStaff() || isMukellefFor(musteriId);
+      allow write: if isStaff();
+    }
+  }
+}

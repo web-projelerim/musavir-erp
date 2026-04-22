@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/Table";
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
-import { MOCK_MUSTERILER, MOCK_GOREVLER, MOCK_TEBLIGATLAR, MOCK_BEYANNAMELER } from "@/lib/data/mock";
+import { hesaplaRiskListesi } from "@/lib/domain/risk";
+import { useAppData } from "@/lib/hooks/useAppData";
 import { formatTarih } from "@/lib/utils/format";
 import Link from "next/link";
 
@@ -66,33 +67,90 @@ const TAHSILAT_OZET = [
   { ay: "Tem", toplam: 16000, odenen: 5300 },
 ];
 
+const RISK_RENKLER = {
+  dusuk: { name: "Düşük", color: "#10b981" },
+  orta: { name: "Orta", color: "#f59e0b" },
+  yuksek: { name: "Yüksek", color: "#f97316" },
+  kritik: { name: "Kritik", color: "#ef4444" },
+} as const;
+
+const AY_ADLARI = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+
+function ayKey(tarih: string) {
+  const date = new Date(tarih);
+  if (Number.isNaN(date.getTime())) return tarih.slice(0, 7);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function ayLabel(key: string) {
+  const [, month] = key.split("-");
+  const index = Number(month) - 1;
+  return AY_ADLARI[index] ?? key;
+}
+
 export default function DashboardPage() {
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
-
-  const kritikMusteriler = MOCK_MUSTERILER.filter(
-    (m) => m.riskSeviyesi === "kritik" || m.riskSeviyesi === "yuksek"
-  );
-  const bekleyenGorevler = MOCK_GOREVLER.filter(
+  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2 } = useAppData();
+  const bekleyenGorevler = gorevler.filter(
     (g) => g.durum !== "tamamlandi" && g.durum !== "iptal"
   );
-  const yeniTebligatlar = MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni");
-  const yaklasanBeyanlar = MOCK_BEYANNAMELER.filter((b) => b.durum === "bekliyor");
+  const yeniTebligatlar = tebligatlar.filter((t) => t.durum === "yeni");
+  const yaklasanBeyanlar = beyannameler.filter((b) => b.durum === "bekliyor");
+  const hazirRaporlar = raporlar.filter((r) => r.durum === "hazir");
+  const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
+  const riskListesi = hesaplaRiskListesi({ musteriler: aktifMusteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
+  const kritikRiskler = riskListesi.filter(
+    (risk) => risk.seviye === "kritik" || risk.seviye === "yuksek"
+  );
+
+  const riskDagilim = (Object.keys(RISK_RENKLER) as Array<keyof typeof RISK_RENKLER>).map((key) => ({
+    name: RISK_RENKLER[key].name,
+    value: riskListesi.filter((risk) => risk.seviye === key).length,
+    color: RISK_RENKLER[key].color,
+  }));
+
+  const beyanOzet = Object.values(
+    beyannameler.reduce<Record<string, { donem: string; sortKey: string; verildi: number; bekliyor: number; gecikti: number }>>(
+      (acc, beyan) => {
+        const key = ayKey(beyan.sonTarih);
+        acc[key] ??= { donem: ayLabel(key), sortKey: key, verildi: 0, bekliyor: 0, gecikti: 0 };
+        if (beyan.durum === "verildi") acc[key].verildi += 1;
+        if (beyan.durum === "bekliyor") acc[key].bekliyor += 1;
+        if (beyan.durum === "gecikti") acc[key].gecikti += 1;
+        return acc;
+      },
+      {}
+    )
+  ).sort((a, b) => a.sortKey.localeCompare(b.sortKey)).slice(-4);
+
+  const tahsilatOzet = Object.values(
+    tahsilatlar.reduce<Record<string, { ay: string; sortKey: string; toplam: number; odenen: number }>>(
+      (acc, tahsilat) => {
+        const key = ayKey(tahsilat.vadeTarihi);
+        acc[key] ??= { ay: ayLabel(key), sortKey: key, toplam: 0, odenen: 0 };
+        acc[key].toplam += tahsilat.tutar;
+        acc[key].odenen += tahsilat.durum === "odendi" ? tahsilat.tutar : tahsilat.odenenTutar ?? 0;
+        return acc;
+      },
+      {}
+    )
+  ).sort((a, b) => a.sortKey.localeCompare(b.sortKey)).slice(-4);
 
   const metrics = [
     {
       title: "Toplam Müşteri",
-      value: MOCK_MUSTERILER.filter((m) => m.durum === "aktif").length,
-      subtitle: `${MOCK_MUSTERILER.length} toplam kayıt`,
+      value: musteriler.filter((m) => m.durum === "aktif").length,
+      subtitle: `${musteriler.length} toplam kayıt`,
       icon: <Users className="w-5 h-5" />,
       variant: "default" as const,
     },
     {
       title: "Kritik & Yüksek Risk",
-      value: kritikMusteriler.length,
+      value: kritikRiskler.length,
       subtitle: "Acil müdahale",
       icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
-      variant: kritikMusteriler.length > 0 ? "danger" as const : "default" as const,
+      variant: kritikRiskler.length > 0 ? "danger" as const : "default" as const,
     },
     {
       title: "Bekleyen Görevler",
@@ -117,7 +175,7 @@ export default function DashboardPage() {
     },
     {
       title: "Hazır Raporlar",
-      value: 2,
+      value: hazirRaporlar.length,
       subtitle: "Gönderim bekliyor",
       icon: <FileText className="w-5 h-5" />,
       variant: "default" as const,
@@ -130,12 +188,13 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={`${new Date().toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`}
         action={
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <Button
               variant="outline"
               size="sm"
               icon={<MessageCircle className="w-3.5 h-3.5" />}
               onClick={() => setShowWaModal(true)}
+              className="min-w-0 whitespace-nowrap"
             >
               WhatsApp Gönder
             </Button>
@@ -143,6 +202,7 @@ export default function DashboardPage() {
               size="sm"
               icon={<Plus className="w-3.5 h-3.5" />}
               onClick={() => setShowGorevModal(true)}
+              className="min-w-0 whitespace-nowrap"
             >
               Yeni Görev
             </Button>
@@ -173,7 +233,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={BEYAN_OZET} barSize={20} barGap={4}>
+            <BarChart data={beyanOzet} barSize={20} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="donem" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={20} />
@@ -195,7 +255,7 @@ export default function DashboardPage() {
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
               <Pie
-                data={RISK_DAGILIM}
+                data={riskDagilim}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -204,7 +264,7 @@ export default function DashboardPage() {
                 outerRadius={68}
                 paddingAngle={3}
               >
-                {RISK_DAGILIM.map((d, i) => (
+                {riskDagilim.map((d, i) => (
                   <Cell key={i} fill={d.color} />
                 ))}
               </Pie>
@@ -212,7 +272,7 @@ export default function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-2 gap-1.5 mt-1">
-            {RISK_DAGILIM.map((d) => (
+            {riskDagilim.map((d) => (
               <div key={d.name} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
                 <span className="text-xs text-slate-600">{d.name}: <strong>{d.value}</strong></span>
@@ -231,7 +291,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={140}>
-          <BarChart data={TAHSILAT_OZET} barSize={28} barGap={4}>
+          <BarChart data={tahsilatOzet} barSize={28} barGap={4}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="ay" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis
@@ -278,7 +338,9 @@ export default function DashboardPage() {
               </tr>
             </TableHead>
             <TableBody>
-              {kritikMusteriler.map((m) => (
+              {kritikRiskler.map((risk) => {
+                const m = risk.musteri;
+                return (
                 <TableRow key={m.id}>
                   <TableCell>
                     <Link href={`/musteriler/${m.id}`} className="group">
@@ -287,7 +349,7 @@ export default function DashboardPage() {
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <RiskMetre skor={m.riskSkoru} seviye={m.riskSeviyesi} showLabel />
+                    <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel />
                   </TableCell>
                   <TableCell>
                     <TahsilatBadge durum={m.tahsilatDurumu} />
@@ -302,7 +364,8 @@ export default function DashboardPage() {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

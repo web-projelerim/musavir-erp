@@ -1,129 +1,81 @@
-import { AlertTriangle, TrendingUp, Info } from "lucide-react";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { MetricCard } from "@/components/ui/Card";
-import { RiskBadge, Badge } from "@/components/ui/Badge";
-import { RiskMetre } from "@/components/ui/RiskMetre";
-import {
-  Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell
-} from "@/components/ui/Table";
-import { MOCK_MUSTERILER, MOCK_TEBLIGATLAR, MOCK_BEYANNAMELER, MOCK_TAHSILATLAR } from "@/lib/data/mock";
+"use client";
+
+import { AlertTriangle, ChevronRight, Info } from "lucide-react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { MetricCard } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { RiskBadge } from "@/components/ui/Badge";
+import { RiskMetre } from "@/components/ui/RiskMetre";
+import { Table, TableHead, TableHeadCell } from "@/components/ui/Table";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { hesaplaRiskListesi } from "@/lib/domain/risk";
+import type { RiskSeviyesi } from "@/lib/types";
 
-interface RiskSinyali {
-  label: string;
-  aciklama: string;
-  puan: number;
-  renk: string;
-}
-
-function hesaplaRiskSinyalleri(musteriId: string): RiskSinyali[] {
-  const sinyaller: RiskSinyali[] = [];
-  const musteri = MOCK_MUSTERILER.find((m) => m.id === musteriId)!;
-
-  if (MOCK_TEBLIGATLAR.some((t) => t.musteriId === musteriId && t.durum === "yeni")) {
-    sinyaller.push({
-      label: "İşlenmemiş tebligat",
-      aciklama: "GİB kaynaklı yeni tebligat mevcut",
-      puan: 25,
-      renk: "text-red-600 bg-red-50",
-    });
-  }
-  if (MOCK_BEYANNAMELER.some((b) => b.musteriId === musteriId && b.durum === "gecikti")) {
-    sinyaller.push({
-      label: "Gecikmiş beyanname",
-      aciklama: "Son tarihi geçmiş beyanname bulunuyor",
-      puan: 30,
-      renk: "text-red-600 bg-red-50",
-    });
-  }
-  if (musteri.tahsilatDurumu === "gecikti") {
-    sinyaller.push({
-      label: "Müşavir ücreti gecikmiş",
-      aciklama: "Ödeme süresi geçmiş",
-      puan: 15,
-      renk: "text-amber-600 bg-amber-50",
-    });
-  }
-  if (musteri.gecikmisPesinat) {
-    sinyaller.push({
-      label: "Gecikmeli peşinat vergisi",
-      aciklama: "Peşin vergi ödemesi gecikmiş",
-      puan: 20,
-      renk: "text-amber-600 bg-amber-50",
-    });
-  }
-
-  return sinyaller;
-}
+const RISK_SEVIYELERI: RiskSeviyesi[] = ["kritik", "yuksek", "orta", "dusuk"];
 
 export default function RiskPage() {
-  const kritikMusteriler = MOCK_MUSTERILER.filter((m) => m.riskSeviyesi === "kritik");
-  const yuksekMusteriler = MOCK_MUSTERILER.filter((m) => m.riskSeviyesi === "yuksek");
-  const ortaMusteriler = MOCK_MUSTERILER.filter((m) => m.riskSeviyesi === "orta");
-  const dusukMusteriler = MOCK_MUSTERILER.filter((m) => m.riskSeviyesi === "dusuk");
+  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 } = useAppData();
+  const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
 
-  const riskliMusteriler = [...MOCK_MUSTERILER]
-    .sort((a, b) => b.riskSkoru - a.riskSkoru);
+  const sayac = (seviye: RiskSeviyesi) => riskListesi.filter((risk) => risk.seviye === seviye).length;
 
   return (
     <div>
       <PageHeader
         title="Risk Merkezi"
-        subtitle="Müşteri bazlı risk skorları ve uyarı sinyalleri"
+        subtitle="Musteri bazli risk skorlar ve uyari sinyalleri"
       />
 
-      {/* Risk özet metrikleri */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
           title="Kritik Risk"
-          value={kritikMusteriler.length}
-          subtitle="Acil müdahale"
+          value={sayac("kritik")}
+          subtitle="Acil mudahale"
           variant="danger"
           icon={<AlertTriangle className="w-5 h-5 text-red-500" />}
         />
         <MetricCard
-          title="Yüksek Risk"
-          value={yuksekMusteriler.length}
-          subtitle="Yakın takip"
+          title="Yuksek Risk"
+          value={sayac("yuksek")}
+          subtitle="Yakin takip"
           variant="warning"
         />
         <MetricCard
           title="Orta Risk"
-          value={ortaMusteriler.length}
-          subtitle="Düzenli kontrol"
+          value={sayac("orta")}
+          subtitle="Duzenli kontrol"
         />
         <MetricCard
-          title="Düşük Risk"
-          value={dusukMusteriler.length}
+          title="Dusuk Risk"
+          value={sayac("dusuk")}
           subtitle="Normal durum"
           variant="success"
         />
       </div>
 
-      {/* Risk skor açıklama */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-blue-800">Risk Skoru Nasıl Hesaplanır?</p>
+            <p className="text-sm font-semibold text-blue-800">Risk Skoru Nasil Hesaplanir?</p>
             <p className="text-xs text-blue-600 mt-1">
-              Risk skoru; işlenmemiş tebligatlar (+25), gecikmiş beyannameler (+30), geciken müşavir ücreti (+15), gecikmeli peşinat vergisi (+20), tekrar eden görev gecikmeleri (+10) ve KDV2 uyumsuzlukları (+15) gibi sinyallerden kural bazlı olarak hesaplanır. Skor 0-100 arasında gösterilir.
+              Risk skoru; islenmemis tebligat, gecikmis beyanname, gecikmis tahsilat,
+              gecikmeli pesinat vergisi, gecikmis gorev ve kritik gorev sinyallerinden
+              kural bazli hesaplanir. Skor 0-100 araliginda tek domain servisinden gelir.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Risk tablosu */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-800">Risk Sıralaması</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Tüm müşteriler risk skoruna göre sıralı</p>
+          <h3 className="text-sm font-semibold text-slate-800">Risk Siralamasi</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Tum musteriler hesaplanan risk skoruna gore sirali</p>
         </div>
         <Table>
           <TableHead>
             <tr>
-              <TableHeadCell>Sıra</TableHeadCell>
+              <TableHeadCell>Sira</TableHeadCell>
               <TableHeadCell>Firma</TableHeadCell>
               <TableHeadCell>Risk Skoru</TableHeadCell>
               <TableHeadCell>Seviye</TableHeadCell>
@@ -133,8 +85,8 @@ export default function RiskPage() {
             </tr>
           </TableHead>
           <tbody className="divide-y divide-slate-100">
-            {riskliMusteriler.map((m, idx) => {
-              const sinyaller = hesaplaRiskSinyalleri(m.id);
+            {riskListesi.map((risk, idx) => {
+              const m = risk.musteri;
               return (
                 <tr key={m.id} className="bg-white hover:bg-slate-50 transition-colors">
                   <td className="px-4 py-3">
@@ -155,20 +107,20 @@ export default function RiskPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 min-w-[120px]">
-                      <RiskMetre skor={m.riskSkoru} seviye={m.riskSeviyesi} showLabel size="sm" />
+                      <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel size="sm" />
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <RiskBadge seviye={m.riskSeviyesi} />
+                    <RiskBadge seviye={risk.seviye} />
                   </td>
                   <td className="px-4 py-3">
-                    {sinyaller.length === 0 ? (
-                      <span className="text-xs text-emerald-600 font-medium">✓ Sinyal yok</span>
+                    {risk.sinyaller.length === 0 ? (
+                      <span className="text-xs text-emerald-600 font-medium">Sinyal yok</span>
                     ) : (
                       <div className="flex flex-wrap gap-1">
-                        {sinyaller.map((s, i) => (
-                          <span key={i} className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.renk}`}>
-                            {s.label} +{s.puan}
+                        {risk.sinyaller.map((sinyal) => (
+                          <span key={sinyal.tip} className={`text-xs px-2 py-0.5 rounded-full font-medium ${sinyal.renk}`}>
+                            {sinyal.label} +{sinyal.puan}
                           </span>
                         ))}
                       </div>

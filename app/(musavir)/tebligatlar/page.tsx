@@ -1,26 +1,124 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, FileText, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, CheckCircle, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricCard } from "@/components/ui/Card";
-import { Badge, TebligatBadge, BeyannameBadge } from "@/components/ui/Badge";
+import { Badge, BeyannameBadge, TebligatBadge } from "@/components/ui/Badge";
 import {
-  Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
+  Table,
+  TableHead,
+  TableHeadCell,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableEmpty,
 } from "@/components/ui/Table";
-import { MOCK_TEBLIGATLAR, MOCK_BEYANNAMELER } from "@/lib/data/mock";
+import { TebligatDetayModal } from "@/components/modals/TebligatDetayModal";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { updateBeyannameDurum, updateTebligatDurum } from "@/lib/firebase/repositories";
+import { useToast } from "@/lib/context/ToastContext";
+import { downloadPdfBlob } from "@/lib/reports/pdfReport";
+import { buildTebligatPdfBlob, tebligatPdfFileName } from "@/lib/reports/tebligatPdf";
 import { formatTarih } from "@/lib/utils/format";
+import type { BeyannameDurum, Tebligat } from "@/lib/types";
 
 const TABS = ["Tebligatlar", "Beyannameler"];
 
 export default function TebligatlarPage() {
+  const toast = useToast();
+  const logAudit = useAuditLog();
   const [activeTab, setActiveTab] = useState("Tebligatlar");
   const [filterDurum, setFilterDurum] = useState("tumu");
+  const { tebligatlar: loadedTebligatlar, beyannameler, belgeler } = useAppData();
+  const [tebligatlar, setTebligatlar] = useState<Tebligat[]>(loadedTebligatlar);
+  const [seciliTebligat, setSeciliTebligat] = useState<Tebligat | null>(null);
 
-  const filteredTebligatlar = MOCK_TEBLIGATLAR.filter(
+  useEffect(() => {
+    setTebligatlar(loadedTebligatlar);
+  }, [loadedTebligatlar]);
+
+  const handleTebligatPdf = (tebligat: Tebligat) => {
+    const belgePdf = belgeler.find(
+      (belge) =>
+        belge.musteriId === tebligat.musteriId &&
+        belge.kategori === "tebligat" &&
+        (belge.notlar?.includes(tebligat.id) || belge.dosyaAdi.toLowerCase().includes(tebligat.id.toLowerCase()))
+    );
+    const pdfUrl = tebligat.pdfUrl || belgePdf?.url;
+
+    if (pdfUrl && pdfUrl !== "#") {
+      window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      toast.success("Tebligat PDF'i acildi");
+      return;
+    }
+
+    downloadPdfBlob(buildTebligatPdfBlob(tebligat), tebligatPdfFileName(tebligat));
+    toast.info("Takip PDF'i indirildi", "GIB PDF referansi bulunmadigi icin sistem dokumu uretildi");
+  };
+
+  const handleTebligatIslendi = async (id: string) => {
+    const tebligat = tebligatlar.find((item) => item.id === id);
+    setTebligatlar((prev) =>
+      prev.map((tebligat) => (tebligat.id === id ? { ...tebligat, durum: "islendi" } : tebligat))
+    );
+    setSeciliTebligat((prev) => (prev?.id === id ? { ...prev, durum: "islendi" } : prev));
+
+    if (!isFirebaseConfigured) {
+      toast.success("Tebligat islendi olarak isaretlendi");
+      return;
+    }
+
+    try {
+      await updateTebligatDurum(id, "islendi");
+      await logAudit({
+        action: "status_change",
+        entityType: "tebligat",
+        entityId: id,
+        entityLabel: tebligat?.baslik,
+        summary: "Tebligat islendi olarak isaretlendi",
+        before: tebligat ? { durum: tebligat.durum } : undefined,
+        after: { durum: "islendi" },
+      });
+      toast.success("Tebligat islendi olarak isaretlendi");
+    } catch (error) {
+      console.error(error);
+      toast.error("Tebligat guncellenemedi", "Firestore yetkilerini kontrol edin");
+      throw error;
+    }
+  };
+
+  const handleBeyannameDurum = async (id: string, durum: BeyannameDurum) => {
+    if (!isFirebaseConfigured) {
+      toast.info("Demo modu", "Firebase env girilince bu islem Firestore'a kaydedilecek");
+      return;
+    }
+
+    try {
+      await updateBeyannameDurum(id, durum);
+      const beyanname = beyannameler.find((item) => item.id === id);
+      await logAudit({
+        action: "status_change",
+        entityType: "beyanname",
+        entityId: id,
+        entityLabel: beyanname ? `${beyanname.tur} - ${beyanname.donem}` : undefined,
+        summary: `Beyanname durumu ${durum} olarak guncellendi`,
+        before: beyanname ? { durum: beyanname.durum } : undefined,
+        after: { durum },
+      });
+      toast.success(`Beyanname durumu "${durum}" olarak guncellendi`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Beyanname guncellenemedi", "Firestore yetkilerini kontrol edin");
+    }
+  };
+
+  const filteredTebligatlar = tebligatlar.filter(
     (t) => filterDurum === "tumu" || t.durum === filterDurum
   );
-  const filteredBeyanlar = MOCK_BEYANNAMELER.filter(
+  const filteredBeyanlar = beyannameler.filter(
     (b) => filterDurum === "tumu" || b.durum === filterDurum
   );
 
@@ -28,37 +126,31 @@ export default function TebligatlarPage() {
     <div>
       <PageHeader
         title="Tebligat & Beyanname Takibi"
-        subtitle="GİB kaynaklı resmi bildirimler ve beyanname durumları"
+        subtitle="GIB kaynakli resmi bildirimler ve beyanname durumlari"
       />
 
-      {/* Metrikler */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Toplam Tebligat"
-          value={MOCK_TEBLIGATLAR.length}
-          subtitle="Bu dönem"
-        />
+        <MetricCard title="Toplam Tebligat" value={tebligatlar.length} subtitle="Bu donem" />
         <MetricCard
           title="Yeni Tebligat"
-          value={MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length}
-          subtitle="İşlem bekliyor"
+          value={tebligatlar.filter((t) => t.durum === "yeni").length}
+          subtitle="Islem bekliyor"
           variant="danger"
         />
         <MetricCard
           title="Bekleyen Beyan"
-          value={MOCK_BEYANNAMELER.filter((b) => b.durum === "bekliyor").length}
-          subtitle="Son tarih yaklaşıyor"
+          value={beyannameler.filter((b) => b.durum === "bekliyor").length}
+          subtitle="Son tarih yaklasiyor"
           variant="warning"
         />
         <MetricCard
           title="Geciken Beyan"
-          value={MOCK_BEYANNAMELER.filter((b) => b.durum === "gecikti").length}
-          subtitle="Acil işlem gerekiyor"
+          value={beyannameler.filter((b) => b.durum === "gecikti").length}
+          subtitle="Acil islem gerekiyor"
           variant="danger"
         />
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-slate-200 mb-5">
         <nav className="flex gap-0">
           {TABS.map((tab) => (
@@ -74,7 +166,7 @@ export default function TebligatlarPage() {
               {tab}
               {tab === "Tebligatlar" && (
                 <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                  {MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length}
+                  {tebligatlar.filter((t) => t.durum === "yeni").length}
                 </span>
               )}
             </button>
@@ -82,7 +174,6 @@ export default function TebligatlarPage() {
         </nav>
       </div>
 
-      {/* Filtre */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 mb-5">
         <div className="flex items-center gap-3">
           <select
@@ -90,12 +181,12 @@ export default function TebligatlarPage() {
             onChange={(e) => setFilterDurum(e.target.value)}
             className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
           >
-            <option value="tumu">Tüm Durumlar</option>
+            <option value="tumu">Tum Durumlar</option>
             {activeTab === "Tebligatlar" ? (
               <>
                 <option value="yeni">Yeni</option>
                 <option value="okundu">Okundu</option>
-                <option value="islendi">İşlendi</option>
+                <option value="islendi">Islendi</option>
                 <option value="bekliyor">Bekliyor</option>
               </>
             ) : (
@@ -107,24 +198,23 @@ export default function TebligatlarPage() {
             )}
           </select>
           <span className="text-xs text-slate-500">
-            {activeTab === "Tebligatlar" ? filteredTebligatlar.length : filteredBeyanlar.length} kayıt
+            {activeTab === "Tebligatlar" ? filteredTebligatlar.length : filteredBeyanlar.length} kayit
           </span>
         </div>
       </div>
 
-      {/* Tebligatlar tablosu */}
       {activeTab === "Tebligatlar" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
             <TableHead>
               <tr>
                 <TableHeadCell>Tarih</TableHeadCell>
-                <TableHeadCell>Müşteri</TableHeadCell>
+                <TableHeadCell>Musteri</TableHeadCell>
                 <TableHeadCell>VKN/TCKN</TableHeadCell>
-                <TableHeadCell>Başlık</TableHeadCell>
-                <TableHeadCell>Tür</TableHeadCell>
+                <TableHeadCell>Baslik</TableHeadCell>
+                <TableHeadCell>Tur</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell>İşlem</TableHeadCell>
+                <TableHeadCell>Islem</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -132,7 +222,7 @@ export default function TebligatlarPage() {
                 <TableEmpty colSpan={7} />
               ) : (
                 filteredTebligatlar.map((t) => (
-                  <TableRow key={t.id}>
+                  <TableRow key={t.id} onClick={() => setSeciliTebligat(t)}>
                     <TableCell>
                       <span className="text-xs font-medium text-slate-700">{formatTarih(t.tarih)}</span>
                     </TableCell>
@@ -145,9 +235,7 @@ export default function TebligatlarPage() {
                     <TableCell>
                       <div>
                         <p className="text-xs font-medium text-slate-800">{t.baslik}</p>
-                        {t.notlar && (
-                          <p className="text-xs text-amber-600 mt-0.5">{t.notlar}</p>
-                        )}
+                        {t.notlar && <p className="text-xs text-amber-600 mt-0.5">{t.notlar}</p>}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -158,11 +246,25 @@ export default function TebligatlarPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="PDF görüntüle">
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleTebligatPdf(t);
+                          }}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="PDF goruntule"
+                        >
                           <FileText className="w-3.5 h-3.5" />
                         </button>
                         {t.durum !== "islendi" && (
-                          <button className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="İşlendi olarak işaretle">
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleTebligatIslendi(t.id);
+                            }}
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Islendi olarak isaretle"
+                          >
                             <CheckCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -176,24 +278,24 @@ export default function TebligatlarPage() {
         </div>
       )}
 
-      {/* Beyannameler tablosu */}
       {activeTab === "Beyannameler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
             <TableHead>
               <tr>
-                <TableHeadCell>Müşteri</TableHeadCell>
-                <TableHeadCell>Tür</TableHeadCell>
-                <TableHeadCell>Dönem</TableHeadCell>
+                <TableHeadCell>Musteri</TableHeadCell>
+                <TableHeadCell>Tur</TableHeadCell>
+                <TableHeadCell>Donem</TableHeadCell>
                 <TableHeadCell>Son Tarih</TableHeadCell>
                 <TableHeadCell>Verilme Tarihi</TableHeadCell>
                 <TableHeadCell>Sorumlu</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
+                <TableHeadCell>Islem</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {filteredBeyanlar.length === 0 ? (
-                <TableEmpty colSpan={7} />
+                <TableEmpty colSpan={8} />
               ) : (
                 filteredBeyanlar.map((b) => (
                   <TableRow key={b.id}>
@@ -215,7 +317,7 @@ export default function TebligatlarPage() {
                       {b.verilmeTarihi ? (
                         <span className="text-xs text-emerald-600">{formatTarih(b.verilmeTarihi)}</span>
                       ) : (
-                        <span className="text-xs text-slate-400">—</span>
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -224,6 +326,26 @@ export default function TebligatlarPage() {
                     <TableCell>
                       <BeyannameBadge durum={b.durum} />
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {b.durum !== "verildi" && (
+                          <button
+                            onClick={() => handleBeyannameDurum(b.id, "verildi")}
+                            className="px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                          >
+                            Verildi
+                          </button>
+                        )}
+                        {b.durum !== "gecikti" && (
+                          <button
+                            onClick={() => handleBeyannameDurum(b.id, "gecikti")}
+                            className="px-2 py-1 text-xs text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Gecikti
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -231,6 +353,13 @@ export default function TebligatlarPage() {
           </Table>
         </div>
       )}
+
+      <TebligatDetayModal
+        tebligat={seciliTebligat}
+        onClose={() => setSeciliTebligat(null)}
+        onPdf={handleTebligatPdf}
+        onIslendi={handleTebligatIslendi}
+      />
     </div>
   );
 }

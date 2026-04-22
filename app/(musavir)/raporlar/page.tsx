@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FileText, Send, Plus, Download, RefreshCw, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -11,7 +11,19 @@ import {
 } from "@/components/ui/Table";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { useToast } from "@/lib/context/ToastContext";
-import { MOCK_RAPORLAR } from "@/lib/data/mock";
+import { hesaplaMusteriRisk } from "@/lib/domain/risk";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import {
+  createGonderimKaydi,
+  createRapor,
+  markRaporGonderildi,
+  updateRapor,
+  updateRaporDurum,
+} from "@/lib/firebase/repositories";
+import { uploadRaporPdf } from "@/lib/firebase/storage";
+import { buildReportPdfBlob } from "@/lib/reports/pdfReport";
+import { openPrintableReport } from "@/lib/reports/printableReport";
 import { formatTarih } from "@/lib/utils/format";
 import type { Rapor } from "@/lib/types";
 
@@ -27,7 +39,21 @@ export default function RaporlarPage() {
   const [filterDurum, setFilterDurum] = useState("tumu");
   const [selected, setSelected] = useState<string[]>([]);
   const [showWaModal, setShowWaModal] = useState(false);
-  const [raporlar, setRaporlar] = useState<Rapor[]>(MOCK_RAPORLAR);
+  const {
+    raporlar: loadedRaporlar,
+    musteriler,
+    gorevler,
+    beyannameler,
+    tahsilatlar,
+    tebligatlar,
+    gonderimler,
+    kdv2,
+  } = useAppData();
+  const [raporlar, setRaporlar] = useState<Rapor[]>(loadedRaporlar);
+
+  useEffect(() => {
+    setRaporlar(loadedRaporlar);
+  }, [loadedRaporlar]);
 
   const filtered = raporlar.filter(
     (r) => filterDurum === "tumu" || r.durum === filterDurum
@@ -39,23 +65,106 @@ export default function RaporlarPage() {
     );
   };
 
-  const handleRaporUret = (tip: string) => {
+  const getRaporPayload = (rapor: Rapor) => {
+    const musteri = musteriler.find((m) => m.id === rapor.musteriId);
+    const raporGorevler = gorevler.filter((g) => g.musteriId === rapor.musteriId);
+    const raporBeyanlar = beyannameler.filter((b) => b.musteriId === rapor.musteriId);
+    const raporTahsilatlar = tahsilatlar.filter((t) => t.musteriId === rapor.musteriId);
+    const raporTebligatlar = tebligatlar.filter((t) => t.musteriId === rapor.musteriId);
+    const risk = musteri
+      ? hesaplaMusteriRisk({
+          musteri,
+          gorevler: raporGorevler,
+          beyannameler: raporBeyanlar,
+          tahsilatlar: raporTahsilatlar,
+          tebligatlar: raporTebligatlar,
+          kdv2,
+        })
+      : undefined;
+
+    return {
+      rapor,
+      musteri,
+      gorevler: raporGorevler,
+      beyannameler: raporBeyanlar,
+      tahsilatlar: raporTahsilatlar,
+      tebligatlar: raporTebligatlar,
+      risk: risk ? { skor: risk.skor, seviye: risk.seviye } : undefined,
+    };
+  };
+
+  const finalizeRapor = async (rapor: Rapor) => {
+    const pdfBlob = buildReportPdfBlob(getRaporPayload(rapor));
+
+    if (isFirebaseConfigured) {
+      const upload = await uploadRaporPdf(rapor.musteriId, rapor.id, pdfBlob);
+      await updateRapor(rapor.id, {
+        durum: "hazir",
+        pdfUrl: upload.url,
+        pdfStoragePath: upload.storagePath,
+      });
+      return;
+    }
+
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    setRaporlar((prev) =>
+      prev.map((r) => (r.id === rapor.id ? { ...r, durum: "hazir", pdfUrl } : r))
+    );
+  };
+
+  const handleRaporUret = async (tip: string) => {
+    const musteri = musteriler[0];
+
+    if (!musteri) {
+      toast.warning("Müşteri bulunamadı", "Rapor üretmek için en az bir müşteri kaydı gerekir");
+      return;
+    }
+
     const yeniRapor: Rapor = {
       id: `r-${Date.now()}`,
-      musteriId: "m1",
-      musteriAdi: "Akdeniz Tekstil A.Ş.",
+      musteriId: musteri.id,
+      musteriAdi: musteri.firmaAdi,
       tip: tip as Rapor["tip"],
       donem: "Temmuz 2024",
       durum: "uretiliyor",
       olusturmaTarihi: new Date().toISOString(),
     };
-    setRaporlar((prev) => [yeniRapor, ...prev]);
+
+    if (isFirebaseConfigured) {
+      try {
+        const created = await createRapor({
+          musteriId: yeniRapor.musteriId,
+          musteriAdi: yeniRapor.musteriAdi,
+          tip: yeniRapor.tip,
+          donem: yeniRapor.donem,
+        });
+        yeniRapor.id = created.id;
+      } catch (error) {
+        console.error(error);
+        toast.error("Rapor kaydı oluşturulamadı");
+        return;
+      }
+    } else {
+      setRaporlar((prev) => [yeniRapor, ...prev]);
+    }
+
     toast.info("Rapor üretiliyor...", `${RAPOR_TIP_LABELS[tip]} hazırlanıyor`);
     setTimeout(() => {
-      setRaporlar((prev) =>
-        prev.map((r) => (r.id === yeniRapor.id ? { ...r, durum: "hazir" } : r))
-      );
-      toast.success("Rapor hazır!", "Gönderim için hazır durumda");
+      finalizeRapor(yeniRapor)
+        .then(() => {
+          toast.success("Rapor hazır!", "PDF dosyası oluşturuldu ve gönderim için hazır");
+        })
+        .catch((error) => {
+          console.error(error);
+          toast.error("Rapor PDF'i oluşturulamadı");
+          if (isFirebaseConfigured) {
+            updateRaporDurum(yeniRapor.id, "basarisiz").catch(console.error);
+          } else {
+            setRaporlar((prev) =>
+              prev.map((r) => (r.id === yeniRapor.id ? { ...r, durum: "basarisiz" } : r))
+            );
+          }
+        });
     }, 2500);
   };
 
@@ -68,7 +177,69 @@ export default function RaporlarPage() {
   };
 
   const handleIndir = (rapor: Rapor) => {
-    toast.success("İndirme başladı", `${rapor.musteriAdi} - ${rapor.donem}`);
+    if (rapor.pdfUrl) {
+      window.open(rapor.pdfUrl, "_blank", "noopener,noreferrer");
+      toast.success("PDF açıldı", `${rapor.musteriAdi} - ${rapor.donem}`);
+      return;
+    }
+
+    const opened = openPrintableReport(getRaporPayload(rapor));
+
+    if (opened) {
+      toast.success("Rapor hazırlandı", "Yazdır penceresinden PDF olarak kaydedebilirsiniz");
+      return;
+    }
+
+    toast.info("Rapor indirildi", "Popup engellendiği için HTML rapor dosyası indirildi");
+  };
+
+  const handleRaporlarGonderildi = async (ids: string[], kanal: NonNullable<Rapor["kanal"]>) => {
+    if (isFirebaseConfigured) {
+      try {
+        await Promise.all(ids.map((id) => markRaporGonderildi(id, kanal)));
+      } catch (error) {
+        console.error(error);
+        toast.error("Rapor gönderim durumu güncellenemedi");
+      }
+      return;
+    }
+
+    setRaporlar((prev) =>
+      prev.map((rapor) =>
+        ids.includes(rapor.id)
+          ? {
+              ...rapor,
+              durum: "gonderildi",
+              kanal,
+              gonderimTarihi: new Date().toISOString(),
+            }
+          : rapor
+      )
+    );
+  };
+
+  const handleEmailGonder = async (rapor: Rapor) => {
+    await handleRaporlarGonderildi([rapor.id], "email");
+
+    if (isFirebaseConfigured) {
+      try {
+        await createGonderimKaydi({
+          kanal: "email",
+          musteriId: rapor.musteriId,
+          musteriAdi: rapor.musteriAdi,
+          sablonId: "s2",
+          icerikRef: rapor.id,
+          mesaj: `${rapor.donem} dönemi ${RAPOR_TIP_LABELS[rapor.tip]} raporu e-posta ile gönderildi.`,
+          durum: "gonderildi",
+          sentAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error(error);
+        toast.error("E-posta gönderim kaydı oluşturulamadı");
+      }
+    }
+
+    toast.success("Gönderim planlandı", `${rapor.musteriAdi} için e-posta gönderimi`);
   };
 
   const metrics = [
@@ -105,7 +276,7 @@ export default function RaporlarPage() {
                 </Button>
               </>
             )}
-            <Button icon={<Plus className="w-4 h-4" />}>Rapor Oluştur</Button>
+            <Button icon={<Plus className="w-4 h-4" />} onClick={() => handleRaporUret("operasyon")}>Rapor Oluştur</Button>
           </div>
         }
       />
@@ -255,7 +426,7 @@ export default function RaporlarPage() {
                       {r.durum === "hazir" && (
                         <button
                           onClick={() => {
-                            toast.success("Gönderim planlandı", `${r.musteriAdi} için e-posta gönderimi`);
+                            handleEmailGonder(r);
                           }}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="E-posta ile gönder"
@@ -284,8 +455,69 @@ export default function RaporlarPage() {
         </Table>
       </div>
 
+      {/* Gönderim geçmişi */}
+      <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Gönderim Geçmişi</h3>
+            <p className="text-xs text-slate-500 mt-0.5">WhatsApp ve e-posta denemeleri</p>
+          </div>
+          <span className="text-xs text-slate-500">{gonderimler.length} kayıt</span>
+        </div>
+        <Table>
+          <TableHead>
+            <tr>
+              <TableHeadCell>Tarih</TableHeadCell>
+              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Kanal</TableHeadCell>
+              <TableHeadCell>Şablon</TableHeadCell>
+              <TableHeadCell>Deneme</TableHeadCell>
+              <TableHeadCell>Durum</TableHeadCell>
+              <TableHeadCell>Hata</TableHeadCell>
+            </tr>
+          </TableHead>
+          <TableBody>
+            {gonderimler.length === 0 ? (
+              <TableEmpty colSpan={7} message="Henüz gönderim kaydı yok" />
+            ) : (
+              [...gonderimler]
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .map((g) => (
+                  <TableRow key={g.id}>
+                    <TableCell>
+                      <span className="text-xs text-slate-600">{formatTarih(g.createdAt)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs font-medium text-slate-800">{g.musteriAdi}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{g.kanal}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-slate-600">{g.sablonId ?? "—"}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-slate-600">{g.denemeSayisi}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={g.durum === "gonderildi" ? "success" : g.durum === "basarisiz" ? "danger" : "neutral"}>
+                        {g.durum}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-slate-500">{g.hataMesaji ?? "—"}</span>
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
       <WhatsAppGonderimModal
         open={showWaModal}
+        raporIds={selected}
+        onSuccess={(ids) => handleRaporlarGonderildi(ids, "whatsapp")}
         onClose={() => {
           setShowWaModal(false);
           setSelected([]);

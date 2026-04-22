@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MusavirERP">
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  <path d="M18 19h28v26H18z" fill="#2563eb"/>
+  <path d="M23 15h18v8H23z" fill="#60a5fa"/>
+  <path d="M24 29h16M24 36h16M24 43h10" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+</svg>

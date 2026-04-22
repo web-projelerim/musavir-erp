@@ -1,18 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/context/AuthContext";
 
 export default function GirisPage() {
+  const router = useRouter();
+  const { user, loading: authLoading, signIn, resetPassword, isFirebaseReady } = useAuth();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("ali@musavir.com");
+  const [password, setPassword] = useState("sifre123");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(user.rol === "mukellef" ? "/panel" : "/dashboard");
+    }
+  }, [authLoading, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    window.location.href = "/dashboard";
+    setError(null);
+
+    try {
+      const appUser = await signIn(email, password);
+      router.replace(appUser.rol === "mukellef" ? "/panel" : "/dashboard");
+    } catch (err) {
+      console.error(err);
+      setError(
+        isFirebaseReady
+          ? "Giriş başarısız. E-posta, şifre veya Firebase kullanıcı kaydını kontrol edin."
+          : "Demo giriş başarısız oldu."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Şifre sıfırlama için e-posta adresini girin.");
+      return;
+    }
+
+    if (!isFirebaseReady) {
+      setError("Demo modunda şifre sıfırlama gönderilmez. Firebase env girilince aktif olur.");
+      return;
+    }
+
+    try {
+      await resetPassword(email);
+      setError(null);
+      alert("Şifre sıfırlama e-postası gönderildi.");
+    } catch (err) {
+      console.error(err);
+      setError("Şifre sıfırlama e-postası gönderilemedi.");
+    }
   };
 
   return (
@@ -84,7 +130,8 @@ export default function GirisPage() {
               </label>
               <input
                 type="email"
-                defaultValue="ali@musavir.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
                            placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
@@ -95,14 +142,19 @@ export default function GirisPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-slate-300">Şifre</label>
-                <a href="#" className="text-xs text-blue-400 hover:text-blue-300">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
                   Şifremi Unuttum
-                </a>
+                </button>
               </div>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
-                  defaultValue="sifre123"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 pr-10 text-sm
                              placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
@@ -129,9 +181,23 @@ export default function GirisPage() {
               </label>
             </div>
 
+            {error && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+                <p className="text-xs text-red-200">{error}</p>
+              </div>
+            )}
+
+            {!isFirebaseReady && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                <p className="text-xs text-amber-100">
+                  Firebase env bilgileri girilmediği için demo oturum modu aktif.
+                </p>
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || authLoading}
               className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold
                          py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm
                          disabled:opacity-70 disabled:cursor-not-allowed"

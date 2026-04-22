@@ -1,4 +1,5 @@
 import type {
+  User,
   Musteri,
   Gorev,
   Tebligat,
@@ -7,7 +8,50 @@ import type {
   Bildirim,
   Tahsilat,
   KDV2Hesaplama,
+  GonderimKaydi,
+  Belge,
+  AuditLog,
 } from "@/lib/types";
+
+export const MOCK_KULLANICILAR: User[] = [
+  {
+    id: "demo-musavir",
+    ad: "Ali",
+    soyad: "Müşavir",
+    email: "ali@musavir.com",
+    rol: "musavir",
+    aktif: true,
+    createdAt: "2024-07-01T09:00:00",
+  },
+  {
+    id: "demo-personel-selin",
+    ad: "Selin",
+    soyad: "Kaya",
+    email: "selin@musavir.com",
+    rol: "personel",
+    aktif: true,
+    createdAt: "2024-07-01T09:00:00",
+  },
+  {
+    id: "demo-personel-murat",
+    ad: "Murat",
+    soyad: "Çelik",
+    email: "murat@musavir.com",
+    rol: "personel",
+    aktif: true,
+    createdAt: "2024-07-01T09:00:00",
+  },
+  {
+    id: "demo-mukellef-akdeniz",
+    ad: "Ahmet",
+    soyad: "Yılmaz",
+    email: "ahmet@akdeniz.com",
+    rol: "mukellef",
+    musteriId: "m1",
+    aktif: true,
+    createdAt: "2024-07-01T09:00:00",
+  },
+];
 
 export const MOCK_MUSTERILER: Musteri[] = [
   {
@@ -487,6 +531,7 @@ export const MOCK_TAHSILATLAR: Tahsilat[] = [
     musteriId: "m2",
     musteriAdi: "Bora Lojistik Ltd. Şti.",
     tutar: 2800,
+    odenenTutar: 2800,
     donem: "Temmuz 2024",
     vadeTarihi: "2024-07-10",
     odemeTarihi: "2024-07-08",
@@ -515,6 +560,7 @@ export const MOCK_TAHSILATLAR: Tahsilat[] = [
     musteriId: "m5",
     musteriAdi: "Ege İnşaat Taahhüt Ltd. Şti.",
     tutar: 2500,
+    odenenTutar: 1500,
     donem: "Temmuz 2024",
     vadeTarihi: "2024-07-15",
     odemeTarihi: "2024-07-14",
@@ -549,5 +595,94 @@ export const MOCK_KDV2: KDV2Hesaplama[] = [
     kdv2Tutari: 5000,
     aciklama: "Yazılım danışmanlık hizmeti",
     createdAt: "2024-07-12T11:30:00",
+  },
+];
+
+export const MOCK_BELGELER: Belge[] = [
+  {
+    id: "doc1",
+    musteriId: "m1",
+    musteriAdi: "Akdeniz Tekstil A.Ş.",
+    dosyaAdi: "Temmuz 2024 KDV Evraklari.pdf",
+    dosyaTipi: "application/pdf",
+    boyut: 860000,
+    url: "#",
+    kategori: "beyanname",
+    gorunurluk: "mukellef",
+    yukleyen: "Ahmet Yılmaz",
+    yukleyenRol: "mukellef",
+    notlar: "Mükellef panelinden yüklenen örnek evrak seti",
+    createdAt: "2024-07-15T10:00:00",
+  },
+  {
+    id: "doc2",
+    musteriId: "m2",
+    musteriAdi: "Bora Lojistik Ltd. Şti.",
+    dosyaAdi: "Hizmet Sozlesmesi.pdf",
+    dosyaTipi: "application/pdf",
+    boyut: 420000,
+    url: "#",
+    kategori: "sozlesme",
+    gorunurluk: "musavir",
+    yukleyen: "Ali Müşavir",
+    yukleyenRol: "musavir",
+    createdAt: "2024-07-11T09:30:00",
+  },
+];
+
+export const MOCK_GONDERIMLER: GonderimKaydi[] = [
+  {
+    id: "snd1",
+    kanal: "whatsapp",
+    musteriId: "m3",
+    musteriAdi: "Can Gıda Sanayi A.Ş.",
+    sablonId: "s2",
+    icerikRef: "r1",
+    mesaj: "Haziran 2024 dönemi gelir gider raporu portal üzerinden erişime açıldı.",
+    durum: "gonderildi",
+    denemeSayisi: 1,
+    createdAt: "2024-07-12T10:30:00",
+    sentAt: "2024-07-12T10:30:00",
+  },
+  {
+    id: "snd2",
+    kanal: "email",
+    musteriId: "m8",
+    musteriAdi: "Hızlı Kargo Dağıtım A.Ş.",
+    sablonId: "s2",
+    icerikRef: "r4",
+    mesaj: "Haziran 2024 dönemi gelir gider raporu e-posta ile gönderildi.",
+    durum: "gonderildi",
+    denemeSayisi: 1,
+    createdAt: "2024-07-10T09:15:00",
+    sentAt: "2024-07-10T09:15:00",
+  },
+];
+
+export const MOCK_AUDIT_LOGS: AuditLog[] = [
+  {
+    id: "audit-demo-1",
+    actorId: "demo-musavir",
+    actorName: "Ali Musavir",
+    actorRole: "musavir",
+    action: "seed",
+    entityType: "sistem",
+    entityId: "demo",
+    entityLabel: "Demo veri",
+    summary: "Demo ortam audit log ornegi olusturuldu",
+    createdAt: "2024-07-14T09:00:00",
+  },
+  {
+    id: "audit-demo-2",
+    actorId: "demo-personel-selin",
+    actorName: "Selin Kaya",
+    actorRole: "personel",
+    action: "status_change",
+    entityType: "gorev",
+    entityId: "g1",
+    entityLabel: "KDV Beyannamesi Hazirla - Temmuz 2024",
+    summary: "Gorev durumu devam olarak guncellendi",
+    after: { durum: "devam" },
+    createdAt: "2024-07-14T10:15:00",
   },
 ];

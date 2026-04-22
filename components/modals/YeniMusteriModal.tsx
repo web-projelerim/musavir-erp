@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { createMusteri, updateMusteri } from "@/lib/firebase/repositories";
+import type { Musteri } from "@/lib/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  musteri?: Musteri;
 }
 
-export function YeniMusteriModal({ open, onClose, onSuccess }: Props) {
+export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -27,6 +31,38 @@ export function YeniMusteriModal({ open, onClose, onSuccess }: Props) {
     muhtasarMukellef: "evet",
   });
 
+  const isEdit = Boolean(musteri);
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (musteri) {
+      setForm({
+        firmaAdi: musteri.firmaAdi,
+        vknTckn: musteri.vknTckn,
+        yetkiliAd: musteri.yetkiliAd,
+        telefon: musteri.telefon,
+        email: musteri.email,
+        adres: musteri.adres,
+        sorumluPersonel: musteri.sorumluPersonel,
+        kdvMukellef: musteri.kdvMukellef ? "evet" : "hayir",
+        muhtasarMukellef: musteri.muhtasarMukellef ? "evet" : "hayir",
+      });
+    } else {
+      setForm({
+        firmaAdi: "",
+        vknTckn: "",
+        yetkiliAd: "",
+        telefon: "",
+        email: "",
+        adres: "",
+        sorumluPersonel: "Selin Kaya",
+        kdvMukellef: "evet",
+        muhtasarMukellef: "evet",
+      });
+    }
+  }, [musteri, open]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.firmaAdi || !form.vknTckn) {
@@ -38,11 +74,42 @@ export function YeniMusteriModal({ open, onClose, onSuccess }: Props) {
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    toast.success("Müşteri oluşturuldu", `${form.firmaAdi} başarıyla sisteme eklendi`);
-    onClose();
-    onSuccess?.();
+
+    try {
+      if (isFirebaseConfigured) {
+        const payload = {
+          firmaAdi: form.firmaAdi,
+          vknTckn: form.vknTckn,
+          yetkiliAd: form.yetkiliAd,
+          telefon: form.telefon,
+          email: form.email,
+          adres: form.adres,
+          sorumluPersonel: form.sorumluPersonel,
+          kdvMukellef: form.kdvMukellef === "evet",
+          muhtasarMukellef: form.muhtasarMukellef === "evet",
+        };
+
+        if (musteri) {
+          await updateMusteri(musteri.id, payload);
+        } else {
+          await createMusteri(payload);
+        }
+      } else {
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
+      toast.success(
+        isEdit ? "Müşteri güncellendi" : "Müşteri oluşturuldu",
+        `${form.firmaAdi} başarıyla ${isEdit ? "güncellendi" : "sisteme eklendi"}`
+      );
+      onClose();
+      onSuccess?.();
+    } catch (error) {
+      console.error(error);
+      toast.error("Müşteri kaydedilemedi", "Firebase bağlantısı veya yetkileri kontrol edin");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const f = (field: keyof typeof form) => ({
@@ -52,7 +119,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess }: Props) {
   });
 
   return (
-    <Modal open={open} onClose={onClose} title="Yeni Müşteri Ekle" size="lg">
+    <Modal open={open} onClose={onClose} title={isEdit ? "Müşteri Bilgilerini Düzenle" : "Yeni Müşteri Ekle"} size="lg">
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -106,7 +173,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess }: Props) {
             İptal
           </Button>
           <Button type="submit" loading={loading}>
-            Müşteri Ekle
+            {isEdit ? "Değişiklikleri Kaydet" : "Müşteri Ekle"}
           </Button>
         </div>
       </form>

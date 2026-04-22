@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import {
   LayoutDashboard,
@@ -16,7 +17,8 @@ import {
   Building2,
   LogOut,
 } from "lucide-react";
-import { MOCK_GOREVLER, MOCK_TEBLIGATLAR } from "@/lib/data/mock";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
 
 const navItems: {
   label: string;
@@ -37,11 +39,44 @@ const bottomItems = [
   { label: "Ayarlar", href: "/ayarlar", icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { gorevler, tebligatlar } = useAppData();
+  const { user, signOut } = useAuth();
+
+  const initials = user ? `${user.ad[0] ?? ""}${user.soyad[0] ?? ""}` : "AM";
+  const roleLabel =
+    user?.rol === "musavir" ? "Müşavir" : user?.rol === "personel" ? "Personel" : "Mükellef";
+
+  const handleSignOut = async () => {
+    await signOut();
+    onClose?.();
+    router.replace("/giris");
+  };
 
   return (
-    <aside className="fixed top-0 left-0 h-screen w-60 bg-slate-900 flex flex-col z-40">
+    <>
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Menüyü kapat"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-slate-900/45 lg:hidden"
+        />
+      )}
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-50 flex h-screen w-60 flex-col bg-slate-900 shadow-2xl transition-transform duration-200 lg:z-40 lg:translate-x-0 lg:shadow-none",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
       {/* Logo */}
       <div className="px-5 py-5 border-b border-slate-700/50">
         <div className="flex items-center gap-3">
@@ -59,11 +94,13 @@ export function Sidebar() {
       <div className="px-4 py-3 border-b border-slate-700/50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">AM</span>
+            <span className="text-white text-xs font-bold">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-medium truncate">Ali Müşavir</p>
-            <p className="text-slate-400 text-xs truncate">Müşavir</p>
+            <p className="text-white text-xs font-medium truncate">
+              {user ? `${user.ad} ${user.soyad}` : "Ali Müşavir"}
+            </p>
+            <p className="text-slate-400 text-xs truncate">{roleLabel}</p>
           </div>
         </div>
       </div>
@@ -74,9 +111,9 @@ export function Sidebar() {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const badgeValue =
             item.badge === "gorevler"
-              ? MOCK_GOREVLER.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal").length
+              ? gorevler.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal").length
               : item.badge === "tebligatlar"
-              ? MOCK_TEBLIGATLAR.filter((t) => t.durum === "yeni").length
+              ? tebligatlar.filter((t) => t.durum === "yeni").length
               : typeof item.badge === "number"
               ? item.badge
               : null;
@@ -85,6 +122,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group",
                 isActive
@@ -117,6 +155,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group",
                 isActive
@@ -129,14 +168,16 @@ export function Sidebar() {
             </Link>
           );
         })}
-        <Link
-          href="/giris"
+        <button
+          type="button"
+          onClick={handleSignOut}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-red-900/30 hover:text-red-400 transition-colors group"
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
           <span className="font-medium">Çıkış Yap</span>
-        </Link>
+        </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

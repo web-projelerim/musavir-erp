@@ -29,12 +29,12 @@ export function PageHeader({ title, subtitle, action, breadcrumb, className }: P
           ))}
         </nav>
       )}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold text-slate-900">{title}</h1>
           {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
         </div>
-        {action && <div className="ml-6 flex-shrink-0">{action}</div>}
+        {action && <div className="w-full sm:ml-6 sm:w-auto sm:flex-shrink-0">{action}</div>}
       </div>
     </div>
   );

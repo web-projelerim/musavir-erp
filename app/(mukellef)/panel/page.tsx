@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Building2,
   FileText,
@@ -8,19 +11,88 @@ import {
   Clock,
   Download,
   MessageSquare,
+  Upload,
 } from "lucide-react";
 import { Badge, BeyannameBadge, TahsilatBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { MetricCard, Card } from "@/components/ui/Card";
-import { MOCK_MUSTERILER, MOCK_BEYANNAMELER, MOCK_TEBLIGATLAR, MOCK_RAPORLAR, MOCK_TAHSILATLAR } from "@/lib/data/mock";
+import { Button } from "@/components/ui/Button";
+import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
+import { hesaplaMusteriRisk } from "@/lib/domain/risk";
+import { buildReportPdfBlob, buildReportPdfFileName, downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { formatTarih, formatPara } from "@/lib/utils/format";
+import type { Belge, Rapor } from "@/lib/types";
+
+function formatDosyaBoyutu(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function MukellefPanelPage() {
-  // Demo: Akdeniz Tekstil mükellefi
-  const musteri = MOCK_MUSTERILER[0];
-  const beyanlar = MOCK_BEYANNAMELER.filter((b) => b.musteriId === musteri.id);
-  const tebligatlar = MOCK_TEBLIGATLAR.filter((t) => t.musteriId === musteri.id);
-  const raporlar = MOCK_RAPORLAR.filter((r) => r.musteriId === musteri.id);
-  const tahsilatlar = MOCK_TAHSILATLAR.filter((t) => t.musteriId === musteri.id);
+  const { user } = useAuth();
+  const {
+    musteriler,
+    beyannameler,
+    tebligatlar: tumTebligatlar,
+    raporlar: tumRaporlar,
+    tahsilatlar: tumTahsilatlar,
+    belgeler: tumBelgeler,
+    gorevler: tumGorevler,
+    kdv2,
+  } = useAppData();
+  const [showBelgeModal, setShowBelgeModal] = useState(false);
+  const [localBelgeler, setLocalBelgeler] = useState<Belge[]>(tumBelgeler);
+
+  useEffect(() => {
+    setLocalBelgeler(tumBelgeler);
+  }, [tumBelgeler]);
+
+  const musteri = musteriler.find((m) => m.id === user?.musteriId) ?? musteriler[0];
+
+  if (!musteri) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8">
+          <h1 className="text-lg font-bold text-slate-900">Firma kaydı bulunamadı</h1>
+          <p className="text-sm text-slate-500 mt-1">Bu mükellef hesabına bağlı firma yok.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const beyanlar = beyannameler.filter((b) => b.musteriId === musteri.id);
+  const tebligatlar = tumTebligatlar.filter((t) => t.musteriId === musteri.id);
+  const raporlar = tumRaporlar.filter((r) => r.musteriId === musteri.id);
+  const tahsilatlar = tumTahsilatlar.filter((t) => t.musteriId === musteri.id);
+  const gorevler = tumGorevler.filter((g) => g.musteriId === musteri.id);
+  const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id && b.gorunurluk === "mukellef");
+  const risk = hesaplaMusteriRisk({
+    musteri,
+    gorevler,
+    beyannameler: beyanlar,
+    tahsilatlar,
+    tebligatlar,
+    kdv2,
+  });
+
+  const handleRaporIndir = (rapor: Rapor) => {
+    if (rapor.pdfUrl) {
+      window.open(rapor.pdfUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const blob = buildReportPdfBlob({
+      rapor,
+      musteri,
+      gorevler: [],
+      beyannameler: beyanlar,
+      tahsilatlar,
+      tebligatlar,
+      risk: { skor: risk.skor, seviye: risk.seviye },
+    });
+    downloadPdfBlob(blob, buildReportPdfFileName(rapor));
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -202,11 +274,56 @@ export default function MukellefPanelPage() {
                     <div className="flex items-center gap-2">
                       <RaporDurumBadge durum={r.durum} />
                       {r.durum === "gonderildi" && (
-                        <button className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg">
+                        <button
+                          className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg"
+                          onClick={() => handleRaporIndir(r)}
+                        >
                           <Download className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Belgeler */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-slate-500" />
+                Belgelerim
+              </h3>
+              <Button
+                size="sm"
+                variant="outline"
+                icon={<Upload className="w-3.5 h-3.5" />}
+                onClick={() => setShowBelgeModal(true)}
+              >
+                Yukle
+              </Button>
+            </div>
+            {belgeler.length === 0 ? (
+              <p className="text-xs text-slate-400">Paylasilan veya yuklenen belge yok</p>
+            ) : (
+              <div className="space-y-2.5">
+                {belgeler.map((belge) => (
+                  <div key={belge.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl">
+                    <div className="min-w-0 mr-3">
+                      <p className="text-xs font-semibold text-slate-800 truncate">{belge.dosyaAdi}</p>
+                      <p className="text-xs text-slate-500">
+                        {belge.kategori} · {formatDosyaBoyutu(belge.boyut)} · {formatTarih(belge.createdAt)}
+                      </p>
+                    </div>
+                    <a
+                      href={belge.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg flex-shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
                   </div>
                 ))}
               </div>
@@ -277,6 +394,13 @@ export default function MukellefPanelPage() {
           </Card>
         </div>
       </main>
+      <BelgeUploadModal
+        open={showBelgeModal}
+        onClose={() => setShowBelgeModal(false)}
+        musteriId={musteri.id}
+        defaultGorunurluk="mukellef"
+        onUploaded={(belge) => setLocalBelgeler((prev) => [belge, ...prev])}
+      />
     </div>
   );
 }

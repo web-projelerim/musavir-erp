@@ -6,21 +6,23 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { Users, Bell, Link2, Shield, Sliders, Plus, Trash2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeadCell, TableRow } from "@/components/ui/Table";
+import { Activity, Users, Bell, Link2, Shield, Sliders, Plus } from "lucide-react";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { useToast } from "@/lib/context/ToastContext";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { seedFirebaseMockData } from "@/lib/firebase/seed";
+import { formatTarih } from "@/lib/utils/format";
+import type { AuditAction } from "@/lib/types";
 
 const TABS = [
   { id: "kullanicilar", label: "Kullanıcılar & Roller", icon: Users },
   { id: "bildirimler", label: "Bildirimler", icon: Bell },
   { id: "entegrasyon", label: "Entegrasyonlar", icon: Link2 },
   { id: "guvenlik", label: "Güvenlik", icon: Shield },
+  { id: "denetim", label: "Denetim Kaydi", icon: Activity },
   { id: "sistem", label: "Sistem Tercihleri", icon: Sliders },
-];
-
-const MOCK_KULLANICILAR = [
-  { id: "u1", ad: "Ali Müşavir", email: "ali@musavir.com", rol: "musavir", aktif: true },
-  { id: "u2", ad: "Selin Kaya", email: "selin@musavir.com", rol: "personel", aktif: true },
-  { id: "u3", ad: "Murat Çelik", email: "murat@musavir.com", rol: "personel", aktif: true },
-  { id: "u4", ad: "Zeynep Yıldız", email: "zeynep@musavir.com", rol: "personel", aktif: false },
 ];
 
 const ROL_LABELS: Record<string, string> = {
@@ -29,8 +31,58 @@ const ROL_LABELS: Record<string, string> = {
   mukellef: "Mükellef",
 };
 
+const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
+  create: "Olusturma",
+  update: "Guncelleme",
+  delete: "Silme",
+  status_change: "Durum",
+  upload: "Yukleme",
+  send: "Gonderim",
+  seed: "Seed",
+};
+
+function auditVariant(action: AuditAction) {
+  if (action === "delete") return "danger";
+  if (action === "status_change") return "warning";
+  if (action === "create" || action === "upload") return "success";
+  if (action === "send") return "info";
+  return "neutral";
+}
+
 export default function AyarlarPage() {
+  const toast = useToast();
+  const logAudit = useAuditLog();
   const [activeTab, setActiveTab] = useState("kullanicilar");
+  const { kullanicilar, auditLogs } = useAppData();
+  const [seeding, setSeeding] = useState(false);
+  const sortedAuditLogs = [...auditLogs]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 50);
+
+  const handleSeedFirebase = async () => {
+    if (!isFirebaseConfigured) {
+      toast.warning("Firebase yapılandırması yok", ".env.local dosyasına Firebase bilgilerini ekleyin");
+      return;
+    }
+
+    setSeeding(true);
+    try {
+      await seedFirebaseMockData();
+      await logAudit({
+        action: "seed",
+        entityType: "sistem",
+        entityId: "firebase-seed",
+        entityLabel: "Demo veri",
+        summary: "Demo veri Firestore'a aktarildi",
+      });
+      toast.success("Demo veri Firestore'a aktarıldı");
+    } catch (error) {
+      console.error(error);
+      toast.error("Demo veri aktarılamadı", "Firestore yetkilerini ve Firebase ayarlarını kontrol edin");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   return (
     <div>
@@ -71,7 +123,7 @@ export default function AyarlarPage() {
                   <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />}>Kullanıcı Ekle</Button>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {MOCK_KULLANICILAR.map((u) => (
+                  {kullanicilar.map((u) => (
                     <div key={u.id} className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -80,7 +132,7 @@ export default function AyarlarPage() {
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">{u.ad}</p>
+                          <p className="text-sm font-medium text-slate-800">{`${u.ad} ${u.soyad}`}</p>
                           <p className="text-xs text-slate-500">{u.email}</p>
                         </div>
                       </div>
@@ -253,6 +305,63 @@ export default function AyarlarPage() {
             </div>
           )}
 
+          {/* Denetim */}
+          {activeTab === "denetim" && (
+            <Card>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Denetim Kaydi</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Son 50 islem kaydi</p>
+                </div>
+                <Badge variant="neutral">{sortedAuditLogs.length} kayit</Badge>
+              </div>
+              <Table>
+                <TableHead>
+                  <tr>
+                    <TableHeadCell>Tarih</TableHeadCell>
+                    <TableHeadCell>Kullanici</TableHeadCell>
+                    <TableHeadCell>Aksiyon</TableHeadCell>
+                    <TableHeadCell>Kaynak</TableHeadCell>
+                    <TableHeadCell>Ozet</TableHeadCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {sortedAuditLogs.length === 0 ? (
+                    <TableEmpty colSpan={5} message="Denetim kaydi bulunamadi" />
+                  ) : (
+                    sortedAuditLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <span className="text-xs text-slate-600">{formatTarih(log.createdAt)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="text-xs font-medium text-slate-800">{log.actorName}</p>
+                            <p className="text-xs text-slate-400">{log.actorRole}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={auditVariant(log.action)}>
+                            {AUDIT_ACTION_LABELS[log.action]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="text-xs font-medium text-slate-700">{log.entityType}</p>
+                            {log.entityLabel && <p className="text-xs text-slate-400">{log.entityLabel}</p>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-normal">
+                          <span className="text-xs text-slate-600">{log.summary}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+
           {/* Sistem */}
           {activeTab === "sistem" && (
             <div className="space-y-4">
@@ -274,6 +383,14 @@ export default function AyarlarPage() {
                     </select>
                   </div>
                   <Button>Kaydet</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={seeding}
+                    onClick={handleSeedFirebase}
+                  >
+                    Demo Veriyi Firestore'a Aktar
+                  </Button>
                 </div>
               </Card>
             </div>

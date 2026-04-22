@@ -1,3 +1,5 @@
+import { AuthGuard } from "@/components/auth/AuthGuard";
+
 export default function MukellefLayout({ children }: { children: React.ReactNode }) {
-  return <div>{children}</div>;
+  return <AuthGuard allowedRoles={["mukellef"]}>{children}</AuthGuard>;
 }

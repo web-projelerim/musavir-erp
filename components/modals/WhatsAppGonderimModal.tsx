@@ -5,14 +5,22 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/lib/context/ToastContext";
-import { MOCK_MUSTERILER } from "@/lib/data/mock";
+import { riskMapOlustur } from "@/lib/domain/risk";
+import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { createGonderimKaydi } from "@/lib/firebase/repositories";
+import { sendWhatsAppMessages } from "@/lib/integrations/whatsapp/provider";
+import { formatTarih } from "@/lib/utils/format";
 import { MessageCircle, Send, CheckCircle2, X, Users } from "lucide-react";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   raporId?: string;
+  raporIds?: string[];
   musteriId?: string;
+  onSuccess?: (raporIds: string[]) => void;
 }
 
 const SABLONLAR = [
@@ -33,8 +41,11 @@ const SABLONLAR = [
   },
 ];
 
-export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
+export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, raporIds = [], onSuccess }: Props) {
   const toast = useToast();
+  const logAudit = useAuditLog();
+  const { musteriler, beyannameler, tahsilatlar, raporlar, tebligatlar, gorevler, kdv2 } = useAppData();
+  const riskMap = riskMapOlustur({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
   const [step, setStep] = useState<"secim" | "onay" | "gonderiliyor" | "sonuc">("secim");
   const [seciliMusteriler, setSeciliMusteriler] = useState<string[]>(musteriId ? [musteriId] : []);
   const [secilenSablon, setSecilenSablon] = useState(SABLONLAR[0].id);
@@ -46,17 +57,90 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
     );
   };
 
+  const fillTemplate = (musteriId: string) => {
+    const musteri = musteriler.find((m) => m.id === musteriId);
+    const beyan = beyannameler.find((b) => b.musteriId === musteriId && b.durum !== "verildi");
+    const tahsilat = tahsilatlar.find((t) => t.musteriId === musteriId && t.durum !== "odendi");
+    const relatedRaporIds = raporIds.length > 0 ? raporIds : raporId ? [raporId] : [];
+    const rapor = raporlar.find((r) => relatedRaporIds.includes(r.id)) ?? raporlar.find((r) => r.musteriId === musteriId);
+    const sablon = SABLONLAR.find((s) => s.id === secilenSablon)!;
+
+    return sablon.icerik
+      .replaceAll("{firma_adi}", musteri?.firmaAdi ?? "Mükellef")
+      .replaceAll("{beyan_turu}", beyan?.tur ?? "ilgili")
+      .replaceAll("{son_tarih}", beyan?.sonTarih ? formatTarih(beyan.sonTarih) : "yaklaşan")
+      .replaceAll("{donem}", rapor?.donem ?? tahsilat?.donem ?? "ilgili")
+      .replaceAll("{rapor_turu}", rapor?.tip.replace("_", " ") ?? "rapor")
+      .replaceAll("{vade_tarihi}", tahsilat?.vadeTarihi ? formatTarih(tahsilat.vadeTarihi) : "belirtilen");
+  };
+
   const handleGonder = async () => {
     setStep("gonderiliyor");
-    await new Promise((r) => setTimeout(r, 1500));
-    const sonuclar = seciliMusteriler.map((id) => ({
-      musteriId: id,
-      basarili: Math.random() > 0.1,
+    const mesajlar = seciliMusteriler
+      .map((id) => {
+        const musteri = musteriler.find((m) => m.id === id);
+        if (!musteri) return null;
+
+        return {
+          musteriId: musteri.id,
+          musteriAdi: musteri.firmaAdi,
+          phone: musteri.telefon,
+          body: fillTemplate(musteri.id),
+        };
+      })
+      .filter(Boolean) as {
+        musteriId: string;
+        musteriAdi: string;
+        phone: string;
+        body: string;
+      }[];
+    const providerSonuclari = await sendWhatsAppMessages(mesajlar);
+    const sonuclar = providerSonuclari.map((sonuc) => ({
+      musteriId: sonuc.musteriId,
+      basarili: sonuc.basarili,
     }));
+
+    if (isFirebaseConfigured) {
+      await Promise.all(
+        providerSonuclari.map(({ musteriId: mid, basarili, hataMesaji }) => {
+          const mesaj = mesajlar.find((m) => m.musteriId === mid);
+          return createGonderimKaydi({
+            kanal: "whatsapp",
+            musteriId: mid,
+            musteriAdi: mesaj?.musteriAdi ?? mid,
+            sablonId: secilenSablon,
+            icerikRef: raporIds[0] ?? raporId,
+            mesaj: mesaj?.body,
+            durum: basarili ? "gonderildi" : "basarisiz",
+            hataMesaji,
+            sentAt: basarili ? new Date().toISOString() : undefined,
+          });
+        })
+      );
+    }
+
     setGonderimSonuclari(sonuclar);
     setStep("sonuc");
     const basarili = sonuclar.filter((s) => s.basarili).length;
+    await logAudit({
+      action: "send",
+      entityType: "gonderim",
+      entityId: `whatsapp-${Date.now()}`,
+      entityLabel: SABLONLAR.find((s) => s.id === secilenSablon)?.ad,
+      summary: `${basarili}/${sonuclar.length} WhatsApp mesaji gonderildi`,
+      after: {
+        kanal: "whatsapp",
+        aliciSayisi: sonuclar.length,
+        basarili,
+        sablonId: secilenSablon,
+      },
+    });
     toast.success(`${basarili}/${sonuclar.length} mesaj gönderildi`);
+
+    const relatedRaporIds = raporIds.length > 0 ? raporIds : raporId ? [raporId] : [];
+    if (basarili > 0 && relatedRaporIds.length > 0) {
+      onSuccess?.(relatedRaporIds);
+    }
   };
 
   const handleKapat = () => {
@@ -66,6 +150,8 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
   };
 
   const sablon = SABLONLAR.find((s) => s.id === secilenSablon)!;
+  const previewMusteriId = seciliMusteriler[0];
+  const previewText = previewMusteriId ? fillTemplate(previewMusteriId) : sablon.icerik;
 
   return (
     <Modal open={open} onClose={handleKapat} title="WhatsApp Toplu Gönderim" size="lg">
@@ -98,19 +184,22 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
             <button
               onClick={() =>
                 setSeciliMusteriler(
-                  seciliMusteriler.length === MOCK_MUSTERILER.length
+                  seciliMusteriler.length === musteriler.length
                     ? []
-                    : MOCK_MUSTERILER.filter((m) => m.durum === "aktif").map((m) => m.id)
+                    : musteriler.filter((m) => m.durum === "aktif").map((m) => m.id)
                 )
               }
               className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               <Users className="w-3 h-3" />
-              {seciliMusteriler.length === MOCK_MUSTERILER.filter((m) => m.durum === "aktif").length ? "Seçimi Kaldır" : "Tümünü Seç"}
+              {seciliMusteriler.length === musteriler.filter((m) => m.durum === "aktif").length ? "Seçimi Kaldır" : "Tümünü Seç"}
             </button>
           </div>
           <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-            {MOCK_MUSTERILER.filter((m) => m.durum === "aktif").map((m) => (
+            {musteriler.filter((m) => m.durum === "aktif").map((m) => {
+              const risk = riskMap.get(m.id);
+              const seviye = risk?.seviye ?? "dusuk";
+              return (
               <label
                 key={m.id}
                 className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer border transition-colors ${
@@ -129,11 +218,12 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
                   <p className="text-sm font-medium text-slate-800 truncate">{m.firmaAdi}</p>
                   <p className="text-xs text-slate-400">{m.telefon}</p>
                 </div>
-                <Badge variant={m.riskSeviyesi === "kritik" ? "danger" : m.riskSeviyesi === "yuksek" ? "warning" : "neutral"}>
-                  {m.riskSeviyesi}
+                <Badge variant={seviye === "kritik" ? "danger" : seviye === "yuksek" ? "warning" : "neutral"}>
+                  {seviye}
                 </Badge>
               </label>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
@@ -186,7 +276,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
               <MessageCircle className="w-4 h-4 text-green-600" />
               <span className="text-xs font-semibold text-green-800">Önizleme</span>
             </div>
-            <p className="text-xs text-green-700">{sablon.icerik}</p>
+            <p className="text-xs text-green-700">{previewText}</p>
           </div>
 
           <div className="bg-slate-50 rounded-xl p-3 mb-4">
@@ -229,7 +319,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId }: Props) {
           </div>
           <div className="space-y-1.5 max-h-48 overflow-y-auto">
             {gonderimSonuclari.map(({ musteriId: mid, basarili }) => {
-              const m = MOCK_MUSTERILER.find((mu) => mu.id === mid);
+              const m = musteriler.find((mu) => mu.id === mid);
               return (
                 <div key={mid} className={`flex items-center justify-between p-2 rounded-lg ${basarili ? "bg-emerald-50" : "bg-red-50"}`}>
                   <span className="text-xs text-slate-700">{m?.firmaAdi}</span>

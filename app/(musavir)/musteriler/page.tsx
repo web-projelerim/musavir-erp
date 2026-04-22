@@ -16,21 +16,31 @@ import {
   TableEmpty,
 } from "@/components/ui/Table";
 import { YeniMusteriModal } from "@/components/modals/YeniMusteriModal";
-import { MOCK_MUSTERILER } from "@/lib/data/mock";
+import { riskMapOlustur } from "@/lib/domain/risk";
+import { useAppData } from "@/lib/hooks/useAppData";
 import { formatTarih } from "@/lib/utils/format";
 import Link from "next/link";
-import type { Musteri } from "@/lib/types";
+
+type MusteriSortField = "firmaAdi" | "risk";
 
 export default function MusterilerPage() {
   const [aramaText, setAramaText] = useState("");
   const [filterRisk, setFilterRisk] = useState<string>("tumu");
   const [filterDurum, setFilterDurum] = useState<string>("tumu");
-  const [sortField, setSortField] = useState<keyof Musteri>("riskSkoru");
+  const [filterSorumlu, setFilterSorumlu] = useState<string>("tumu");
+  const [filterTahsilat, setFilterTahsilat] = useState<string>("tumu");
+  const [sortField, setSortField] = useState<MusteriSortField>("risk");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [view, setView] = useState<"tablo" | "kart">("tablo");
   const [showYeniModal, setShowYeniModal] = useState(false);
+  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 } = useAppData();
+  const riskMap = riskMapOlustur({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
+  const riskKayitlari = musteriler.map((musteri) => ({
+    musteri,
+    risk: riskMap.get(musteri.id)!,
+  }));
 
-  const handleSort = (field: keyof Musteri) => {
+  const handleSort = (field: MusteriSortField) => {
     if (sortField === field) {
       setSortDir(sortDir === "asc" ? "desc" : "asc");
     } else {
@@ -39,21 +49,23 @@ export default function MusterilerPage() {
     }
   };
 
-  const filteredMusteriler = MOCK_MUSTERILER
-    .filter((m) => {
+  const filteredMusteriler = riskKayitlari
+    .filter(({ musteri: m, risk }) => {
       const searchLower = aramaText.toLowerCase();
       const matchesSearch =
         !aramaText ||
         m.firmaAdi.toLowerCase().includes(searchLower) ||
         m.vknTckn.includes(aramaText) ||
         m.yetkiliAd.toLowerCase().includes(searchLower);
-      const matchesRisk = filterRisk === "tumu" || m.riskSeviyesi === filterRisk;
+      const matchesRisk = filterRisk === "tumu" || risk.seviye === filterRisk;
       const matchesDurum = filterDurum === "tumu" || m.durum === filterDurum;
-      return matchesSearch && matchesRisk && matchesDurum;
+      const matchesSorumlu = filterSorumlu === "tumu" || m.sorumluPersonel === filterSorumlu;
+      const matchesTahsilat = filterTahsilat === "tumu" || m.tahsilatDurumu === filterTahsilat;
+      return matchesSearch && matchesRisk && matchesDurum && matchesSorumlu && matchesTahsilat;
     })
     .sort((a, b) => {
-      const valA = a[sortField];
-      const valB = b[sortField];
+      const valA = sortField === "risk" ? a.risk.skor : a.musteri[sortField];
+      const valB = sortField === "risk" ? b.risk.skor : b.musteri[sortField];
       if (typeof valA === "number" && typeof valB === "number") {
         return sortDir === "asc" ? valA - valB : valB - valA;
       }
@@ -62,7 +74,7 @@ export default function MusterilerPage() {
       return sortDir === "asc" ? strA.localeCompare(strB, "tr") : strB.localeCompare(strA, "tr");
     });
 
-  const SortHeader = ({ field, label }: { field: keyof Musteri; label: string }) => (
+  const SortHeader = ({ field, label }: { field: MusteriSortField; label: string }) => (
     <TableHeadCell>
       <button
         onClick={() => handleSort(field)}
@@ -73,6 +85,8 @@ export default function MusterilerPage() {
       </button>
     </TableHeadCell>
   );
+
+  const sorumluOptions = Array.from(new Set(musteriler.map((m) => m.sorumluPersonel))).filter(Boolean);
 
   return (
     <div>
@@ -123,6 +137,29 @@ export default function MusterilerPage() {
             <option value="beklemede">Beklemede</option>
           </select>
 
+          <select
+            value={filterSorumlu}
+            onChange={(e) => setFilterSorumlu(e.target.value)}
+            className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="tumu">Tüm Sorumlular</option>
+            {sorumluOptions.map((sorumlu) => (
+              <option key={sorumlu} value={sorumlu}>{sorumlu}</option>
+            ))}
+          </select>
+
+          <select
+            value={filterTahsilat}
+            onChange={(e) => setFilterTahsilat(e.target.value)}
+            className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="tumu">Tüm Tahsilatlar</option>
+            <option value="odendi">Ödendi</option>
+            <option value="bekliyor">Bekliyor</option>
+            <option value="gecikti">Gecikti</option>
+            <option value="kismi">Kısmi</option>
+          </select>
+
           {/* Görünüm geçişi */}
           <div className="flex rounded-lg border border-slate-200 overflow-hidden ml-auto">
             <button
@@ -151,7 +188,7 @@ export default function MusterilerPage() {
           {filteredMusteriler.length === 0 ? (
             <div className="col-span-3 text-center py-16 text-slate-400 text-sm">Kayıt bulunamadı</div>
           ) : (
-            filteredMusteriler.map((m) => (
+            filteredMusteriler.map(({ musteri: m, risk }) => (
               <Link
                 key={m.id}
                 href={`/musteriler/${m.id}`}
@@ -172,9 +209,9 @@ export default function MusterilerPage() {
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-slate-500">Risk Skoru</span>
-                    <RiskBadge seviye={m.riskSeviyesi} />
+                    <RiskBadge seviye={risk.seviye} />
                   </div>
-                  <RiskMetre skor={m.riskSkoru} seviye={m.riskSeviyesi} showLabel size="md" />
+                  <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel size="md" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs mb-3">
@@ -217,7 +254,7 @@ export default function MusterilerPage() {
               <tr>
                 <SortHeader field="firmaAdi" label="Firma" />
                 <TableHeadCell>VKN/TCKN</TableHeadCell>
-                <SortHeader field="riskSkoru" label="Risk Skoru" />
+                <SortHeader field="risk" label="Risk Skoru" />
                 <TableHeadCell>Tahsilat</TableHeadCell>
                 <TableHeadCell>Görev Durumu</TableHeadCell>
                 <TableHeadCell>Yaklaşan Beyan</TableHeadCell>
@@ -231,7 +268,7 @@ export default function MusterilerPage() {
               {filteredMusteriler.length === 0 ? (
                 <TableEmpty colSpan={10} message="Arama kriterlerine uyan müşteri bulunamadı" />
               ) : (
-                filteredMusteriler.map((m) => (
+                filteredMusteriler.map(({ musteri: m, risk }) => (
                   <TableRow key={m.id}>
                     <TableCell>
                       <div>
@@ -246,7 +283,7 @@ export default function MusterilerPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 min-w-[100px]">
-                        <RiskMetre skor={m.riskSkoru} seviye={m.riskSeviyesi} showLabel size="sm" />
+                        <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel size="sm" />
                       </div>
                     </TableCell>
                     <TableCell>

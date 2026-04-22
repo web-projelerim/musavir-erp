@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid));
+    }
+
+    function role() {
+      return isSignedIn() && userDoc().data.rol != null ? userDoc().data.rol : null;
+    }
+
+    function isStaff() {
+      return role() in ['musavir', 'personel'];
+    }
+
+    function isMukellefFor(musteriId) {
+      return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
+    }
+
+    match /kullanicilar/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      // Bootstrap convenience for first Firebase setup. Tighten this with admin claims before production.
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.email == request.auth.token.email;
+      allow write: if role() == 'musavir';
+    }
+
+    match /musteriler/{musteriId} {
+      allow read: if isStaff() || isMukellefFor(musteriId);
+      allow write: if isStaff();
+    }
+
+    match /belgeler/{belgeId} {
+      allow read: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow create: if isStaff() || (request.resource.data.musteriId != null && isMukellefFor(request.resource.data.musteriId));
+      allow update, delete: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isStaff();
+      allow create: if isSignedIn()
+        && (request.resource.data.actorId == request.auth.uid || isStaff())
+        && request.resource.data.createdAt is string;
+      allow update, delete: if false;
+    }
+
+    match /{collection}/{docId} {
+      allow read: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow write: if isStaff();
+    }
+  }
+}

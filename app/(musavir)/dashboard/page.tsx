@@ -26,9 +26,9 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { MetricCard } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import { Badge, RiskBadge, BeyannameBadge, TahsilatBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
 import {
@@ -210,12 +210,11 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Metrikler */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        {metrics.map((m) => (
-          <MetricCard key={m.title} {...m} />
-        ))}
-      </div>
+      <StatsDrawer
+        title="Dashboard İstatistikleri"
+        subtitle="Portföy, görev, tebligat ve rapor özeti"
+        metrics={metrics}
+      />
 
       {/* Grafik satırı */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">

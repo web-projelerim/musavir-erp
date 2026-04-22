@@ -2,7 +2,7 @@
 
 import { AlertTriangle, ChevronRight, Info } from "lucide-react";
 import Link from "next/link";
-import { MetricCard } from "@/components/ui/Card";
+import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RiskBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
@@ -18,6 +18,32 @@ export default function RiskPage() {
   const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
 
   const sayac = (seviye: RiskSeviyesi) => riskListesi.filter((risk) => risk.seviye === seviye).length;
+  const metrics = [
+    {
+      title: "Kritik Risk",
+      value: sayac("kritik"),
+      subtitle: "Acil mudahale",
+      variant: "danger" as const,
+      icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
+    },
+    {
+      title: "Yuksek Risk",
+      value: sayac("yuksek"),
+      subtitle: "Yakin takip",
+      variant: "warning" as const,
+    },
+    {
+      title: "Orta Risk",
+      value: sayac("orta"),
+      subtitle: "Duzenli kontrol",
+    },
+    {
+      title: "Dusuk Risk",
+      value: sayac("dusuk"),
+      subtitle: "Normal durum",
+      variant: "success" as const,
+    },
+  ];
 
   return (
     <div>
@@ -26,32 +52,11 @@ export default function RiskPage() {
         subtitle="Musteri bazli risk skorlar ve uyari sinyalleri"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Kritik Risk"
-          value={sayac("kritik")}
-          subtitle="Acil mudahale"
-          variant="danger"
-          icon={<AlertTriangle className="w-5 h-5 text-red-500" />}
-        />
-        <MetricCard
-          title="Yuksek Risk"
-          value={sayac("yuksek")}
-          subtitle="Yakin takip"
-          variant="warning"
-        />
-        <MetricCard
-          title="Orta Risk"
-          value={sayac("orta")}
-          subtitle="Duzenli kontrol"
-        />
-        <MetricCard
-          title="Dusuk Risk"
-          value={sayac("dusuk")}
-          subtitle="Normal durum"
-          variant="success"
-        />
-      </div>
+      <StatsDrawer
+        title="Risk İstatistikleri"
+        subtitle="Müşteri risk seviyesi dağılımı"
+        metrics={metrics}
+      />
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, CheckCircle, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { MetricCard } from "@/components/ui/Card";
+import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import { Badge, BeyannameBadge, TebligatBadge } from "@/components/ui/Badge";
 import {
   Table,
@@ -121,6 +121,27 @@ export default function TebligatlarPage() {
   const filteredBeyanlar = beyannameler.filter(
     (b) => filterDurum === "tumu" || b.durum === filterDurum
   );
+  const metrics = [
+    { title: "Toplam Tebligat", value: tebligatlar.length, subtitle: "Bu donem" },
+    {
+      title: "Yeni Tebligat",
+      value: tebligatlar.filter((t) => t.durum === "yeni").length,
+      subtitle: "Islem bekliyor",
+      variant: "danger" as const,
+    },
+    {
+      title: "Bekleyen Beyan",
+      value: beyannameler.filter((b) => b.durum === "bekliyor").length,
+      subtitle: "Son tarih yaklasiyor",
+      variant: "warning" as const,
+    },
+    {
+      title: "Geciken Beyan",
+      value: beyannameler.filter((b) => b.durum === "gecikti").length,
+      subtitle: "Acil islem gerekiyor",
+      variant: "danger" as const,
+    },
+  ];
 
   return (
     <div>
@@ -129,27 +150,11 @@ export default function TebligatlarPage() {
         subtitle="GIB kaynakli resmi bildirimler ve beyanname durumlari"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard title="Toplam Tebligat" value={tebligatlar.length} subtitle="Bu donem" />
-        <MetricCard
-          title="Yeni Tebligat"
-          value={tebligatlar.filter((t) => t.durum === "yeni").length}
-          subtitle="Islem bekliyor"
-          variant="danger"
-        />
-        <MetricCard
-          title="Bekleyen Beyan"
-          value={beyannameler.filter((b) => b.durum === "bekliyor").length}
-          subtitle="Son tarih yaklasiyor"
-          variant="warning"
-        />
-        <MetricCard
-          title="Geciken Beyan"
-          value={beyannameler.filter((b) => b.durum === "gecikti").length}
-          subtitle="Acil islem gerekiyor"
-          variant="danger"
-        />
-      </div>
+      <StatsDrawer
+        title="Tebligat ve Beyan Özeti"
+        subtitle="Resmi bildirim ve beyanname durumları"
+        metrics={metrics}
+      />
 
       <div className="border-b border-slate-200 mb-5">
         <nav className="flex gap-0">

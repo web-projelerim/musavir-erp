@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Send,
   Plus,
@@ -14,7 +12,7 @@ import {
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge, RaporDurumBadge } from "@/components/ui/Badge";
-import { MetricCard } from "@/components/ui/Card";
+import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
 } from "@/components/ui/Table";
@@ -48,7 +46,6 @@ export default function RaporlarPage() {
   const [filterDurum, setFilterDurum] = useState("tumu");
   const [selected, setSelected] = useState<string[]>([]);
   const [showWaModal, setShowWaModal] = useState(false);
-  const [showStats, setShowStats] = useState(false);
   const {
     raporlar: loadedRaporlar,
     musteriler,
@@ -291,46 +288,11 @@ export default function RaporlarPage() {
         }
       />
 
-      {/* Genel durum paneli */}
-      {showStats ? (
-        <div className="fixed bottom-6 left-0 top-20 z-40 w-[min(420px,calc(100vw-4rem))] lg:left-60">
-          <section className="h-full overflow-y-auto rounded-r-xl border-y border-r border-slate-200 bg-slate-50/95 p-4 shadow-2xl backdrop-blur">
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Genel Durum
-              </p>
-              <h2 className="mt-1 text-lg font-bold text-slate-900">Rapor İstatistikleri</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Bu ayki üretim ve gönderim özeti
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              {metrics.map((m) => (
-                <MetricCard key={m.title} {...m} className="shadow-none" />
-              ))}
-            </div>
-          </section>
-          <button
-            type="button"
-            aria-label="Genel durum panelini kapat"
-            aria-expanded={showStats}
-            onClick={() => setShowStats(false)}
-            className="absolute -right-11 top-1/2 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-r-xl border-y border-r border-slate-200 bg-white text-slate-600 shadow-lg transition-colors hover:bg-blue-50 hover:text-blue-600"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          aria-label="Genel durum panelini aç"
-          aria-expanded={showStats}
-          onClick={() => setShowStats(true)}
-          className="fixed left-0 top-1/2 z-40 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-r-xl border-y border-r border-slate-200 bg-white text-slate-600 shadow-lg transition-colors hover:bg-blue-50 hover:text-blue-600 lg:left-60"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      )}
+      <StatsDrawer
+        title="Rapor İstatistikleri"
+        subtitle="Bu ayki üretim ve gönderim özeti"
+        metrics={metrics}
+      />
 
       {/* Şablonlar */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5 mb-6">

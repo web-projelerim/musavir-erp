@@ -9,10 +9,12 @@ import {
   useState,
 } from "react";
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  updateProfile,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -24,12 +26,20 @@ interface AuthContextValue {
   loading: boolean;
   isFirebaseReady: boolean;
   signIn: (email: string, password: string) => Promise<User>;
+  signUp: (input: SignUpInput) => Promise<User>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const DEMO_USER_KEY = "musavir-erp-demo-user";
+
+interface SignUpInput {
+  ad: string;
+  soyad: string;
+  email: string;
+  password: string;
+}
 
 const demoUsers: Record<string, User> = {
   "ali@musavir.com": {
@@ -146,6 +156,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return demoUser;
   }, []);
 
+  const signUp = useCallback(async ({ ad, soyad, email, password }: SignUpInput) => {
+    const createdAt = new Date().toISOString();
+
+    if (firebaseAuth && firestoreDb) {
+      const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      await updateProfile(credential.user, {
+        displayName: `${ad} ${soyad}`.trim(),
+      });
+
+      const appUser: User = {
+        id: credential.user.uid,
+        ad,
+        soyad,
+        email,
+        rol: "musavir",
+        aktif: true,
+        createdAt,
+      };
+
+      await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), appUser);
+      setUser(appUser);
+      return appUser;
+    }
+
+    const demoUser: User = {
+      id: `demo-${Date.now()}`,
+      ad,
+      soyad,
+      email,
+      rol: "musavir",
+      aktif: true,
+      createdAt,
+    };
+    window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
+    setUser(demoUser);
+    return demoUser;
+  }, []);
+
   const signOut = useCallback(async () => {
     if (firebaseAuth) {
       await firebaseSignOut(firebaseAuth);
@@ -165,10 +213,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isFirebaseReady: isFirebaseConfigured,
       signIn,
+      signUp,
       signOut,
       resetPassword,
     }),
-    [loading, resetPassword, signIn, signOut, user]
+    [loading, resetPassword, signIn, signOut, signUp, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

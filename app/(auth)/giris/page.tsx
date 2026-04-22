@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users } from "lucide-react";
+import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 
 export default function GirisPage() {
   const router = useRouter();
-  const { user, loading: authLoading, signIn, resetPassword, isFirebaseReady } = useAuth();
+  const { user, loading: authLoading, signIn, signUp, resetPassword, isFirebaseReady } = useAuth();
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ad, setAd] = useState("");
+  const [soyad, setSoyad] = useState("");
   const [email, setEmail] = useState("ali@musavir.com");
   const [password, setPassword] = useState("sifre123");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,18 +30,55 @@ export default function GirisPage() {
     setError(null);
 
     try {
-      const appUser = await signIn(email, password);
+      if (authMode === "register") {
+        if (!ad.trim() || !soyad.trim()) {
+          setError("Ad ve soyad alanlarını doldurun.");
+          return;
+        }
+
+        if (password.length < 6) {
+          setError("Şifre en az 6 karakter olmalı.");
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setError("Şifreler eşleşmiyor.");
+          return;
+        }
+      }
+
+      const appUser =
+        authMode === "register"
+          ? await signUp({
+              ad: ad.trim(),
+              soyad: soyad.trim(),
+              email: email.trim(),
+              password,
+            })
+          : await signIn(email.trim(), password);
       router.replace(appUser.rol === "mukellef" ? "/panel" : "/dashboard");
     } catch (err) {
       console.error(err);
       setError(
-        isFirebaseReady
+        authMode === "register"
+          ? "Kayıt oluşturulamadı. E-posta daha önce kullanılmış olabilir veya Firebase Auth ayarlarını kontrol etmek gerekebilir."
+          : isFirebaseReady
           ? "Giriş başarısız. E-posta, şifre veya Firebase kullanıcı kaydını kontrol edin."
           : "Demo giriş başarısız oldu."
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleAuthMode = () => {
+    const nextMode = authMode === "login" ? "register" : "login";
+    setAuthMode(nextMode);
+    setError(null);
+    setShowPass(false);
+    setPassword(nextMode === "login" ? "sifre123" : "");
+    setConfirmPassword("");
+    setEmail(nextMode === "login" ? "ali@musavir.com" : "");
   };
 
   const handleForgotPassword = async () => {
@@ -120,10 +161,49 @@ export default function GirisPage() {
             <p className="text-white font-bold text-lg">MusavirERP</p>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-1">Giriş Yap</h2>
-          <p className="text-slate-400 text-sm mb-8">Hesabınıza erişmek için bilgilerinizi girin</p>
+          <h2 className="text-2xl font-bold text-white mb-1">
+            {authMode === "login" ? "Giriş Yap" : "Kayıt Ol"}
+          </h2>
+          <p className="text-slate-400 text-sm mb-8">
+            {authMode === "login"
+              ? "Hesabınıza erişmek için bilgilerinizi girin"
+              : "Firebase üzerinde yeni mali müşavir hesabı oluşturun"}
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {authMode === "register" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Ad
+                  </label>
+                  <input
+                    type="text"
+                    value={ad}
+                    onChange={(e) => setAd(e.target.value)}
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
+                               placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    placeholder="Ali"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                    Soyad
+                  </label>
+                  <input
+                    type="text"
+                    value={soyad}
+                    onChange={(e) => setSoyad(e.target.value)}
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
+                               placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    placeholder="Müşavir"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
                 E-posta Adresi
@@ -142,13 +222,15 @@ export default function GirisPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-slate-300">Şifre</label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-xs text-blue-400 hover:text-blue-300"
-                >
-                  Şifremi Unuttum
-                </button>
+                {authMode === "login" && (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    Şifremi Unuttum
+                  </button>
+                )}
               </div>
               <div className="relative">
                 <input
@@ -170,16 +252,33 @@ export default function GirisPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="remember"
-                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
-              />
-              <label htmlFor="remember" className="text-sm text-slate-400">
-                Beni hatırla
-              </label>
-            </div>
+            {authMode === "register" ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Şifre Tekrarı
+                </label>
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
+                             placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  placeholder="••••••••"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="remember" className="text-sm text-slate-400">
+                  Beni hatırla
+                </label>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
@@ -195,6 +294,14 @@ export default function GirisPage() {
               </div>
             )}
 
+            {authMode === "register" && (
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+                <p className="text-xs text-blue-100">
+                  Yeni hesaplar mali müşavir rolüyle açılır. Personel ve mükellef hesapları daha sonra davet/rol yönetimiyle bağlanacak.
+                </p>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading || authLoading}
@@ -206,14 +313,36 @@ export default function GirisPage() {
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Giriş Yap
-                  <ArrowRight className="w-4 h-4" />
+                  {authMode === "login" ? (
+                    <>
+                      Giriş Yap
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  ) : (
+                    <>
+                      Kayıt Ol
+                      <UserPlus className="w-4 h-4" />
+                    </>
+                  )}
                 </>
               )}
             </button>
           </form>
 
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={toggleAuthMode}
+              className="text-sm text-slate-400 hover:text-blue-300"
+            >
+              {authMode === "login"
+                ? "Hesabınız yok mu? Kayıt olun"
+                : "Zaten hesabınız var mı? Giriş yapın"}
+            </button>
+          </div>
+
           {/* Demo hesaplar */}
+          {authMode === "login" && (
           <div className="mt-8 border border-slate-700/50 rounded-xl p-4">
             <p className="text-xs text-slate-500 font-medium mb-3 uppercase tracking-wide">Demo Hesaplar</p>
             <div className="space-y-2">
@@ -229,6 +358,7 @@ export default function GirisPage() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -25,9 +25,11 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 ```
 
-## 3. Demo Kullanici Kayitlari
+## 3. Kullanici Kayitlari
 
-Firebase Authentication icinde test icin su kullanicilari olustur:
+Giris ekranindaki `Kayit Ol` modu Firebase Authentication uzerinden yeni mali musavir hesabi olusturur ve `kullanicilar/{uid}` dokumanini `musavir` roluyle yazar.
+
+Personel ve mukellef hesaplari icin davet/rol yonetimi akisi henuz tamamlanmadigi icin test amacli olarak Firebase Authentication icinde su kullanicilari manuel olusturabilirsin:
 
 - `ali@musavir.com`
 - `selin@musavir.com`

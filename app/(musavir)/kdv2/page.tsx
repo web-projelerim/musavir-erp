@@ -190,7 +190,7 @@ export default function KDV2Page() {
           <div>
             <p className="text-sm font-semibold text-blue-800">KDV2 (Tevkifat) Hakkinda</p>
             <p className="text-xs text-blue-600 mt-1">
-              KDV2 tevkifatinda, hizmet bedeli uzerinden hesaplanan KDV'nin belirli kismi alici tarafindan beyan edilerek odenir. Bu modul KDV tevkifat tutarini otomatik hesaplar ve musteri bazli kayit altina alir.
+              KDV2 tevkifatinda, hizmet bedeli uzerinden hesaplanan KDV&apos;nin belirli kismi alici tarafindan beyan edilerek odenir. Bu modul KDV tevkifat tutarini otomatik hesaplar ve musteri bazli kayit altina alir.
             </p>
           </div>
         </div>

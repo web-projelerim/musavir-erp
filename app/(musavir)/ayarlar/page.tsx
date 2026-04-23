@@ -419,7 +419,7 @@ export default function AyarlarPage() {
                     loading={seeding}
                     onClick={handleSeedFirebase}
                   >
-                    Demo Veriyi Firestore'a Aktar
+                    Demo Veriyi Firestore&apos;a Aktar
                   </Button>
                 </div>
               </Card>

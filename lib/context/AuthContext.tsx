@@ -19,7 +19,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { firebaseAuth, firestoreDb, isFirebaseConfigured } from "@/lib/firebase/client";
-import type { User, UserRole } from "@/lib/types";
+import type { KullaniciYetki, User, UserRole } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
@@ -39,11 +39,17 @@ interface SignUpInput {
   soyad: string;
   email: string;
   password: string;
+  rol?: UserRole;
+  ofisId?: string;
+  musteriId?: string;
+  davetId?: string;
+  yetkiler?: KullaniciYetki[];
 }
 
 const demoUsers: Record<string, User> = {
   "ali@musavir.com": {
     id: "demo-musavir",
+    ofisId: "ofis-default",
     ad: "Ali",
     soyad: "Musavir",
     email: "ali@musavir.com",
@@ -53,6 +59,7 @@ const demoUsers: Record<string, User> = {
   },
   "selin@musavir.com": {
     id: "demo-personel",
+    ofisId: "ofis-default",
     ad: "Selin",
     soyad: "Kaya",
     email: "selin@musavir.com",
@@ -62,6 +69,7 @@ const demoUsers: Record<string, User> = {
   },
   "ahmet@akdeniz.com": {
     id: "demo-mukellef",
+    ofisId: "ofis-default",
     ad: "Ahmet",
     soyad: "Yilmaz",
     email: "ahmet@akdeniz.com",
@@ -84,6 +92,7 @@ function fallbackUserFromEmail(email: string, uid = `demo-${email}`): User {
 
   return {
     id: uid,
+    ofisId: "ofis-default",
     ad: namePart || "Kullanici",
     soyad: "",
     email,
@@ -156,7 +165,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return demoUser;
   }, []);
 
-  const signUp = useCallback(async ({ ad, soyad, email, password }: SignUpInput) => {
+  const signUp = useCallback(async ({
+    ad,
+    soyad,
+    email,
+    password,
+    rol = "musavir",
+    ofisId = "ofis-default",
+    musteriId,
+    davetId,
+    yetkiler,
+  }: SignUpInput) => {
     const createdAt = new Date().toISOString();
 
     if (firebaseAuth && firestoreDb) {
@@ -167,10 +186,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const appUser: User = {
         id: credential.user.uid,
+        ofisId,
         ad,
         soyad,
         email,
-        rol: "musavir",
+        rol,
+        yetkiler,
+        musteriId,
+        davetId,
         aktif: true,
         createdAt,
       };
@@ -182,10 +205,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const demoUser: User = {
       id: `demo-${Date.now()}`,
+      ofisId,
       ad,
       soyad,
       email,
-      rol: "musavir",
+      rol,
+      yetkiler,
+      musteriId,
+      davetId,
       aktif: true,
       createdAt,
     };

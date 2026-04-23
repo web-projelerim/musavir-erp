@@ -89,3 +89,48 @@ npm run dev
 ```
 
 Firebase env girilmediyse uygulama mock fallback ile calisir. Firebase env girildiyse listeleme ve yazma islemleri Firestore uzerinden akar.
+
+## 9. Functions Kurulumu
+
+Bu repoda artik `functions/` klasoru altinda Firebase Functions v2 paketi de vardir.
+
+Hazir scheduler gorevleri:
+
+- `processTahakkukNotifications`
+  - Her gun 09:00'da vadesi gelen veya planlanmis tahakkuk WhatsApp kayitlarini isler.
+- `refreshResmiGazeteSummaries`
+  - Her gun 08:00'da Resmi Gazete ana sayfasindan ilgili basliklari cekip ozet koleksiyonuna yazar.
+- `syncGibData`
+  - Her gun 07:30'da GIB sync placeholder kaydi olusturur.
+
+Manuel test endpoint'leri:
+
+- `runTahakkukNotificationsNow`
+- `runResmiGazeteNow`
+- `runGibSyncNow`
+
+Kurulum:
+
+```bash
+cd functions
+npm install
+```
+
+Deploy:
+
+```bash
+firebase deploy --only functions
+```
+
+Opsiyonel yerel env:
+
+`functions/.env.example` dosyasini kopyalayip asagidaki degerleri doldurabilirsin:
+
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+
+Notlar:
+
+- WhatsApp credential yoksa gonderim log'u simulated modda calisir.
+- Resmi Gazete ozeti simdilik heuristic/adapter tabanlidir; ucretsiz AI provider anahtari geldikten sonra bu fonksiyon genisletilebilir.
+- GIB tarafi resmi erisim bilgisi olmadan manual/mock modda kalir.

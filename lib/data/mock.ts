@@ -11,7 +11,29 @@ import type {
   GonderimKaydi,
   Belge,
   AuditLog,
+  Ofis,
+  Davet,
+  Tahakkuk,
+  Odeme,
+  BankaEkstresi,
+  ResmiGazeteOzeti,
+  GibSyncLog,
 } from "@/lib/types";
+
+export const DEFAULT_OFIS_ID = "ofis-default";
+
+export const MOCK_OFISLER: Ofis[] = [
+  {
+    id: DEFAULT_OFIS_ID,
+    unvan: "Musavir Ofisi",
+    vergiDairesi: "Bagcilar VD",
+    telefon: "0212 000 0000",
+    email: "ali@musavir.com",
+    whatsappDurum: "hazirlik",
+    gibDurum: "hazirlik",
+    createdAt: "2024-07-01T09:00:00",
+  },
+];
 
 export const MOCK_KULLANICILAR: User[] = [
   {
@@ -50,6 +72,35 @@ export const MOCK_KULLANICILAR: User[] = [
     musteriId: "m1",
     aktif: true,
     createdAt: "2024-07-01T09:00:00",
+  },
+];
+
+export const MOCK_DAVETLER: Davet[] = [
+  {
+    id: "dav-personel-1",
+    ofisId: DEFAULT_OFIS_ID,
+    rol: "personel",
+    email: "zeynep@musavir.com",
+    tokenHash: "demo-token-personel",
+    davetLinki: "/davet/demo-personel",
+    durum: "bekliyor",
+    expiresAt: "2026-05-01T12:00:00",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-23T09:00:00",
+  },
+  {
+    id: "dav-mukellef-1",
+    ofisId: DEFAULT_OFIS_ID,
+    rol: "mukellef",
+    email: "ahmet@akdeniz.com",
+    musteriId: "m1",
+    musteriAdi: "Akdeniz Tekstil A.S.",
+    tokenHash: "demo-token-mukellef",
+    davetLinki: "/davet/demo-mukellef",
+    durum: "bekliyor",
+    expiresAt: "2026-05-01T12:00:00",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-23T09:10:00",
   },
 ];
 
@@ -595,6 +646,153 @@ export const MOCK_KDV2: KDV2Hesaplama[] = [
     kdv2Tutari: 5000,
     aciklama: "Yazılım danışmanlık hizmeti",
     createdAt: "2024-07-12T11:30:00",
+  },
+];
+
+export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
+  {
+    id: "tk1",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m1",
+    musteriAdi: "Akdeniz Tekstil A.S.",
+    donem: "2026-04",
+    hizmetTuru: "mali_musavirlik",
+    tutar: 3500,
+    odenenTutar: 0,
+    vadeTarihi: "2026-04-25",
+    durum: "bekliyor",
+    bildirimDurumu: "planlandi",
+    panelLinki: "/panel",
+    aciklama: "Nisan 2026 mali musavirlik hizmet tahakkuku",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-20T09:00:00",
+  },
+  {
+    id: "tk2",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m2",
+    musteriAdi: "Bora Lojistik Ltd. Sti.",
+    donem: "2026-04",
+    hizmetTuru: "mali_musavirlik",
+    tutar: 2800,
+    odenenTutar: 2800,
+    vadeTarihi: "2026-04-20",
+    durum: "odendi",
+    bildirimDurumu: "gonderildi",
+    panelLinki: "/panel",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-10T09:00:00",
+  },
+  {
+    id: "tk3",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m5",
+    musteriAdi: "Ege Insaat Taahhut Ltd. Sti.",
+    donem: "2026-04",
+    hizmetTuru: "mali_musavirlik",
+    tutar: 2500,
+    odenenTutar: 1500,
+    vadeTarihi: "2026-04-22",
+    durum: "kismi",
+    bildirimDurumu: "gonderildi",
+    panelLinki: "/panel",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-12T09:00:00",
+  },
+];
+
+export const MOCK_ODEMELER: Odeme[] = [
+  {
+    id: "od1",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m2",
+    musteriAdi: "Bora Lojistik Ltd. Sti.",
+    tahakkukId: "tk2",
+    tutar: 2800,
+    odemeTarihi: "2026-04-18",
+    bankaAciklamasi: "Bora Lojistik Nisan musavirlik ucreti",
+    eslesmeSkoru: 96,
+    durum: "eslesti",
+    kaynak: "banka",
+    createdAt: "2026-04-18T11:00:00",
+  },
+];
+
+export const MOCK_BANKA_EKSTRELERI: BankaEkstresi[] = [
+  {
+    id: "be1",
+    ofisId: DEFAULT_OFIS_ID,
+    dosyaAdi: "nisan-2026-banka.csv",
+    donem: "2026-04",
+    satirSayisi: 3,
+    eslesenSayisi: 1,
+    onayBekleyenSayisi: 1,
+    eslesmeyenSayisi: 1,
+    duplicateSayisi: 0,
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-23T10:00:00",
+    satirlar: [
+      {
+        id: "be1-1",
+        tarih: "2026-04-18",
+        aciklama: "Bora Lojistik Nisan musavirlik ucreti",
+        tutar: 2800,
+        musteriId: "m2",
+        musteriAdi: "Bora Lojistik Ltd. Sti.",
+        tahakkukId: "tk2",
+        eslesmeSkoru: 96,
+        durum: "eslesti",
+      },
+      {
+        id: "be1-2",
+        tarih: "2026-04-19",
+        aciklama: "Ege Insaat kismi odeme",
+        tutar: 1500,
+        musteriId: "m5",
+        musteriAdi: "Ege Insaat Taahhut Ltd. Sti.",
+        tahakkukId: "tk3",
+        eslesmeSkoru: 78,
+        durum: "onay_bekliyor",
+      },
+      {
+        id: "be1-3",
+        tarih: "2026-04-20",
+        aciklama: "Bilinmeyen havale",
+        tutar: 900,
+        eslesmeSkoru: 0,
+        durum: "eslesmedi",
+        uyarilar: ["Musteri ile eslesmedi"],
+      },
+    ],
+  },
+];
+
+export const MOCK_RESMI_GAZETE_OZETLERI: ResmiGazeteOzeti[] = [
+  {
+    id: "rg1",
+    ofisId: DEFAULT_OFIS_ID,
+    yayinTarihi: "2026-04-23",
+    baslik: "Vergi usul sureclerine iliskin yeni duzenleme",
+    kaynakLink: "https://www.resmigazete.gov.tr/",
+    kategori: "vergi",
+    aiOzet: "Mali musavirlerin beyan, bildirim ve sure takiplerini etkileyebilecek bir duzenleme yayimlandi.",
+    maliMusavirEtkisi: "Musteri portfoyunde sure ve belge kontrolu yapilmasi onerilir.",
+    aksiyonGerekiyor: true,
+    maliMusavirEtkiPuani: 82,
+    durum: "yeni",
+    createdAt: "2026-04-23T08:00:00",
+  },
+];
+
+export const MOCK_GIB_SYNC_LOGS: GibSyncLog[] = [
+  {
+    id: "gib1",
+    ofisId: DEFAULT_OFIS_ID,
+    syncTipi: "tebligat",
+    durum: "bekliyor",
+    baslamaTarihi: "2026-04-23T08:30:00",
+    islenenKayitSayisi: 0,
+    createdBy: "demo-musavir",
   },
 ];
 

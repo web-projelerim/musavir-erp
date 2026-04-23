@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle, Plus, MessageCircle, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge, RiskBadge, TahsilatBadge, TebligatBadge, BeyannameBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
@@ -16,6 +16,8 @@ import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
 import { TahsilatModal } from "@/components/modals/TahsilatModal";
 import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
+import { DavetModal } from "@/components/modals/DavetModal";
+import { TahakkukModal } from "@/components/modals/TahakkukModal";
 import { useToast } from "@/lib/context/ToastContext";
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
@@ -33,9 +35,9 @@ import {
 import { deleteStorageFile } from "@/lib/firebase/storage";
 import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
-import type { Belge, BeyannameDurum, Gorev, GorevNot, Tahsilat, TahsilatDurum } from "@/lib/types";
+import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
-const TABS = ["Özet", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat"];
+const TABS = ["Ozet", "Gorevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
 function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -45,12 +47,14 @@ function formatDosyaBoyutu(bytes: number) {
 export default function MusteriDetayPage({ params }: { params: { id: string } }) {
   const toast = useToast();
   const logAudit = useAuditLog();
-  const [activeTab, setActiveTab] = useState("Özet");
+  const [activeTab, setActiveTab] = useState("Ozet");
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showMusteriModal, setShowMusteriModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
   const [showTahsilatModal, setShowTahsilatModal] = useState(false);
+  const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBelgeModal, setShowBelgeModal] = useState(false);
+  const [showDavetModal, setShowDavetModal] = useState(false);
   const [seciliGorev, setSeciliGorev] = useState<Gorev | null>(null);
   const [seciliTahsilat, setSeciliTahsilat] = useState<Tahsilat | null>(null);
   const {
@@ -60,12 +64,18 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     beyannameler: tumBeyanlar,
     raporlar: tumRaporlar,
     tahsilatlar: tumTahsilatlar,
+    tahakkuklar: tumTahakkuklar,
+    odemeler: tumOdemeler,
     belgeler: tumBelgeler,
+    davetler,
+    auditLogs,
     kdv2: tumKdv2,
     source,
   } = useAppData();
   const [localGorevler, setLocalGorevler] = useState<Gorev[]>(tumGorevler);
   const [localTahsilatlar, setLocalTahsilatlar] = useState<Tahsilat[]>(tumTahsilatlar);
+  const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tumTahakkuklar);
+  const [localOdemeler, setLocalOdemeler] = useState<Odeme[]>(tumOdemeler);
   const [localBelgeler, setLocalBelgeler] = useState<Belge[]>(tumBelgeler);
 
   useEffect(() => {
@@ -75,6 +85,14 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   useEffect(() => {
     setLocalTahsilatlar(tumTahsilatlar);
   }, [tumTahsilatlar]);
+
+  useEffect(() => {
+    setLocalTahakkuklar(tumTahakkuklar);
+  }, [tumTahakkuklar]);
+
+  useEffect(() => {
+    setLocalOdemeler(tumOdemeler);
+  }, [tumOdemeler]);
 
   useEffect(() => {
     setLocalBelgeler(tumBelgeler);
@@ -100,7 +118,14 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const beyanlar = tumBeyanlar.filter((b) => b.musteriId === musteri.id);
   const raporlar = tumRaporlar.filter((r) => r.musteriId === musteri.id);
   const tahsilatlar = localTahsilatlar.filter((t) => t.musteriId === musteri.id);
+  const tahakkuklar = localTahakkuklar.filter((t) => t.musteriId === musteri.id);
+  const odemeler = localOdemeler.filter((o) => o.musteriId === musteri.id);
   const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id);
+  const aktifDavet = davetler.find((d) => d.musteriId === musteri.id && d.durum === "bekliyor");
+  const musteriAudit = auditLogs
+    .filter((log) => log.entityId === musteri.id || log.after?.musteriId === musteri.id || log.entityLabel === musteri.firmaAdi)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 8);
 
   const hesaplananRisk = hesaplaMusteriRisk({
     musteri,
@@ -340,6 +365,22 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           <Button
             variant="outline"
             size="sm"
+            icon={<UserPlus className="w-3.5 h-3.5" />}
+            onClick={() => setShowDavetModal(true)}
+          >
+            {aktifDavet ? "Daveti Goster" : "Portal Daveti"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<CreditCard className="w-3.5 h-3.5" />}
+            onClick={() => setShowTahakkukModal(true)}
+          >
+            Tahakkuk
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             icon={<MessageCircle className="w-3.5 h-3.5" />}
             onClick={() => setShowWaModal(true)}
           >
@@ -425,7 +466,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       </div>
 
       {/* Tab içeriği */}
-      {activeTab === "Özet" && (
+      {activeTab === "Ozet" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <Card>
@@ -462,6 +503,54 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                       <GorevDurumBadge durum={g.durum} />
                     </div>
                   ))}
+                </div>
+              )}
+            </Card>
+
+            <Card>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Tahakkuk ve Odeme Ozeti</h3>
+                <Button size="sm" variant="outline" onClick={() => setShowTahakkukModal(true)}>
+                  Tahakkuk Ekle
+                </Button>
+              </div>
+              {tahakkuklar.length === 0 ? (
+                <p className="text-xs text-slate-400">Tahakkuk kaydi bulunamadi</p>
+              ) : (
+                <div className="space-y-2">
+                  {tahakkuklar.slice(0, 4).map((tahakkuk) => (
+                    <div key={tahakkuk.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">{tahakkuk.donem}</p>
+                          <p className="text-xs text-slate-500">{tahakkuk.hizmetTuru.replace("_", " ")}</p>
+                        </div>
+                        <TahsilatBadge
+                          durum={
+                            tahakkuk.durum === "odendi"
+                              ? "odendi"
+                              : tahakkuk.durum === "kismi"
+                                ? "kismi"
+                                : tahakkuk.durum === "gecikti"
+                                  ? "gecikti"
+                                  : "bekliyor"
+                          }
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Tutar: {formatPara(tahakkuk.tutar)}</span>
+                        <span className="text-slate-500">Odenen: {formatPara(tahakkuk.odenenTutar ?? 0)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {odemeler.length > 0 && (
+                <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
+                  <p className="text-xs font-semibold text-emerald-800">Son banka eslesmesi</p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    {formatPara(odemeler[0].tutar)} · {formatTarih(odemeler[0].odemeTarihi)} · {odemeler[0].durum}
+                  </p>
                 </div>
               )}
             </Card>
@@ -512,11 +601,31 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                 <Button variant="outline" size="sm" className="flex-1 text-xs">E-posta</Button>
               </div>
             </Card>
+
+            <Card>
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">Zaman Cizelgesi</h3>
+                {aktifDavet && <Badge variant="info">Portal daveti bekliyor</Badge>}
+              </div>
+              {musteriAudit.length === 0 ? (
+                <p className="text-xs text-slate-400">Zaman cizelgesi kaydi bulunamadi</p>
+              ) : (
+                <div className="space-y-3">
+                  {musteriAudit.map((log) => (
+                    <div key={log.id} className="relative pl-4">
+                      <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-blue-500" />
+                      <p className="text-xs font-medium text-slate-800">{log.summary}</p>
+                      <p className="mt-0.5 text-xs text-slate-400">{formatTarih(log.createdAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </div>
         </div>
       )}
 
-      {activeTab === "Görevler" && (
+      {activeTab === "Gorevler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
             <TableHead>
@@ -831,6 +940,64 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
+      {activeTab === "Tahakkuk" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-end">
+            <Button
+              size="sm"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => setShowTahakkukModal(true)}
+            >
+              Tahakkuk Ekle
+            </Button>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Donem</TableHeadCell>
+                  <TableHeadCell>Hizmet</TableHeadCell>
+                  <TableHeadCell>Tutar</TableHeadCell>
+                  <TableHeadCell>Odenen</TableHeadCell>
+                  <TableHeadCell>Vade</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                  <TableHeadCell>Bildirim</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {tahakkuklar.length === 0 ? (
+                  <TableEmpty colSpan={7} message="Tahakkuk bulunamadi" />
+                ) : (
+                  tahakkuklar.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
+                      <TableCell><Badge variant="neutral">{item.hizmetTuru.replace("_", " ")}</Badge></TableCell>
+                      <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{formatTarih(item.vadeTarihi)}</span></TableCell>
+                      <TableCell>
+                        <TahsilatBadge
+                          durum={
+                            item.durum === "odendi"
+                              ? "odendi"
+                              : item.durum === "kismi"
+                                ? "kismi"
+                                : item.durum === "gecikti"
+                                  ? "gecikti"
+                                  : "bekliyor"
+                          }
+                        />
+                      </TableCell>
+                      <TableCell><Badge variant="info">{item.bildirimDurumu}</Badge></TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       {/* Modaller */}
       <YeniGorevModal
         open={showGorevModal}
@@ -874,6 +1041,20 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         onClose={() => setShowBelgeModal(false)}
         musteriId={musteri.id}
         onUploaded={handleBelgeUploaded}
+      />
+      <DavetModal
+        open={showDavetModal}
+        onClose={() => setShowDavetModal(false)}
+        defaultRole="mukellef"
+        musteriId={musteri.id}
+        musteriAdi={musteri.firmaAdi}
+        defaultEmail={musteri.email}
+      />
+      <TahakkukModal
+        open={showTahakkukModal}
+        onClose={() => setShowTahakkukModal(false)}
+        musteriId={musteri.id}
+        onSaved={(item) => setLocalTahakkuklar((prev) => [item, ...prev])}
       />
     </div>
   );

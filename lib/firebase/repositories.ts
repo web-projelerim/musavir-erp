@@ -1,13 +1,20 @@
 import { COLLECTIONS, deleteDocument, updateDocument, upsertDocument } from "@/lib/firebase/firestore";
 import type {
   AuditLog,
+  BankaEkstresi,
+  Davet,
+  GibSyncLog,
   Gorev,
   GorevDurum,
   Belge,
   GonderimKaydi,
   KDV2Hesaplama,
   Musteri,
+  Odeme,
   Rapor,
+  ResmiGazeteOzeti,
+  Tahakkuk,
+  TahakkukDurum,
   Tebligat,
   TebligatDurum,
   Bildirim,
@@ -26,6 +33,7 @@ function createId(prefix: string) {
 }
 
 export async function createMusteri(input: {
+  ofisId?: string;
   firmaAdi: string;
   vknTckn: string;
   yetkiliAd: string;
@@ -35,9 +43,13 @@ export async function createMusteri(input: {
   sorumluPersonel: string;
   kdvMukellef: boolean;
   muhtasarMukellef: boolean;
+  varsayilanHizmetUcreti?: number;
+  importBatchId?: string;
+  kaynak?: Musteri["kaynak"];
 }) {
   const musteri: Musteri = {
     id: createId("m"),
+    ofisId: input.ofisId ?? "ofis-default",
     firmaAdi: input.firmaAdi,
     vknTckn: input.vknTckn,
     yetkiliAd: input.yetkiliAd,
@@ -54,6 +66,9 @@ export async function createMusteri(input: {
     kdvMukellef: input.kdvMukellef,
     muhtasarMukellef: input.muhtasarMukellef,
     gecikmisPesinat: false,
+    varsayilanHizmetUcreti: input.varsayilanHizmetUcreti,
+    importBatchId: input.importBatchId,
+    kaynak: input.kaynak ?? "manuel",
   };
 
   await upsertDocument(COLLECTIONS.musteriler, musteri);
@@ -182,6 +197,94 @@ export async function createTahsilat(input: Omit<Tahsilat, "id">) {
 
   await upsertDocument(COLLECTIONS.tahsilatlar, tahsilat);
   return tahsilat;
+}
+
+export async function createTahakkuk(input: Omit<Tahakkuk, "id" | "createdAt">) {
+  const tahakkuk: Tahakkuk = {
+    id: createId("tk"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.tahakkuklar, tahakkuk);
+  return tahakkuk;
+}
+
+export async function updateTahakkuk(id: string, input: Partial<Tahakkuk>) {
+  await updateDocument<Tahakkuk>(COLLECTIONS.tahakkuklar, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateTahakkukDurum(id: string, durum: TahakkukDurum, odenenTutar?: number) {
+  await updateTahakkuk(id, {
+    durum,
+    odenenTutar,
+  });
+}
+
+export async function createOdeme(input: Omit<Odeme, "id" | "createdAt">) {
+  const odeme: Odeme = {
+    id: createId("od"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.odemeler, odeme);
+  return odeme;
+}
+
+export async function createBankaEkstresi(input: Omit<BankaEkstresi, "id" | "createdAt">) {
+  const ekstre: BankaEkstresi = {
+    id: createId("be"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.bankaEkstreleri, ekstre);
+  return ekstre;
+}
+
+export async function createDavet(input: Omit<Davet, "id" | "createdAt" | "durum">) {
+  const davet: Davet = {
+    id: createId("dav"),
+    ...input,
+    durum: "bekliyor",
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.davetler, davet);
+  return davet;
+}
+
+export async function updateDavet(id: string, input: Partial<Davet>) {
+  await updateDocument<Davet>(COLLECTIONS.davetler, id, input);
+}
+
+export async function createResmiGazeteOzeti(input: Omit<ResmiGazeteOzeti, "id" | "createdAt">) {
+  const ozet: ResmiGazeteOzeti = {
+    id: createId("rg"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.resmiGazeteOzetleri, ozet);
+  return ozet;
+}
+
+export async function updateResmiGazeteOzeti(id: string, input: Partial<ResmiGazeteOzeti>) {
+  await updateDocument<ResmiGazeteOzeti>(COLLECTIONS.resmiGazeteOzetleri, id, input);
+}
+
+export async function createGibSyncLog(input: Omit<GibSyncLog, "id">) {
+  const log: GibSyncLog = {
+    id: createId("gib"),
+    ...input,
+  };
+
+  await upsertDocument(COLLECTIONS.gibSyncLogs, log);
+  return log;
 }
 
 export async function updateTahsilat(id: string, input: Partial<Tahsilat>) {

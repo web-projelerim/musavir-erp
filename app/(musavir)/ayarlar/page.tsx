@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeadCell, TableRow } from "@/components/ui/Table";
 import { Activity, Users, Bell, Link2, Shield, Sliders, Plus } from "lucide-react";
+import { DavetModal } from "@/components/modals/DavetModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useToast } from "@/lib/context/ToastContext";
@@ -39,10 +40,17 @@ const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   upload: "Yukleme",
   send: "Gonderim",
   seed: "Seed",
+  import: "Import",
+  invite: "Davet",
+  match: "Eslesme",
+  sync: "Sync",
+  summarize: "Ozet",
 };
 
 function auditVariant(action: AuditAction) {
   if (action === "delete") return "danger";
+  if (action === "match" || action === "import") return "info";
+  if (action === "invite" || action === "sync" || action === "summarize") return "warning";
   if (action === "status_change") return "warning";
   if (action === "create" || action === "upload") return "success";
   if (action === "send") return "info";
@@ -53,8 +61,9 @@ export default function AyarlarPage() {
   const toast = useToast();
   const logAudit = useAuditLog();
   const [activeTab, setActiveTab] = useState("kullanicilar");
-  const { kullanicilar, auditLogs } = useAppData();
+  const { kullanicilar, auditLogs, gibSyncLogs, ofisler, resmiGazeteOzetleri } = useAppData();
   const [seeding, setSeeding] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const sortedAuditLogs = [...auditLogs]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 50);
@@ -120,7 +129,7 @@ export default function AyarlarPage() {
               <Card>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-slate-800">Kullanıcılar</h3>
-                  <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />}>Kullanıcı Ekle</Button>
+                  <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setShowInviteModal(true)}>Personel Davet Et</Button>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {kullanicilar.map((u) => (
@@ -140,6 +149,9 @@ export default function AyarlarPage() {
                         <Badge variant={u.rol === "musavir" ? "info" : "neutral"}>
                           {ROL_LABELS[u.rol]}
                         </Badge>
+                        {u.yetkiler && u.yetkiler.length > 0 && (
+                          <Badge variant="neutral">{u.yetkiler.length} yetki</Badge>
+                        )}
                         <Badge variant={u.aktif ? "success" : "neutral"}>
                           {u.aktif ? "Aktif" : "Pasif"}
                         </Badge>
@@ -235,7 +247,7 @@ export default function AyarlarPage() {
                 {
                   title: "GİB (Gelir İdaresi Başkanlığı)",
                   desc: "E-tebligat, beyanname durumu ve resmi veriler",
-                  durum: "hazirlik",
+                  durum: ofisler[0]?.gibDurum ?? "hazirlik",
                   icon: "🏛",
                 },
                 {
@@ -247,7 +259,7 @@ export default function AyarlarPage() {
                 {
                   title: "WhatsApp Business API",
                   desc: "Toplu rapor ve bildirim gönderimi",
-                  durum: "hazirlik",
+                  durum: ofisler[0]?.whatsappDurum ?? "hazirlik",
                   icon: "💬",
                 },
               ].map((entg) => (
@@ -258,18 +270,36 @@ export default function AyarlarPage() {
                       <div>
                         <h4 className="text-sm font-semibold text-slate-800">{entg.title}</h4>
                         <p className="text-xs text-slate-500 mt-0.5">{entg.desc}</p>
-                        <Badge variant="neutral" className="mt-2">Entegrasyon Hazırlığında</Badge>
+                        <Badge variant={entg.durum === "aktif" ? "success" : "neutral"} className="mt-2">
+                          {entg.durum === "aktif" ? "Aktif" : "Hazirlik"}
+                        </Badge>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" disabled>
-                      Yapılandır
-                    </Button>
+                    <Button variant="outline" size="sm">Yapılandır</Button>
                   </div>
                   <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-xs text-amber-700">
-                      <strong>MVP Notu:</strong> Bu entegrasyon şu anda adapter katmanı hazırlığında. Bağlantı bilgileri girildikten sonra otomatik senkronizasyon aktif hale gelecek.
+                      <strong>MVP Notu:</strong> Adapter iskeleti aktif. Kimlik bilgileri tanimlaninca sync loglari bu panelden izlenecek.
                     </p>
                   </div>
+                  {entg.title.includes("GİB") && (
+                    <div className="mt-3 rounded-lg border border-slate-200 p-3">
+                      <p className="text-xs font-semibold text-slate-700">Son GIB Sync Kayitlari</p>
+                      <div className="mt-2 space-y-2">
+                        {gibSyncLogs.slice(0, 3).map((log) => (
+                          <div key={log.id} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">{log.syncTipi}</span>
+                            <Badge variant={log.durum === "basarili" ? "success" : log.durum === "basarisiz" ? "danger" : "warning"}>{log.durum}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {entg.title.includes("WhatsApp") && (
+                    <div className="mt-3 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">
+                      Varsayilan tahakkuk sablonu aktif. Planli mesajlar Tahakkuklar ekraninda queue olarak izlenir.
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>
@@ -393,10 +423,30 @@ export default function AyarlarPage() {
                   </Button>
                 </div>
               </Card>
+              <Card>
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Resmi Gazete Ozeti</h3>
+                <p className="text-xs text-slate-500 mb-3">Gunluk ozetler dashboard karti olarak gosterilir.</p>
+                <div className="space-y-2">
+                  {resmiGazeteOzetleri.slice(0, 3).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-slate-800">{item.baslik}</p>
+                        <Badge variant={item.aksiyonGerekiyor ? "warning" : "neutral"}>{item.maliMusavirEtkiPuani}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">{item.aiOzet}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             </div>
           )}
         </div>
       </div>
+      <DavetModal
+        open={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        defaultRole="personel"
+      />
     </div>
   );
 }

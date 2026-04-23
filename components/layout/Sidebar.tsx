@@ -13,6 +13,7 @@ import {
   Bell,
   AlertTriangle,
   Calculator,
+  CreditCard,
   Settings,
   Building2,
   LogOut,
@@ -32,6 +33,7 @@ const navItems: {
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
   { label: "Tebligat & Beyan", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Risk Merkezi", href: "/risk", icon: AlertTriangle, badge: null },
+  { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
 ];
 

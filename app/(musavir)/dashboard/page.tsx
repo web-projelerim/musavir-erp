@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Users,
   AlertTriangle,
@@ -12,6 +12,8 @@ import {
   ArrowRight,
   Plus,
   MessageCircle,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -92,7 +94,8 @@ function ayLabel(key: string) {
 export default function DashboardPage() {
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
-  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2 } = useAppData();
+  const [dismissedGazete, setDismissedGazete] = useState<string[]>([]);
+  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs } = useAppData();
   const bekleyenGorevler = gorevler.filter(
     (g) => g.durum !== "tamamlandi" && g.durum !== "iptal"
   );
@@ -183,6 +186,11 @@ export default function DashboardPage() {
     },
   ];
 
+  const visibleGazete = useMemo(
+    () => resmiGazeteOzetleri.filter((item) => !dismissedGazete.includes(item.id)).slice(0, 2),
+    [dismissedGazete, resmiGazeteOzetleri]
+  );
+
   return (
     <div>
       <PageHeader
@@ -216,6 +224,37 @@ export default function DashboardPage() {
         subtitle="Portföy, görev, tebligat ve rapor özeti"
         metrics={metrics}
       />
+
+      {visibleGazete.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {visibleGazete.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    <p className="text-sm font-semibold text-blue-900">Resmi Gazete AI Ozeti</p>
+                    <Badge variant={item.aksiyonGerekiyor ? "warning" : "info"}>{item.maliMusavirEtkiPuani}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-slate-900">{item.baslik}</p>
+                  <p className="mt-1 text-xs text-slate-600">{item.aiOzet}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.maliMusavirEtkisi}</p>
+                  <a href={item.kaynakLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-medium text-blue-700 hover:text-blue-800">
+                    Resmi metni ac
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Grafik satırı */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
@@ -472,6 +511,32 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-800">GIB Sync Durumu</h3>
+              <Link href="/ayarlar" className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                Ayarlar <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {gibSyncLogs.length === 0 ? (
+                <div className="px-5 py-4 text-xs text-slate-400">Henüz sync kaydi yok</div>
+              ) : (
+                gibSyncLogs.slice(0, 3).map((log) => (
+                  <div key={log.id} className="px-5 py-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-slate-700">{log.syncTipi}</p>
+                      <Badge variant={log.durum === "basarili" ? "success" : log.durum === "basarisiz" ? "danger" : "warning"}>
+                        {log.durum}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">{formatTarih(log.baslamaTarihi)}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

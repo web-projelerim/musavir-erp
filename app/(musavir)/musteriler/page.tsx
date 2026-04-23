@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, ArrowUpDown, ChevronRight, LayoutGrid, List, Phone, Mail } from "lucide-react";
+import { Search, Plus, ArrowUpDown, ChevronRight, LayoutGrid, List, Phone, Mail, FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { RiskBadge, TahsilatBadge, Badge } from "@/components/ui/Badge";
@@ -16,6 +16,7 @@ import {
   TableEmpty,
 } from "@/components/ui/Table";
 import { YeniMusteriModal } from "@/components/modals/YeniMusteriModal";
+import { MusteriImportModal } from "@/components/modals/MusteriImportModal";
 import { riskMapOlustur } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { formatTarih } from "@/lib/utils/format";
@@ -33,6 +34,7 @@ export default function MusterilerPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [view, setView] = useState<"tablo" | "kart">("tablo");
   const [showYeniModal, setShowYeniModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 } = useAppData();
   const riskMap = riskMapOlustur({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
   const riskKayitlari = musteriler.map((musteri) => ({
@@ -94,9 +96,14 @@ export default function MusterilerPage() {
         title="Müşteri Listesi"
         subtitle={`${filteredMusteriler.length} müşteri gösteriliyor`}
         action={
-          <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowYeniModal(true)}>
-            Yeni Müşteri
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" icon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => setShowImportModal(true)}>
+              Excel Ice Aktar
+            </Button>
+            <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowYeniModal(true)}>
+              Yeni Müşteri
+            </Button>
+          </div>
         }
       />
 
@@ -345,6 +352,10 @@ export default function MusterilerPage() {
       <YeniMusteriModal
         open={showYeniModal}
         onClose={() => setShowYeniModal(false)}
+      />
+      <MusteriImportModal
+        open={showImportModal}
+        onClose={() => setShowImportModal(false)}
       />
     </div>
   );

@@ -14,45 +14,106 @@ service cloud.firestore {
       return isSignedIn() && userDoc().data.rol != null ? userDoc().data.rol : null;
     }
 
+    function officeId() {
+      return isSignedIn() && userDoc().data.ofisId != null ? userDoc().data.ofisId : 'ofis-default';
+    }
+
     function isStaff() {
       return role() in ['musavir', 'personel'];
+    }
+
+    function isMusavir() {
+      return role() == 'musavir';
     }
 
     function isMukellefFor(musteriId) {
       return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
     }
 
+    function sameOffice(data) {
+      return isStaff() && (data.ofisId == null || data.ofisId == officeId());
+    }
+
+    function ownUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /ofisler/{ofisId} {
+      allow read: if sameOffice(resource.data);
+      allow write: if isMusavir() && (request.resource == null || request.resource.data.id == ofisId);
+    }
+
     match /kullanicilar/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isStaff());
-      // Bootstrap convenience for first Firebase setup. Tighten this with admin claims before production.
-      allow create: if isSignedIn()
-        && request.auth.uid == userId
+      allow read: if ownUser(userId) || sameOffice(resource.data);
+      allow create: if ownUser(userId)
         && request.resource.data.email == request.auth.token.email;
-      allow write: if role() == 'musavir';
+      allow update: if ownUser(userId) || isMusavir();
+      allow delete: if false;
     }
 
     match /musteriler/{musteriId} {
-      allow read: if isStaff() || isMukellefFor(musteriId);
-      allow write: if isStaff();
+      allow read: if sameOffice(resource.data) || isMukellefFor(musteriId);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /davetler/{davetId} {
+      allow read: if sameOffice(resource.data);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /tahakkuklar/{id} {
+      allow read: if sameOffice(resource.data) || isMukellefFor(resource.data.musteriId);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /odemeler/{id} {
+      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /bankaEkstreleri/{id} {
+      allow read: if sameOffice(resource.data);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /resmiGazeteOzetleri/{id} {
+      allow read: if sameOffice(resource.data);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
+    }
+
+    match /gibSyncLogs/{id} {
+      allow read: if sameOffice(resource.data);
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
     }
 
     match /belgeler/{belgeId} {
-      allow read: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
-      allow create: if isStaff() || (request.resource.data.musteriId != null && isMukellefFor(request.resource.data.musteriId));
-      allow update, delete: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow create: if sameOffice(request.resource.data)
+        || (request.resource.data.musteriId != null && isMukellefFor(request.resource.data.musteriId));
+      allow update, delete: if sameOffice(resource.data)
+        || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
     }
 
     match /auditLogs/{logId} {
-      allow read: if isStaff();
+      allow read: if sameOffice(resource.data);
       allow create: if isSignedIn()
-        && (request.resource.data.actorId == request.auth.uid || isStaff())
-        && request.resource.data.createdAt is string;
+        && request.resource.data.actorId is string
+        && request.resource.data.createdAt is string
+        && (sameOffice(request.resource.data) || request.resource.data.actorId == request.auth.uid);
       allow update, delete: if false;
     }
 
     match /{collection}/{docId} {
-      allow read: if isStaff() || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
-      allow write: if isStaff();
+      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+      allow create, update: if sameOffice(request.resource.data);
+      allow delete: if sameOffice(resource.data);
     }
   }
 }

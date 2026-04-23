@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   FileText,
@@ -12,6 +13,7 @@ import {
   Download,
   MessageSquare,
   Upload,
+  LogOut,
 } from "lucide-react";
 import { Badge, BeyannameBadge, TahsilatBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { MetricCard, Card } from "@/components/ui/Card";
@@ -30,13 +32,16 @@ function formatDosyaBoyutu(bytes: number) {
 }
 
 export default function MukellefPanelPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const {
     musteriler,
     beyannameler,
     tebligatlar: tumTebligatlar,
     raporlar: tumRaporlar,
     tahsilatlar: tumTahsilatlar,
+    tahakkuklar: tumTahakkuklar,
+    odemeler: tumOdemeler,
     belgeler: tumBelgeler,
     gorevler: tumGorevler,
     kdv2,
@@ -65,6 +70,8 @@ export default function MukellefPanelPage() {
   const tebligatlar = tumTebligatlar.filter((t) => t.musteriId === musteri.id);
   const raporlar = tumRaporlar.filter((r) => r.musteriId === musteri.id);
   const tahsilatlar = tumTahsilatlar.filter((t) => t.musteriId === musteri.id);
+  const tahakkuklar = tumTahakkuklar.filter((t) => t.musteriId === musteri.id);
+  const odemeler = tumOdemeler.filter((o) => o.musteriId === musteri.id);
   const gorevler = tumGorevler.filter((g) => g.musteriId === musteri.id);
   const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id && b.gorunurluk === "mukellef");
   const risk = hesaplaMusteriRisk({
@@ -118,6 +125,17 @@ export default function MukellefPanelPage() {
                 {musteri.yetkiliAd.split(" ").map((n) => n[0]).join("")}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut();
+                router.replace("/giris");
+              }}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Çıkış Yap"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
@@ -222,6 +240,37 @@ export default function MukellefPanelPage() {
           </Card>
 
           {/* Tebligatlar */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-slate-500" />
+                Guncel Tahakkuklarim
+              </h3>
+            </div>
+            {tahakkuklar.length === 0 ? (
+              <p className="text-xs text-slate-400">Guncel tahakkuk bulunamadi</p>
+            ) : (
+              <div className="space-y-2.5">
+                {tahakkuklar.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-slate-100 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800">{t.donem}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{t.hizmetTuru.replace("_", " ")}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Vade: {formatTarih(t.vadeTarihi)}</p>
+                      </div>
+                      <TahsilatBadge durum={t.durum === "odendi" ? "odendi" : t.durum === "kismi" ? "kismi" : t.durum === "gecikti" ? "gecikti" : "bekliyor"} />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="text-slate-800 font-semibold">{formatPara(t.tutar)}</span>
+                      <span className="text-slate-500">Odenen: {formatPara(t.odenenTutar ?? 0)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
@@ -354,6 +403,14 @@ export default function MukellefPanelPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {odemeler.length > 0 && (
+              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="text-xs font-semibold text-emerald-800">Sisteme islenen son banka hareketi</p>
+                <p className="mt-1 text-xs text-emerald-700">
+                  {formatPara(odemeler[0].tutar)} · {formatTarih(odemeler[0].odemeTarihi)} · {odemeler[0].durum}
+                </p>
               </div>
             )}
           </Card>

@@ -14,6 +14,7 @@ import {
 import { firestoreDb } from "@/lib/firebase/client";
 
 export const COLLECTIONS = {
+  ofisler: "ofisler",
   musteriler: "musteriler",
   gorevler: "gorevler",
   tebligatlar: "tebligatlar",
@@ -21,6 +22,12 @@ export const COLLECTIONS = {
   raporlar: "raporlar",
   bildirimler: "bildirimler",
   tahsilatlar: "tahsilatlar",
+  tahakkuklar: "tahakkuklar",
+  odemeler: "odemeler",
+  davetler: "davetler",
+  bankaEkstreleri: "bankaEkstreleri",
+  resmiGazeteOzetleri: "resmiGazeteOzetleri",
+  gibSyncLogs: "gibSyncLogs",
   kdv2: "kdv2",
   kullanicilar: "kullanicilar",
   gonderimler: "gonderimler",

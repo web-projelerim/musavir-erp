@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RiskBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
 import { Table, TableHead, TableHeadCell } from "@/components/ui/Table";
+import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import type { RiskSeviyesi } from "@/lib/types";
@@ -77,7 +78,65 @@ export default function RiskPage() {
           <h3 className="text-sm font-semibold text-slate-800">Risk Siralamasi</h3>
           <p className="text-xs text-slate-500 mt-0.5">Tum musteriler hesaplanan risk skoruna gore sirali</p>
         </div>
-        <Table>
+        <MobileList empty={riskListesi.length === 0}>
+          {riskListesi.map((risk, idx) => {
+            const m = risk.musteri;
+            return (
+              <MobileCard key={m.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`text-sm font-bold tabular-nums ${
+                      idx === 0 ? "text-red-600" :
+                      idx === 1 ? "text-orange-600" :
+                      idx === 2 ? "text-amber-600" :
+                      "text-slate-400"
+                    }`}>
+                      #{idx + 1}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{m.firmaAdi}</p>
+                    <p className="mt-1 text-xs font-mono text-slate-400">{m.vknTckn}</p>
+                  </div>
+                  <RiskBadge seviye={risk.seviye} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <MobileField label="Risk Skoru">
+                    <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel size="sm" />
+                  </MobileField>
+                  <MobileField label="Sorumlu">
+                    {m.sorumluPersonel}
+                  </MobileField>
+                </div>
+                <div className="mt-3">
+                  <MobileField label="Risk Sinyalleri">
+                    {risk.sinyaller.length === 0 ? (
+                      <span className="font-medium text-emerald-600">Sinyal yok</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {risk.sinyaller.slice(0, 3).map((sinyal) => (
+                          <span key={sinyal.tip} className={`text-xs px-2 py-0.5 rounded-full font-medium ${sinyal.renk}`}>
+                            {sinyal.label} +{sinyal.puan}
+                          </span>
+                        ))}
+                        {risk.sinyaller.length > 3 && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                            +{risk.sinyaller.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </MobileField>
+                </div>
+                <Link
+                  href={`/musteriler/${m.id}`}
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Detay <ChevronRight className="w-3 h-3" />
+                </Link>
+              </MobileCard>
+            );
+          })}
+        </MobileList>
+        <Table className="hidden md:block">
           <TableHead>
             <tr>
               <TableHeadCell>Sira</TableHeadCell>

@@ -39,6 +39,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/Table";
+import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
@@ -251,26 +252,39 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-sm font-semibold text-slate-800 mb-1">Risk Dağılımı</h3>
           <p className="text-xs text-slate-500 mb-3">Aktif müşteriler</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie
-                data={riskDagilim}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={45}
-                outerRadius={68}
-                paddingAngle={3}
-              >
-                {riskDagilim.map((d, i) => (
-                  <Cell key={i} fill={d.color} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-1.5 mt-1">
+          <div className="sm:hidden space-y-2">
+            {riskDagilim.map((d) => (
+              <div key={d.name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                <span className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                  {d.name}
+                </span>
+                <span className="text-sm font-bold text-slate-900">{d.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className="hidden sm:block">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={riskDagilim}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={68}
+                  paddingAngle={3}
+                >
+                  {riskDagilim.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="hidden sm:grid grid-cols-2 gap-1.5 mt-1">
             {riskDagilim.map((d) => (
               <div key={d.name} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
@@ -327,7 +341,31 @@ export default function DashboardPage() {
               Tümü <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          <Table>
+          <MobileList empty={kritikRiskler.length === 0}>
+            {kritikRiskler.map((risk) => {
+              const m = risk.musteri;
+              return (
+                <MobileCard key={m.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <Link href={`/musteriler/${m.id}`} className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">{m.firmaAdi}</p>
+                      <p className="mt-1 text-xs font-mono text-slate-400">{m.vknTckn}</p>
+                    </Link>
+                    <TahsilatBadge durum={m.tahsilatDurumu} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <MobileField label="Risk">
+                      <RiskMetre skor={risk.skor} seviye={risk.seviye} showLabel size="sm" />
+                    </MobileField>
+                    <MobileField label="Yaklaşan Beyan">
+                      {m.yaklasanBeyanname ? formatTarih(m.yaklasanBeyanname) : "—"}
+                    </MobileField>
+                  </div>
+                </MobileCard>
+              );
+            })}
+          </MobileList>
+          <Table className="hidden md:block">
             <TableHead>
               <tr>
                 <TableHeadCell>Firma</TableHeadCell>
@@ -450,7 +488,31 @@ export default function DashboardPage() {
             Tümü <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
-        <Table>
+        <MobileList empty={yaklasanBeyanlar.length === 0}>
+          {yaklasanBeyanlar.map((b) => (
+            <MobileCard key={b.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">{b.musteriAdi}</p>
+                  <p className="mt-1 text-xs text-slate-500">{b.donem}</p>
+                </div>
+                <BeyannameBadge durum={b.durum} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <MobileField label="Beyan Türü">
+                  <Badge variant="info">{b.tur}</Badge>
+                </MobileField>
+                <MobileField label="Son Tarih">
+                  <span className="font-semibold text-slate-800">{formatTarih(b.sonTarih)}</span>
+                </MobileField>
+                <MobileField label="Sorumlu" className="col-span-2">
+                  {b.sorumlu}
+                </MobileField>
+              </div>
+            </MobileCard>
+          ))}
+        </MobileList>
+        <Table className="hidden md:block">
           <TableHead>
             <tr>
               <TableHeadCell>Müşteri</TableHeadCell>

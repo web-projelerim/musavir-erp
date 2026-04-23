@@ -5,6 +5,7 @@ import { Bell, CheckCircle, FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import { Badge, BeyannameBadge, TebligatBadge } from "@/components/ui/Badge";
+import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import {
   Table,
   TableHead,
@@ -210,7 +211,54 @@ export default function TebligatlarPage() {
 
       {activeTab === "Tebligatlar" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
+          <MobileList empty={filteredTebligatlar.length === 0}>
+            {filteredTebligatlar.map((t) => (
+              <MobileCard key={t.id} onClick={() => setSeciliTebligat(t)}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{t.baslik}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-600">{t.musteriAdi}</p>
+                    <p className="mt-1 text-xs font-mono text-slate-400">{t.vknTckn}</p>
+                  </div>
+                  <TebligatBadge durum={t.durum} />
+                </div>
+                {t.notlar && <p className="mt-2 text-xs text-amber-600">{t.notlar}</p>}
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <MobileField label="Tarih">{formatTarih(t.tarih)}</MobileField>
+                  <MobileField label="Tür">
+                    <Badge variant="neutral">{t.tur}</Badge>
+                  </MobileField>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleTebligatPdf(t);
+                    }}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    PDF
+                  </button>
+                  {t.durum !== "islendi" && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleTebligatIslendi(t.id);
+                      }}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      İşlendi
+                    </button>
+                  )}
+                </div>
+              </MobileCard>
+            ))}
+          </MobileList>
+          <Table className="hidden md:block">
             <TableHead>
               <tr>
                 <TableHeadCell>Tarih</TableHeadCell>
@@ -285,7 +333,56 @@ export default function TebligatlarPage() {
 
       {activeTab === "Beyannameler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
+          <MobileList empty={filteredBeyanlar.length === 0}>
+            {filteredBeyanlar.map((b) => (
+              <MobileCard key={b.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{b.musteriAdi}</p>
+                    <p className="mt-1 text-xs text-slate-500">{b.donem}</p>
+                  </div>
+                  <BeyannameBadge durum={b.durum} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <MobileField label="Tür">
+                    <Badge variant="info">{b.tur}</Badge>
+                  </MobileField>
+                  <MobileField label="Son Tarih">
+                    <span className={b.durum === "gecikti" ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>
+                      {formatTarih(b.sonTarih)}
+                    </span>
+                  </MobileField>
+                  <MobileField label="Verilme Tarihi">
+                    {b.verilmeTarihi ? formatTarih(b.verilmeTarihi) : "-"}
+                  </MobileField>
+                  <MobileField label="Sorumlu">
+                    {b.sorumlu}
+                  </MobileField>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {b.durum !== "verildi" && (
+                    <button
+                      type="button"
+                      onClick={() => handleBeyannameDurum(b.id, "verildi")}
+                      className="min-h-10 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
+                    >
+                      Verildi
+                    </button>
+                  )}
+                  {b.durum !== "gecikti" && (
+                    <button
+                      type="button"
+                      onClick={() => handleBeyannameDurum(b.id, "gecikti")}
+                      className="min-h-10 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700"
+                    >
+                      Gecikti
+                    </button>
+                  )}
+                </div>
+              </MobileCard>
+            ))}
+          </MobileList>
+          <Table className="hidden md:block">
             <TableHead>
               <tr>
                 <TableHeadCell>Musteri</TableHeadCell>

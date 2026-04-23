@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge, RaporDurumBadge } from "@/components/ui/Badge";
 import { StatsDrawer } from "@/components/layout/StatsDrawer";
+import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
 } from "@/components/ui/Table";
@@ -347,7 +348,77 @@ export default function RaporlarPage() {
             </select>
           </div>
         </div>
-        <Table>
+        <MobileList empty={filtered.length === 0}>
+          {filtered.map((r) => (
+            <MobileCard key={r.id} className={selected.includes(r.id) ? "bg-blue-50/60" : ""}>
+              <div className="flex items-start justify-between gap-3">
+                <label className="flex min-w-0 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(r.id)}
+                    onChange={() => toggleSelect(r.id)}
+                    className="mt-1 rounded border-slate-300"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-slate-900">{r.musteriAdi}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{RAPOR_TIP_LABELS[r.tip]}</span>
+                  </span>
+                </label>
+                <RaporDurumBadge durum={r.durum} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <MobileField label="Dönem">{r.donem}</MobileField>
+                <MobileField label="Oluşturulma">{formatTarih(r.olusturmaTarihi)}</MobileField>
+                <MobileField label="Gönderim">
+                  {r.gonderimTarihi ? formatTarih(r.gonderimTarihi) : "—"}
+                </MobileField>
+                <MobileField label="Kanal">
+                  {r.kanal ? (
+                    <Badge variant={r.kanal === "whatsapp" ? "success" : "info"}>
+                      {r.kanal}
+                    </Badge>
+                  ) : (
+                    "—"
+                  )}
+                </MobileField>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {r.durum === "hazir" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected([r.id]);
+                        setShowWaModal(true);
+                      }}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEmailGonder(r)}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      E-posta
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleIndir(r)}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  İndir
+                </button>
+              </div>
+            </MobileCard>
+          ))}
+        </MobileList>
+        <Table className="hidden md:block">
           <TableHead>
             <tr>
               <TableHeadCell>
@@ -470,7 +541,32 @@ export default function RaporlarPage() {
           </div>
           <span className="text-xs text-slate-500">{gonderimler.length} kayıt</span>
         </div>
-        <Table>
+        <MobileList empty={gonderimler.length === 0} emptyMessage="Henüz gönderim kaydı yok">
+          {[...gonderimler]
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .map((g) => (
+              <MobileCard key={g.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{g.musteriAdi}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatTarih(g.createdAt)}</p>
+                  </div>
+                  <Badge variant={g.durum === "gonderildi" ? "success" : g.durum === "basarisiz" ? "danger" : "neutral"}>
+                    {g.durum}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <MobileField label="Kanal">
+                    <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{g.kanal}</Badge>
+                  </MobileField>
+                  <MobileField label="Şablon">{g.sablonId ?? "—"}</MobileField>
+                  <MobileField label="Deneme">{g.denemeSayisi}</MobileField>
+                  <MobileField label="Hata">{g.hataMesaji ?? "—"}</MobileField>
+                </div>
+              </MobileCard>
+            ))}
+        </MobileList>
+        <Table className="hidden md:block">
           <TableHead>
             <tr>
               <TableHeadCell>Tarih</TableHeadCell>

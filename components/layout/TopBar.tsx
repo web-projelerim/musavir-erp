@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateBildirimDurum } from "@/lib/firebase/repositories";
 import { useToast } from "@/lib/context/ToastContext";
+import { InstallAppButton } from "@/components/layout/InstallAppButton";
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -162,6 +163,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Sağ taraf */}
       <div className="flex items-center gap-3">
+        <InstallAppButton />
+
         {/* Bildirim */}
         <div className="relative">
           <button

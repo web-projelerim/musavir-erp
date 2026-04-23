@@ -62,7 +62,7 @@ export function GorevDurumBadge({ durum }: { durum: GorevDurum }) {
 export function TahsilatBadge({ durum }: { durum: TahsilatDurum }) {
   const map = {
     odendi: { label: "Ödendi", variant: "success" as const },
-    bekliyor: { label: "Bekliyor", variant: "neutral" as const },
+    bekliyor: { label: "Bekliyor", variant: "warning" as const },
     gecikti: { label: "Gecikti", variant: "danger" as const },
     kismi: { label: "Kısmi Ödeme", variant: "warning" as const },
   };
@@ -84,7 +84,7 @@ export function TebligatBadge({ durum }: { durum: TebligatDurum }) {
 export function BeyannameBadge({ durum }: { durum: BeyannameDurum }) {
   const map = {
     verildi: { label: "Verildi", variant: "success" as const },
-    bekliyor: { label: "Bekliyor", variant: "neutral" as const },
+    bekliyor: { label: "Bekliyor", variant: "warning" as const },
     gecikti: { label: "Gecikti", variant: "danger" as const },
     iptal: { label: "İptal", variant: "neutral" as const },
   };

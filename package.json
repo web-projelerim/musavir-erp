@@ -8,7 +8,8 @@
     "dev:clean": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\" && next dev -p 3100",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:firebase": "npx tsx scripts/seed-firebase.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.1",

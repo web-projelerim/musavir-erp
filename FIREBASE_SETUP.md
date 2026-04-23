@@ -61,6 +61,14 @@ Not: Mevcut kurallar ilk kurulum kolayligi icin kullanicinin kendi dokumanini ol
 
 Bu islem mock musteri, gorev, tebligat, beyanname, rapor, bildirim, tahsilat, KDV2, belge ve audit log kayitlarini Firestore koleksiyonlarina yazar.
 
+Alternatif olarak terminalden:
+
+```bash
+npm run seed:firebase
+```
+
+Bu komut `.env.local` icindeki Firebase web config ile `ali@musavir.com / sifre123` hesabindan oturum acip mock verileri Firestore REST uzerinden yazar.
+
 ## 6. Koleksiyonlar
 
 - `kullanicilar`

@@ -22,6 +22,7 @@ import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
+import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { buildReportPdfBlob, buildReportPdfFileName, downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import type { Belge, Rapor } from "@/lib/types";
@@ -256,11 +257,19 @@ export default function MukellefPanelPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-semibold text-slate-800">{t.donem}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{t.hizmetTuru.replace("_", " ")}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{tahakkukKalemLabel(t)}</p>
                         <p className="text-xs text-slate-400 mt-0.5">Vade: {formatTarih(t.vadeTarihi)}</p>
                       </div>
                       <TahsilatBadge durum={t.durum === "odendi" ? "odendi" : t.durum === "kismi" ? "kismi" : t.durum === "gecikti" ? "gecikti" : "bekliyor"} />
                     </div>
+                    <div className="mt-2">
+                      <Badge variant={t.tahakkukTuru === "vergi" ? "warning" : "neutral"}>
+                        {tahakkukTuruLabel(t.tahakkukTuru)}
+                      </Badge>
+                    </div>
+                    {t.otomatikTuretilmis && (
+                      <p className="mt-2 text-[11px] text-blue-500">Beyannameden otomatik turetildi</p>
+                    )}
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <span className="text-slate-800 font-semibold">{formatPara(t.tutar)}</span>
                       <span className="text-slate-500">Odenen: {formatPara(t.odenenTutar ?? 0)}</span>

@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle, FileText } from "lucide-react";
+import { CheckCircle, FileText, PlayCircle } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatsDrawer } from "@/components/layout/StatsDrawer";
-import { Badge, BeyannameBadge, TebligatBadge } from "@/components/ui/Badge";
+import {
+  Badge,
+  BeyannameBadge,
+  BeyanWorkflowBadge,
+  TebligatAksiyonBadge,
+  TebligatBadge,
+} from "@/components/ui/Badge";
 import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import {
   Table,
@@ -16,15 +22,28 @@ import {
   TableEmpty,
 } from "@/components/ui/Table";
 import { TebligatDetayModal } from "@/components/modals/TebligatDetayModal";
+import {
+  buildBeyanWorkflowPatch,
+  mapLegacyDurumToWorkflow,
+  nextWorkflowStep,
+  workflowActionLabel,
+} from "@/lib/domain/beyanWorkflow";
+import {
+  tebligatAksiyonDurumLabel,
+  tebligatAksiyonLabel,
+  tebligatKalanGun,
+  tebligatSlaLabel,
+  tebligatSlaVariant,
+} from "@/lib/domain/tebligatSla";
+import { useToast } from "@/lib/context/ToastContext";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { updateBeyannameDurum, updateBeyannameWorkflow, updateTebligat } from "@/lib/firebase/repositories";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
-import { updateBeyannameDurum, updateTebligatDurum } from "@/lib/firebase/repositories";
-import { useToast } from "@/lib/context/ToastContext";
 import { downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { buildTebligatPdfBlob, tebligatPdfFileName } from "@/lib/reports/tebligatPdf";
+import type { Beyanname, BeyannameDurum, Tebligat } from "@/lib/types";
 import { formatTarih } from "@/lib/utils/format";
-import type { BeyannameDurum, Tebligat } from "@/lib/types";
 
 const TABS = ["Tebligatlar", "Beyannameler"];
 
@@ -33,13 +52,18 @@ export default function TebligatlarPage() {
   const logAudit = useAuditLog();
   const [activeTab, setActiveTab] = useState("Tebligatlar");
   const [filterDurum, setFilterDurum] = useState("tumu");
-  const { tebligatlar: loadedTebligatlar, beyannameler, belgeler } = useAppData();
+  const { tebligatlar: loadedTebligatlar, beyannameler: loadedBeyannameler, belgeler } = useAppData();
   const [tebligatlar, setTebligatlar] = useState<Tebligat[]>(loadedTebligatlar);
+  const [beyannameler, setBeyannameler] = useState<Beyanname[]>(loadedBeyannameler);
   const [seciliTebligat, setSeciliTebligat] = useState<Tebligat | null>(null);
 
   useEffect(() => {
     setTebligatlar(loadedTebligatlar);
   }, [loadedTebligatlar]);
+
+  useEffect(() => {
+    setBeyannameler(loadedBeyannameler);
+  }, [loadedBeyannameler]);
 
   const handleTebligatPdf = (tebligat: Tebligat) => {
     const belgePdf = belgeler.find(
@@ -63,9 +87,13 @@ export default function TebligatlarPage() {
   const handleTebligatIslendi = async (id: string) => {
     const tebligat = tebligatlar.find((item) => item.id === id);
     setTebligatlar((prev) =>
-      prev.map((tebligat) => (tebligat.id === id ? { ...tebligat, durum: "islendi" } : tebligat))
+      prev.map((item) =>
+        item.id === id ? { ...item, durum: "islendi", aksiyonDurumu: "tamamlandi" } : item
+      )
     );
-    setSeciliTebligat((prev) => (prev?.id === id ? { ...prev, durum: "islendi" } : prev));
+    setSeciliTebligat((prev) =>
+      prev?.id === id ? { ...prev, durum: "islendi", aksiyonDurumu: "tamamlandi" } : prev
+    );
 
     if (!isFirebaseConfigured) {
       toast.success("Tebligat islendi olarak isaretlendi");
@@ -73,7 +101,7 @@ export default function TebligatlarPage() {
     }
 
     try {
-      await updateTebligatDurum(id, "islendi");
+      await updateTebligat(id, { durum: "islendi", aksiyonDurumu: "tamamlandi" });
       await logAudit({
         action: "status_change",
         entityType: "tebligat",
@@ -81,7 +109,7 @@ export default function TebligatlarPage() {
         entityLabel: tebligat?.baslik,
         summary: "Tebligat islendi olarak isaretlendi",
         before: tebligat ? { durum: tebligat.durum } : undefined,
-        after: { durum: "islendi" },
+        after: { durum: "islendi", aksiyonDurumu: "tamamlandi" },
       });
       toast.success("Tebligat islendi olarak isaretlendi");
     } catch (error) {
@@ -91,9 +119,61 @@ export default function TebligatlarPage() {
     }
   };
 
-  const handleBeyannameDurum = async (id: string, durum: BeyannameDurum) => {
+  const handleTebligatAksiyon = async (id: string) => {
+    const tebligat = tebligatlar.find((item) => item.id === id);
+    if (!tebligat) return;
+
+    const nextDurum =
+      tebligat.aksiyonDurumu === "bekliyor"
+        ? "islemde"
+        : tebligat.aksiyonDurumu === "islemde"
+          ? "tamamlandi"
+          : "tamamlandi";
+
+    setTebligatlar((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, aksiyonDurumu: nextDurum } : item))
+    );
+    setSeciliTebligat((prev) => (prev?.id === id ? { ...prev, aksiyonDurumu: nextDurum } : prev));
+
     if (!isFirebaseConfigured) {
-      toast.info("Demo modu", "Firebase env girilince bu islem Firestore'a kaydedilecek");
+      toast.success(`Tebligat aksiyonu "${tebligatAksiyonDurumLabel(nextDurum)}" durumuna alindi`);
+      return;
+    }
+
+    try {
+      await updateTebligat(id, { aksiyonDurumu: nextDurum });
+      await logAudit({
+        action: "status_change",
+        entityType: "tebligat",
+        entityId: id,
+        entityLabel: tebligat.baslik,
+        summary: `Tebligat aksiyonu ${nextDurum} durumuna guncellendi`,
+        before: { aksiyonDurumu: tebligat.aksiyonDurumu },
+        after: { aksiyonDurumu: nextDurum },
+      });
+      toast.success(`Tebligat aksiyonu "${tebligatAksiyonDurumLabel(nextDurum)}" durumuna alindi`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Tebligat aksiyonu guncellenemedi", "Firestore yetkilerini kontrol edin");
+    }
+  };
+
+  const handleBeyannameDurum = async (id: string, durum: BeyannameDurum) => {
+    setBeyannameler((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              durum,
+              yasamDongusuDurum: mapLegacyDurumToWorkflow(durum),
+              verilmeTarihi: durum === "verildi" ? new Date().toISOString() : item.verilmeTarihi,
+            }
+          : item
+      )
+    );
+
+    if (!isFirebaseConfigured) {
+      toast.info("Demo modu", "Beyanname durumu yerelde guncellendi");
       return;
     }
 
@@ -116,30 +196,66 @@ export default function TebligatlarPage() {
     }
   };
 
-  const filteredTebligatlar = tebligatlar.filter(
-    (t) => filterDurum === "tumu" || t.durum === filterDurum
-  );
-  const filteredBeyanlar = beyannameler.filter(
-    (b) => filterDurum === "tumu" || b.durum === filterDurum
-  );
+  const handleBeyanWorkflowStep = async (beyanname: Beyanname) => {
+    const next = nextWorkflowStep(beyanname.yasamDongusuDurum);
+    if (!next) return;
+
+    const patch = buildBeyanWorkflowPatch(beyanname, next);
+    setBeyannameler((prev) =>
+      prev.map((item) => (item.id === beyanname.id ? { ...item, ...patch } : item))
+    );
+
+    if (!isFirebaseConfigured) {
+      toast.success(`Beyanname akisi "${workflowActionLabel(beyanname.yasamDongusuDurum)}" adimina ilerletildi`);
+      return;
+    }
+
+    try {
+      await updateBeyannameWorkflow(beyanname.id, next, patch);
+      await logAudit({
+        action: "status_change",
+        entityType: "beyanname",
+        entityId: beyanname.id,
+        entityLabel: `${beyanname.tur} - ${beyanname.donem}`,
+        summary: `Beyanname akis adimi ${next} olarak guncellendi`,
+        before: {
+          yasamDongusuDurum: beyanname.yasamDongusuDurum,
+          durum: beyanname.durum,
+        },
+        after: patch as Record<string, unknown>,
+      });
+      toast.success(`Beyanname akisi "${workflowActionLabel(beyanname.yasamDongusuDurum)}" adimina ilerletildi`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Beyan workflow guncellenemedi", "Firestore yetkilerini kontrol edin");
+    }
+  };
+
+  const filteredTebligatlar = tebligatlar.filter((item) => filterDurum === "tumu" || item.durum === filterDurum);
+  const filteredBeyanlar = beyannameler.filter((item) => filterDurum === "tumu" || item.durum === filterDurum);
+  const kritikSla = tebligatlar.filter(
+    (item) => item.aksiyonDurumu !== "tamamlandi" && (tebligatKalanGun(item) ?? 99) <= 0
+  ).length;
+  const aksiyonBekleyen = tebligatlar.filter((item) => item.aksiyonDurumu !== "tamamlandi").length;
+
   const metrics = [
     { title: "Toplam Tebligat", value: tebligatlar.length, subtitle: "Bu donem" },
     {
       title: "Yeni Tebligat",
-      value: tebligatlar.filter((t) => t.durum === "yeni").length,
+      value: tebligatlar.filter((item) => item.durum === "yeni").length,
       subtitle: "Islem bekliyor",
       variant: "danger" as const,
     },
     {
-      title: "Bekleyen Beyan",
-      value: beyannameler.filter((b) => b.durum === "bekliyor").length,
-      subtitle: "Son tarih yaklasiyor",
-      variant: "warning" as const,
+      title: "Kritik SLA",
+      value: kritikSla,
+      subtitle: "Bugun veya gecmis son gun",
+      variant: kritikSla > 0 ? ("danger" as const) : ("success" as const),
     },
     {
-      title: "Geciken Beyan",
-      value: beyannameler.filter((b) => b.durum === "gecikti").length,
-      subtitle: "Acil islem gerekiyor",
+      title: "Aksiyon Kuyrugu",
+      value: aksiyonBekleyen,
+      subtitle: "Tamamlanmamis tebligat aksiyonu",
       variant: "danger" as const,
     },
   ];
@@ -152,18 +268,18 @@ export default function TebligatlarPage() {
       />
 
       <StatsDrawer
-        title="Tebligat ve Beyan Özeti"
-        subtitle="Resmi bildirim ve beyanname durumları"
+        title="Tebligat ve Beyan Ozeti"
+        subtitle="Resmi bildirim ve beyanname durumlari"
         metrics={metrics}
       />
 
-      <div className="border-b border-slate-200 mb-5">
+      <div className="mb-5 border-b border-slate-200">
         <nav className="flex gap-0">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-slate-500 hover:text-slate-700"
@@ -171,8 +287,8 @@ export default function TebligatlarPage() {
             >
               {tab}
               {tab === "Tebligatlar" && (
-                <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
-                  {tebligatlar.filter((t) => t.durum === "yeni").length}
+                <span className="ml-2 rounded-full bg-red-100 px-1.5 py-0.5 text-xs text-red-600">
+                  {tebligatlar.filter((item) => item.durum === "yeni").length}
                 </span>
               )}
             </button>
@@ -180,12 +296,12 @@ export default function TebligatlarPage() {
         </nav>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 mb-5">
+      <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-card">
         <div className="flex items-center gap-3">
           <select
             value={filterDurum}
-            onChange={(e) => setFilterDurum(e.target.value)}
-            className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
+            onChange={(event) => setFilterDurum(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
             <option value="tumu">Tum Durumlar</option>
             {activeTab === "Tebligatlar" ? (
@@ -210,54 +326,107 @@ export default function TebligatlarPage() {
       </div>
 
       {activeTab === "Tebligatlar" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
           <MobileList empty={filteredTebligatlar.length === 0}>
-            {filteredTebligatlar.map((t) => (
-              <MobileCard key={t.id} onClick={() => setSeciliTebligat(t)}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{t.baslik}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-600">{t.musteriAdi}</p>
-                    <p className="mt-1 text-xs font-mono text-slate-400">{t.vknTckn}</p>
+            {filteredTebligatlar.map((tebligat) => {
+              const kalanGun = tebligatKalanGun(tebligat);
+
+              return (
+                <MobileCard key={tebligat.id} onClick={() => setSeciliTebligat(tebligat)}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">{tebligat.baslik}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-600">{tebligat.musteriAdi}</p>
+                      <p className="mt-1 text-xs font-mono text-slate-400">{tebligat.vknTckn}</p>
+                    </div>
+                    <TebligatBadge durum={tebligat.durum} />
                   </div>
-                  <TebligatBadge durum={t.durum} />
-                </div>
-                {t.notlar && <p className="mt-2 text-xs text-amber-600">{t.notlar}</p>}
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <MobileField label="Tarih">{formatTarih(t.tarih)}</MobileField>
-                  <MobileField label="Tür">
-                    <Badge variant="neutral">{t.tur}</Badge>
-                  </MobileField>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleTebligatPdf(t);
-                    }}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    PDF
-                  </button>
-                  {t.durum !== "islendi" && (
+                  {tebligat.notlar && <p className="mt-2 text-xs text-amber-600">{tebligat.notlar}</p>}
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <MobileField label="Tarih">{formatTarih(tebligat.tarih)}</MobileField>
+                    <MobileField label="Tur">
+                      <Badge variant="neutral">{tebligat.tur}</Badge>
+                    </MobileField>
+                    <MobileField label="SLA">
+                      <Badge variant={tebligatSlaVariant(kalanGun, tebligat.aksiyonDurumu)}>
+                        {tebligatSlaLabel(kalanGun, tebligat.aksiyonDurumu)}
+                      </Badge>
+                    </MobileField>
+                    <MobileField label="Aksiyon">
+                      {tebligat.aksiyonDurumu ? <TebligatAksiyonBadge durum={tebligat.aksiyonDurumu} /> : "-"}
+                    </MobileField>
+                  </div>
+
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid grid-cols-1 gap-2 text-xs text-slate-600">
+                      <p>
+                        Teblig edilmis sayilma:{" "}
+                        <span className="font-medium text-slate-800">
+                          {tebligat.tebligEdilmisSayilmaTarihi
+                            ? formatTarih(tebligat.tebligEdilmisSayilmaTarihi)
+                            : "-"}
+                        </span>
+                      </p>
+                      <p>
+                        Kritik son tarih:{" "}
+                        <span className="font-medium text-slate-800">
+                          {tebligat.kritikSonTarih ? formatTarih(tebligat.kritikSonTarih) : "-"}
+                        </span>
+                      </p>
+                      <p>
+                        Yapilacak is:{" "}
+                        <span className="font-medium text-slate-800">
+                          {tebligatAksiyonLabel(tebligat.aksiyonTipi)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tebligat.aksiyonDurumu !== "tamamlandi" && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleTebligatAksiyon(tebligat.id);
+                        }}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-700"
+                      >
+                        <PlayCircle className="h-3.5 w-3.5" />
+                        {tebligat.aksiyonDurumu === "bekliyor" ? "Isleme Al" : "Aksiyonu Tamamla"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        handleTebligatIslendi(t.id);
+                        handleTebligatPdf(tebligat);
                       }}
-                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700"
                     >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      İşlendi
+                      <FileText className="h-3.5 w-3.5" />
+                      PDF
                     </button>
-                  )}
-                </div>
-              </MobileCard>
-            ))}
+                    {tebligat.durum !== "islendi" && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleTebligatIslendi(tebligat.id);
+                        }}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Islendi
+                      </button>
+                    )}
+                  </div>
+                </MobileCard>
+              );
+            })}
           </MobileList>
+
           <Table className="hidden md:block">
             <TableHead>
               <tr>
@@ -266,65 +435,103 @@ export default function TebligatlarPage() {
                 <TableHeadCell>VKN/TCKN</TableHeadCell>
                 <TableHeadCell>Baslik</TableHeadCell>
                 <TableHeadCell>Tur</TableHeadCell>
+                <TableHeadCell>SLA</TableHeadCell>
+                <TableHeadCell>Aksiyon</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
                 <TableHeadCell>Islem</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {filteredTebligatlar.length === 0 ? (
-                <TableEmpty colSpan={7} />
+                <TableEmpty colSpan={9} />
               ) : (
-                filteredTebligatlar.map((t) => (
-                  <TableRow key={t.id} onClick={() => setSeciliTebligat(t)}>
-                    <TableCell>
-                      <span className="text-xs font-medium text-slate-700">{formatTarih(t.tarih)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-semibold text-slate-800">{t.musteriAdi}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs font-mono text-slate-500">{t.vknTckn}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-xs font-medium text-slate-800">{t.baslik}</p>
-                        {t.notlar && <p className="text-xs text-amber-600 mt-0.5">{t.notlar}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="neutral">{t.tur}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <TebligatBadge durum={t.durum} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleTebligatPdf(t);
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="PDF goruntule"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                        </button>
-                        {t.durum !== "islendi" && (
+                filteredTebligatlar.map((tebligat) => {
+                  const kalanGun = tebligatKalanGun(tebligat);
+
+                  return (
+                    <TableRow key={tebligat.id} onClick={() => setSeciliTebligat(tebligat)}>
+                      <TableCell>
+                        <span className="text-xs font-medium text-slate-700">{formatTarih(tebligat.tarih)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-semibold text-slate-800">{tebligat.musteriAdi}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-mono text-slate-500">{tebligat.vknTckn}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="text-xs font-medium text-slate-800">{tebligat.baslik}</p>
+                          {tebligat.notlar && <p className="mt-0.5 text-xs text-amber-600">{tebligat.notlar}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{tebligat.tur}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={tebligatSlaVariant(kalanGun, tebligat.aksiyonDurumu)}>
+                            {tebligatSlaLabel(kalanGun, tebligat.aksiyonDurumu)}
+                          </Badge>
+                          {tebligat.kritikSonTarih && (
+                            <span className="text-[11px] text-slate-400">{formatTarih(tebligat.kritikSonTarih)}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {tebligat.aksiyonDurumu && <TebligatAksiyonBadge durum={tebligat.aksiyonDurumu} />}
+                          {tebligat.aksiyonTipi && (
+                            <span className="text-[11px] text-slate-400">
+                              {tebligatAksiyonLabel(tebligat.aksiyonTipi)}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <TebligatBadge durum={tebligat.durum} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {tebligat.aksiyonDurumu !== "tamamlandi" && (
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleTebligatAksiyon(tebligat.id);
+                              }}
+                              className="rounded-lg p-1.5 text-amber-600 transition-colors hover:bg-amber-50"
+                              title="Aksiyon ilerlet"
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={(event) => {
                               event.stopPropagation();
-                              handleTebligatIslendi(t.id);
+                              handleTebligatPdf(tebligat);
                             }}
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Islendi olarak isaretle"
+                            className="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-50"
+                            title="PDF goruntule"
                           >
-                            <CheckCircle className="w-3.5 h-3.5" />
+                            <FileText className="h-3.5 w-3.5" />
                           </button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {tebligat.durum !== "islendi" && (
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleTebligatIslendi(tebligat.id);
+                              }}
+                              className="rounded-lg p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50"
+                              title="Islendi olarak isaretle"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -332,47 +539,76 @@ export default function TebligatlarPage() {
       )}
 
       {activeTab === "Beyannameler" && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
           <MobileList empty={filteredBeyanlar.length === 0}>
-            {filteredBeyanlar.map((b) => (
-              <MobileCard key={b.id}>
+            {filteredBeyanlar.map((beyanname) => (
+              <MobileCard key={beyanname.id}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{b.musteriAdi}</p>
-                    <p className="mt-1 text-xs text-slate-500">{b.donem}</p>
+                    <p className="text-sm font-semibold text-slate-900">{beyanname.musteriAdi}</p>
+                    <p className="mt-1 text-xs text-slate-500">{beyanname.donem}</p>
                   </div>
-                  <BeyannameBadge durum={b.durum} />
+                  <div className="flex flex-col items-end gap-1">
+                    <BeyannameBadge durum={beyanname.durum} />
+                    <BeyanWorkflowBadge durum={beyanname.yasamDongusuDurum} />
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <MobileField label="Tür">
-                    <Badge variant="info">{b.tur}</Badge>
+                  <MobileField label="Tur">
+                    <Badge variant="info">{beyanname.tur}</Badge>
                   </MobileField>
                   <MobileField label="Son Tarih">
-                    <span className={b.durum === "gecikti" ? "font-semibold text-red-600" : "font-semibold text-slate-800"}>
-                      {formatTarih(b.sonTarih)}
+                    <span
+                      className={
+                        beyanname.durum === "gecikti"
+                          ? "font-semibold text-red-600"
+                          : "font-semibold text-slate-800"
+                      }
+                    >
+                      {formatTarih(beyanname.sonTarih)}
                     </span>
                   </MobileField>
                   <MobileField label="Verilme Tarihi">
-                    {b.verilmeTarihi ? formatTarih(b.verilmeTarihi) : "-"}
+                    {beyanname.verilmeTarihi ? formatTarih(beyanname.verilmeTarihi) : "-"}
                   </MobileField>
-                  <MobileField label="Sorumlu">
-                    {b.sorumlu}
-                  </MobileField>
+                  <MobileField label="Sorumlu">{beyanname.sorumlu}</MobileField>
+                  <MobileField label="Kaynak">{beyanname.kaynakSistem ?? "-"}</MobileField>
                 </div>
+                {(beyanname.tahakkukFisNo || beyanname.odemeSonTarihi) && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    {beyanname.tahakkukFisNo && (
+                      <p className="text-xs text-slate-600">Tahakkuk Fisi: {beyanname.tahakkukFisNo}</p>
+                    )}
+                    {beyanname.odemeSonTarihi && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Odeme Son Tarihi: {formatTarih(beyanname.odemeSonTarihi)}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {b.durum !== "verildi" && (
+                  {nextWorkflowStep(beyanname.yasamDongusuDurum) && (
                     <button
                       type="button"
-                      onClick={() => handleBeyannameDurum(b.id, "verildi")}
+                      onClick={() => handleBeyanWorkflowStep(beyanname)}
+                      className="min-h-10 rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700"
+                    >
+                      {workflowActionLabel(beyanname.yasamDongusuDurum)}
+                    </button>
+                  )}
+                  {beyanname.durum !== "verildi" && (
+                    <button
+                      type="button"
+                      onClick={() => handleBeyannameDurum(beyanname.id, "verildi")}
                       className="min-h-10 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700"
                     >
                       Verildi
                     </button>
                   )}
-                  {b.durum !== "gecikti" && (
+                  {beyanname.durum !== "gecikti" && (
                     <button
                       type="button"
-                      onClick={() => handleBeyannameDurum(b.id, "gecikti")}
+                      onClick={() => handleBeyannameDurum(beyanname.id, "gecikti")}
                       className="min-h-10 rounded-lg border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700"
                     >
                       Gecikti
@@ -382,6 +618,7 @@ export default function TebligatlarPage() {
               </MobileCard>
             ))}
           </MobileList>
+
           <Table className="hidden md:block">
             <TableHead>
               <tr>
@@ -389,7 +626,9 @@ export default function TebligatlarPage() {
                 <TableHeadCell>Tur</TableHeadCell>
                 <TableHeadCell>Donem</TableHeadCell>
                 <TableHeadCell>Son Tarih</TableHeadCell>
+                <TableHeadCell>Workflow</TableHeadCell>
                 <TableHeadCell>Verilme Tarihi</TableHeadCell>
+                <TableHeadCell>Tahakkuk</TableHeadCell>
                 <TableHeadCell>Sorumlu</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
                 <TableHeadCell>Islem</TableHeadCell>
@@ -397,51 +636,83 @@ export default function TebligatlarPage() {
             </TableHead>
             <TableBody>
               {filteredBeyanlar.length === 0 ? (
-                <TableEmpty colSpan={8} />
+                <TableEmpty colSpan={10} />
               ) : (
-                filteredBeyanlar.map((b) => (
-                  <TableRow key={b.id}>
+                filteredBeyanlar.map((beyanname) => (
+                  <TableRow key={beyanname.id}>
                     <TableCell>
-                      <span className="text-xs font-semibold text-slate-800">{b.musteriAdi}</span>
+                      <span className="text-xs font-semibold text-slate-800">{beyanname.musteriAdi}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="info">{b.tur}</Badge>
+                      <Badge variant="info">{beyanname.tur}</Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs text-slate-600">{b.donem}</span>
+                      <span className="text-xs text-slate-600">{beyanname.donem}</span>
                     </TableCell>
                     <TableCell>
-                      <span className={`text-xs font-medium ${b.durum === "gecikti" ? "text-red-600" : "text-slate-800"}`}>
-                        {formatTarih(b.sonTarih)}
+                      <span
+                        className={`text-xs font-medium ${
+                          beyanname.durum === "gecikti" ? "text-red-600" : "text-slate-800"
+                        }`}
+                      >
+                        {formatTarih(beyanname.sonTarih)}
                       </span>
                     </TableCell>
                     <TableCell>
-                      {b.verilmeTarihi ? (
-                        <span className="text-xs text-emerald-600">{formatTarih(b.verilmeTarihi)}</span>
+                      <div className="flex flex-col gap-1">
+                        <BeyanWorkflowBadge durum={beyanname.yasamDongusuDurum} />
+                        {beyanname.kaynakSistem && (
+                          <span className="text-[11px] text-slate-400">{beyanname.kaynakSistem}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {beyanname.verilmeTarihi ? (
+                        <span className="text-xs text-emerald-600">{formatTarih(beyanname.verilmeTarihi)}</span>
                       ) : (
                         <span className="text-xs text-slate-400">-</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs text-slate-600">{b.sorumlu}</span>
+                      {beyanname.tahakkukFisNo ? (
+                        <div>
+                          <p className="text-xs font-medium text-slate-700">{beyanname.tahakkukFisNo}</p>
+                          {beyanname.odemeSonTarihi && (
+                            <p className="text-xs text-slate-400">{formatTarih(beyanname.odemeSonTarihi)}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <BeyannameBadge durum={b.durum} />
+                      <span className="text-xs text-slate-600">{beyanname.sorumlu}</span>
+                    </TableCell>
+                    <TableCell>
+                      <BeyannameBadge durum={beyanname.durum} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {b.durum !== "verildi" && (
+                        {nextWorkflowStep(beyanname.yasamDongusuDurum) && (
                           <button
-                            onClick={() => handleBeyannameDurum(b.id, "verildi")}
-                            className="px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                            onClick={() => handleBeyanWorkflowStep(beyanname)}
+                            className="rounded-lg px-2 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-50"
+                          >
+                            {workflowActionLabel(beyanname.yasamDongusuDurum)}
+                          </button>
+                        )}
+                        {beyanname.durum !== "verildi" && (
+                          <button
+                            onClick={() => handleBeyannameDurum(beyanname.id, "verildi")}
+                            className="rounded-lg px-2 py-1 text-xs text-emerald-700 transition-colors hover:bg-emerald-50"
                           >
                             Verildi
                           </button>
                         )}
-                        {b.durum !== "gecikti" && (
+                        {beyanname.durum !== "gecikti" && (
                           <button
-                            onClick={() => handleBeyannameDurum(b.id, "gecikti")}
-                            className="px-2 py-1 text-xs text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            onClick={() => handleBeyannameDurum(beyanname.id, "gecikti")}
+                            className="rounded-lg px-2 py-1 text-xs text-red-700 transition-colors hover:bg-red-50"
                           >
                             Gecikti
                           </button>
@@ -461,6 +732,7 @@ export default function TebligatlarPage() {
         onClose={() => setSeciliTebligat(null)}
         onPdf={handleTebligatPdf}
         onIslendi={handleTebligatIslendi}
+        onAksiyon={handleTebligatAksiyon}
       />
     </div>
   );

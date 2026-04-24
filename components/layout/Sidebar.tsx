@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   LayoutDashboard,
   Users,
+  CalendarRange,
   CheckSquare,
   FileText,
   Bell,
@@ -28,6 +29,7 @@ const navItems: {
   badge: string | number | null;
 }[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
+  { label: "Yukumlulukler", href: "/yukumlulukler", icon: CalendarRange, badge: null },
   { label: "Müşteriler", href: "/musteriler", icon: Users, badge: null },
   { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },

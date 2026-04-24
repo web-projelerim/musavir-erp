@@ -89,6 +89,53 @@ export interface Musteri {
 
 export type TahsilatDurum = "odendi" | "bekliyor" | "gecikti" | "kismi";
 
+export type SirketTuru = "limited" | "anonim" | "sahis" | "diger";
+export type BeyanPeriyot = "aylik" | "uc_aylik" | "yillik" | "yok";
+
+export interface MukellefiyetProfili {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  sirketTuru: SirketTuru;
+  kdvPeriyot: BeyanPeriyot;
+  muhtasarPeriyot: BeyanPeriyot;
+  geciciVergiTakibi: boolean;
+  sgkTakibi: boolean;
+  eTebligatAktif: boolean;
+  durum: MusteriDurum;
+  kaynak: "sistem" | "manuel";
+  notlar?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type YukumlulukTipi = "kdv" | "muhtasar" | "gecici_vergi" | "sgk";
+export type YukumlulukDurumu =
+  | "planlandi"
+  | "bekliyor"
+  | "hazirlaniyor"
+  | "tamamlandi"
+  | "gecikti"
+  | "pasif";
+
+export interface Yukumluluk {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  profilId?: string;
+  tip: YukumlulukTipi;
+  donem: string;
+  sonTarih: string;
+  durum: YukumlulukDurumu;
+  sorumlu: string;
+  kaynak: "sistem" | "manuel";
+  bagliBeyannameId?: string;
+  aciklama?: string;
+  createdAt: string;
+}
+
 // ─── Görev ────────────────────────────────────────────────────
 export type GorevDurum = "beklemede" | "devam" | "tamamlandi" | "iptal";
 export type GorevOncelik = "dusuk" | "normal" | "yuksek" | "kritik";
@@ -127,6 +174,14 @@ export interface Gorev {
 
 // ─── Tebligat ─────────────────────────────────────────────────
 export type TebligatDurum = "yeni" | "okundu" | "islendi" | "bekliyor";
+export type TebligatOnemDerecesi = "normal" | "yuksek" | "kritik";
+export type TebligatAksiyonTipi =
+  | "incele"
+  | "yanit_hazirla"
+  | "odeme_kontrol"
+  | "uzlasma_degerlendir"
+  | "bilgi_tamamla";
+export type TebligatAksiyonDurum = "bekliyor" | "islemde" | "tamamlandi";
 
 export interface Tebligat {
   id: string;
@@ -138,12 +193,31 @@ export interface Tebligat {
   baslik: string;
   tur: string;
   durum: TebligatDurum;
+  ulasmaTarihi?: string;
+  tebligEdilmisSayilmaTarihi?: string;
+  kritikSonTarih?: string;
+  onemDerecesi?: TebligatOnemDerecesi;
+  aksiyonTipi?: TebligatAksiyonTipi;
+  aksiyonDurumu?: TebligatAksiyonDurum;
+  aksiyonSahibi?: string;
   pdfUrl?: string;
   notlar?: string;
 }
 
 // ─── Beyanname ────────────────────────────────────────────────
 export type BeyannameDurum = "verildi" | "bekliyor" | "gecikti" | "iptal";
+export type BeyannameYasamDongusuDurum =
+  | "planlandi"
+  | "evrak_bekliyor"
+  | "hazirlaniyor"
+  | "ic_kontrol"
+  | "musavir_onayi"
+  | "gonderildi"
+  | "tahakkuk_olustu"
+  | "odeme_bekliyor"
+  | "kapandi"
+  | "duzeltme_gerekli"
+  | "iptal";
 export type BeyannameType =
   | "KDV"
   | "MUHTAS"
@@ -161,9 +235,14 @@ export interface Beyanname {
   donem: string;
   sonTarih: string;
   durum: BeyannameDurum;
+  yasamDongusuDurum: BeyannameYasamDongusuDurum;
   verilmeTarihi?: string;
   sorumlu: string;
   vergiTutari?: number;
+  tahakkukFisNo?: string;
+  tahakkukFisTarihi?: string;
+  odemeSonTarihi?: string;
+  kaynakSistem?: "manual" | "gib" | "luca";
 }
 
 // ─── Rapor ───────────────────────────────────────────────────
@@ -270,7 +349,10 @@ export interface Tahsilat {
 
 export type TahakkukDurum = "taslak" | "bekliyor" | "kismi" | "odendi" | "gecikti" | "iptal";
 export type TahakkukBildirimDurum = "beklemede" | "planlandi" | "gonderildi" | "basarisiz" | "kapali";
+export type TahakkukTuru = "hizmet" | "vergi";
 export type HizmetTuru = "mali_musavirlik" | "beyanname" | "danismanlik" | "diger";
+export type VergiTahakkukTuru = "KDV" | "MUHTASAR" | "GECICI_VERGI" | "KURUMLAR" | "GELIR" | "DAMGA" | "SGK" | "DIGER";
+export type TahakkukKaynakSistem = "manual" | "gib" | "luca";
 
 export interface Tahakkuk {
   id: string;
@@ -278,7 +360,13 @@ export interface Tahakkuk {
   musteriId: string;
   musteriAdi: string;
   donem: string;
-  hizmetTuru: HizmetTuru;
+  tahakkukTuru: TahakkukTuru;
+  hizmetTuru?: HizmetTuru;
+  vergiTuru?: VergiTahakkukTuru;
+  kaynakBeyannameId?: string;
+  resmiTahakkukFisNo?: string;
+  kaynakSistem?: TahakkukKaynakSistem;
+  otomatikTuretilmis?: boolean;
   tutar: number;
   odenenTutar?: number;
   vadeTarihi: string;
@@ -293,6 +381,7 @@ export interface Tahakkuk {
 
 export type OdemeDurum = "eslesti" | "onay_bekliyor" | "eslesmedi" | "iptal";
 export type OdemeKaynak = "banka" | "manuel";
+export type BankaOdemeSinifi = TahakkukTuru | "belirsiz";
 
 export interface Odeme {
   id: string;
@@ -300,6 +389,7 @@ export interface Odeme {
   musteriId?: string;
   musteriAdi?: string;
   tahakkukId?: string;
+  tahakkukTuru?: TahakkukTuru;
   tutar: number;
   odemeTarihi: string;
   bankaAciklamasi?: string;
@@ -323,6 +413,9 @@ export interface BankaEkstreSatiri {
   musteriId?: string;
   musteriAdi?: string;
   tahakkukId?: string;
+  tahakkukTuru?: TahakkukTuru;
+  odemeSinifi?: BankaOdemeSinifi;
+  eslesenTahakkukEtiketi?: string;
   eslesmeSkoru?: number;
   durum: OdemeDurum;
   uyarilar?: string[];

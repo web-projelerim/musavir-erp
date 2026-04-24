@@ -1,5 +1,15 @@
 import { cn } from "@/lib/utils/cn";
-import type { RiskSeviyesi, GorevDurum, TahsilatDurum, TebligatDurum, BeyannameDurum, RaporDurum } from "@/lib/types";
+import type {
+  RiskSeviyesi,
+  GorevDurum,
+  TahsilatDurum,
+  TebligatDurum,
+  TebligatAksiyonDurum,
+  BeyannameDurum,
+  BeyannameYasamDongusuDurum,
+  RaporDurum,
+} from "@/lib/types";
+import { beyanWorkflowLabel, beyanWorkflowVariant } from "@/lib/domain/beyanWorkflow";
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -90,6 +100,20 @@ export function BeyannameBadge({ durum }: { durum: BeyannameDurum }) {
   };
   const { label, variant } = map[durum];
   return <Badge variant={variant}>{label}</Badge>;
+}
+
+export function TebligatAksiyonBadge({ durum }: { durum: TebligatAksiyonDurum }) {
+  const map = {
+    bekliyor: { label: "Bekliyor", variant: "warning" as const },
+    islemde: { label: "Islemde", variant: "info" as const },
+    tamamlandi: { label: "Tamamlandi", variant: "success" as const },
+  };
+  const { label, variant } = map[durum];
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+export function BeyanWorkflowBadge({ durum }: { durum: BeyannameYasamDongusuDurum }) {
+  return <Badge variant={beyanWorkflowVariant(durum)}>{beyanWorkflowLabel(durum)}</Badge>;
 }
 
 export function RaporDurumBadge({ durum }: { durum: RaporDurum }) {

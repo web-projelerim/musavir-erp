@@ -1,4 +1,5 @@
 import { COLLECTIONS, deleteDocument, updateDocument, upsertDocument } from "@/lib/firebase/firestore";
+import { mapLegacyDurumToWorkflow, workflowToBeyanDurum } from "@/lib/domain/beyanWorkflow";
 import type {
   AuditLog,
   BankaEkstresi,
@@ -21,8 +22,11 @@ import type {
   BildirimDurum,
   Beyanname,
   BeyannameDurum,
+  BeyannameYasamDongusuDurum,
   Tahsilat,
   TahsilatDurum,
+  MukellefiyetProfili,
+  Yukumluluk,
 } from "@/lib/types";
 
 function createId(prefix: string) {
@@ -86,6 +90,39 @@ export async function archiveMusteri(id: string) {
   await updateMusteri(id, {
     durum: "pasif",
   });
+}
+
+export async function createMukellefiyetProfili(input: Omit<MukellefiyetProfili, "id" | "createdAt">) {
+  const profil: MukellefiyetProfili = {
+    id: createId("mp"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.mukellefiyetProfilleri, profil);
+  return profil;
+}
+
+export async function updateMukellefiyetProfili(id: string, input: Partial<MukellefiyetProfili>) {
+  await updateDocument<MukellefiyetProfili>(COLLECTIONS.mukellefiyetProfilleri, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function createYukumluluk(input: Omit<Yukumluluk, "id" | "createdAt">) {
+  const yukumluluk: Yukumluluk = {
+    id: createId("yuk"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.yukumlulukler, yukumluluk);
+  return yukumluluk;
+}
+
+export async function updateYukumluluk(id: string, input: Partial<Yukumluluk>) {
+  await updateDocument<Yukumluluk>(COLLECTIONS.yukumlulukler, id, input);
 }
 
 export async function createGorev(input: {
@@ -169,6 +206,10 @@ export async function updateTebligatDurum(id: string, durum: TebligatDurum) {
   });
 }
 
+export async function updateTebligat(id: string, input: Partial<Tebligat>) {
+  await updateDocument<Tebligat>(COLLECTIONS.tebligatlar, id, input);
+}
+
 export async function updateBildirimDurum(id: string, durum: BildirimDurum) {
   await updateDocument<Bildirim>(COLLECTIONS.bildirimler, id, {
     durum,
@@ -178,7 +219,20 @@ export async function updateBildirimDurum(id: string, durum: BildirimDurum) {
 export async function updateBeyannameDurum(id: string, durum: BeyannameDurum) {
   await updateDocument<Beyanname>(COLLECTIONS.beyannameler, id, {
     durum,
+    yasamDongusuDurum: mapLegacyDurumToWorkflow(durum),
     verilmeTarihi: durum === "verildi" ? new Date().toISOString() : undefined,
+  });
+}
+
+export async function updateBeyannameWorkflow(
+  id: string,
+  yasamDongusuDurum: BeyannameYasamDongusuDurum,
+  extra?: Partial<Beyanname>
+) {
+  await updateDocument<Beyanname>(COLLECTIONS.beyannameler, id, {
+    yasamDongusuDurum,
+    durum: workflowToBeyanDurum(yasamDongusuDurum),
+    ...extra,
   });
 }
 

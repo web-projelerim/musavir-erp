@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { Badge, RiskBadge, TahsilatBadge, TebligatBadge, BeyannameBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
+import { Badge, RiskBadge, TahsilatBadge, TebligatBadge, BeyannameBadge, BeyanWorkflowBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
 import { Button } from "@/components/ui/Button";
 import {
@@ -20,6 +20,8 @@ import { DavetModal } from "@/components/modals/DavetModal";
 import { TahakkukModal } from "@/components/modals/TahakkukModal";
 import { useToast } from "@/lib/context/ToastContext";
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
+import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
+import { yukumlulukTipLabel, yukumlulukVariant } from "@/lib/domain/yukumluluk";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
@@ -37,7 +39,7 @@ import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
-const TABS = ["Ozet", "Gorevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+const TABS = ["Ozet", "Yukumlulukler", "Gorevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
 function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -67,6 +69,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     tahakkuklar: tumTahakkuklar,
     odemeler: tumOdemeler,
     belgeler: tumBelgeler,
+    yukumlulukler: tumYukumlulukler,
     davetler,
     auditLogs,
     kdv2: tumKdv2,
@@ -121,6 +124,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const tahakkuklar = localTahakkuklar.filter((t) => t.musteriId === musteri.id);
   const odemeler = localOdemeler.filter((o) => o.musteriId === musteri.id);
   const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id);
+  const yukumlulukler = tumYukumlulukler.filter((item) => item.musteriId === musteri.id);
   const aktifDavet = davetler.find((d) => d.musteriId === musteri.id && d.durum === "bekliyor");
   const musteriAudit = auditLogs
     .filter((log) => log.entityId === musteri.id || log.after?.musteriId === musteri.id || log.entityLabel === musteri.firmaAdi)
@@ -523,7 +527,10 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold text-slate-800">{tahakkuk.donem}</p>
-                          <p className="text-xs text-slate-500">{tahakkuk.hizmetTuru.replace("_", " ")}</p>
+                          <p className="text-xs text-slate-500">{tahakkukKalemLabel(tahakkuk)}</p>
+                          {tahakkuk.otomatikTuretilmis && (
+                            <p className="text-[11px] text-blue-500">Beyannameden otomatik turetildi</p>
+                          )}
                         </div>
                         <TahsilatBadge
                           durum={
@@ -641,7 +648,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             </TableHead>
             <TableBody>
               {gorevler.length === 0 ? (
-                <TableEmpty colSpan={7} />
+                <TableEmpty colSpan={8} />
               ) : (
                 gorevler.map((g) => (
                   <TableRow key={g.id} onClick={() => setSeciliGorev(g)} className="cursor-pointer">
@@ -769,6 +776,41 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
+      {activeTab === "Yukumlulukler" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <Table>
+            <TableHead>
+              <tr>
+                <TableHeadCell>Tip</TableHeadCell>
+                <TableHeadCell>Donem</TableHeadCell>
+                <TableHeadCell>Son Tarih</TableHeadCell>
+                <TableHeadCell>Sorumlu</TableHeadCell>
+                <TableHeadCell>Durum</TableHeadCell>
+                <TableHeadCell>Aciklama</TableHeadCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {yukumlulukler.length === 0 ? (
+                <TableEmpty colSpan={6} message="Yukumluluk kaydi bulunamadi" />
+              ) : (
+                yukumlulukler.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell><Badge variant="neutral">{yukumlulukTipLabel(item.tip)}</Badge></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-700">{formatTarih(item.sonTarih)}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">{item.sorumlu}</span></TableCell>
+                    <TableCell><Badge variant={yukumlulukVariant(item.durum)}>{item.durum}</Badge></TableCell>
+                    <TableCell className="whitespace-normal">
+                      <span className="text-xs text-slate-500">{item.aciklama ?? "-"}</span>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
       {activeTab === "Beyannameler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
@@ -784,7 +826,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             </TableHead>
             <TableBody>
               {beyanlar.length === 0 ? (
-                <TableEmpty colSpan={7} />
+                <TableEmpty colSpan={8} />
               ) : (
                 beyanlar.map((b) => (
                   <TableRow key={b.id}>
@@ -956,7 +998,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               <TableHead>
                 <tr>
                   <TableHeadCell>Donem</TableHeadCell>
-                  <TableHeadCell>Hizmet</TableHeadCell>
+                  <TableHeadCell>Kalem</TableHeadCell>
                   <TableHeadCell>Tutar</TableHeadCell>
                   <TableHeadCell>Odenen</TableHeadCell>
                   <TableHeadCell>Vade</TableHeadCell>
@@ -971,7 +1013,17 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                   tahakkuklar.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
-                      <TableCell><Badge variant="neutral">{item.hizmetTuru.replace("_", " ")}</Badge></TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={item.tahakkukTuru === "vergi" ? "warning" : "neutral"}>
+                            {tahakkukTuruLabel(item.tahakkukTuru)}
+                          </Badge>
+                          <span className="text-[11px] text-slate-500">{tahakkukKalemLabel(item)}</span>
+                          {item.otomatikTuretilmis && (
+                            <span className="text-[11px] text-blue-500">Beyannameden otomatik turetildi</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span></TableCell>
                       <TableCell><span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span></TableCell>
                       <TableCell><span className="text-xs text-slate-600">{formatTarih(item.vadeTarihi)}</span></TableCell>

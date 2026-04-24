@@ -1,6 +1,7 @@
 "use client";
 
 import { COLLECTIONS } from "@/lib/firebase/firestore";
+import { mergeDerivedVergiTahakkuklari } from "@/lib/domain/tahakkuk";
 import { useCollectionData } from "@/lib/hooks/useCollectionData";
 import {
   MOCK_AUDIT_LOGS,
@@ -15,6 +16,7 @@ import {
   MOCK_KDV2,
   MOCK_KULLANICILAR,
   MOCK_MUSTERILER,
+  MOCK_MUKELLEFIYET_PROFILLERI,
   MOCK_ODEMELER,
   MOCK_OFISLER,
   MOCK_RAPORLAR,
@@ -22,11 +24,17 @@ import {
   MOCK_TAHAKKUKLAR,
   MOCK_TAHSILATLAR,
   MOCK_TEBLIGATLAR,
+  MOCK_YUKUMLULUKLER,
 } from "@/lib/data/mock";
 
 export function useAppData() {
   const ofisler = useCollectionData(COLLECTIONS.ofisler, MOCK_OFISLER);
   const musteriler = useCollectionData(COLLECTIONS.musteriler, MOCK_MUSTERILER);
+  const mukellefiyetProfilleri = useCollectionData(
+    COLLECTIONS.mukellefiyetProfilleri,
+    MOCK_MUKELLEFIYET_PROFILLERI
+  );
+  const yukumlulukler = useCollectionData(COLLECTIONS.yukumlulukler, MOCK_YUKUMLULUKLER);
   const gorevler = useCollectionData(COLLECTIONS.gorevler, MOCK_GOREVLER);
   const tebligatlar = useCollectionData(COLLECTIONS.tebligatlar, MOCK_TEBLIGATLAR);
   const beyannameler = useCollectionData(COLLECTIONS.beyannameler, MOCK_BEYANNAMELER);
@@ -47,17 +55,24 @@ export function useAppData() {
   const gonderimler = useCollectionData(COLLECTIONS.gonderimler, MOCK_GONDERIMLER);
   const belgeler = useCollectionData(COLLECTIONS.belgeler, MOCK_BELGELER);
   const auditLogs = useCollectionData(COLLECTIONS.auditLogs, MOCK_AUDIT_LOGS);
+  const normalizedBeyannameler = beyannameler.data;
+  const normalizedTahakkuklar = mergeDerivedVergiTahakkuklari(tahakkuklar.data, normalizedBeyannameler);
 
   return {
     ofisler: ofisler.data,
     musteriler: musteriler.data,
+    mukellefiyetProfilleri:
+      mukellefiyetProfilleri.data.length > 0
+        ? mukellefiyetProfilleri.data
+        : MOCK_MUKELLEFIYET_PROFILLERI,
+    yukumlulukler: yukumlulukler.data.length > 0 ? yukumlulukler.data : MOCK_YUKUMLULUKLER,
     gorevler: gorevler.data,
     tebligatlar: tebligatlar.data,
-    beyannameler: beyannameler.data,
+    beyannameler: normalizedBeyannameler,
     raporlar: raporlar.data,
     bildirimler: bildirimler.data,
     tahsilatlar: tahsilatlar.data,
-    tahakkuklar: tahakkuklar.data,
+    tahakkuklar: normalizedTahakkuklar,
     odemeler: odemeler.data,
     davetler: davetler.data,
     bankaEkstreleri: bankaEkstreleri.data,
@@ -71,6 +86,8 @@ export function useAppData() {
     source: musteriler.source,
     loading:
       musteriler.loading ||
+      mukellefiyetProfilleri.loading ||
+      yukumlulukler.loading ||
       ofisler.loading ||
       gorevler.loading ||
       tebligatlar.loading ||

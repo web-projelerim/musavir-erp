@@ -1,6 +1,7 @@
 import type {
   User,
   Musteri,
+  MukellefiyetProfili,
   Gorev,
   Tebligat,
   Beyanname,
@@ -18,7 +19,13 @@ import type {
   BankaEkstresi,
   ResmiGazeteOzeti,
   GibSyncLog,
+  Yukumluluk,
 } from "@/lib/types";
+import {
+  buildMukellefiyetProfiliFromMusteri,
+  buildYukumluluklerForMusteri,
+} from "@/lib/domain/yukumluluk";
+import { buildTebligatSlaFields } from "@/lib/domain/tebligatSla";
 
 export const DEFAULT_OFIS_ID = "ofis-default";
 
@@ -275,6 +282,14 @@ export const MOCK_MUSTERILER: Musteri[] = [
   },
 ];
 
+export const MOCK_MUKELLEFIYET_PROFILLERI: MukellefiyetProfili[] = MOCK_MUSTERILER.map((musteri) =>
+  buildMukellefiyetProfiliFromMusteri(musteri, new Date("2026-04-23T09:00:00"))
+);
+
+export const MOCK_YUKUMLULUKLER: Yukumluluk[] = MOCK_MUSTERILER.flatMap((musteri) =>
+  buildYukumluluklerForMusteri(musteri, new Date("2026-04-23T09:00:00"))
+);
+
 export const MOCK_GOREVLER: Gorev[] = [
   {
     id: "g1",
@@ -361,9 +376,10 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
 ];
 
-export const MOCK_TEBLIGATLAR: Tebligat[] = [
+const RAW_MOCK_TEBLIGATLAR: Tebligat[] = [
   {
     id: "t1",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m1",
     musteriAdi: "Akdeniz Tekstil A.Ş.",
     vknTckn: "1234567890",
@@ -375,6 +391,7 @@ export const MOCK_TEBLIGATLAR: Tebligat[] = [
   },
   {
     id: "t2",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m4",
     musteriAdi: "Delta Yazılım Teknoloji Ltd.",
     vknTckn: "5544332211",
@@ -385,6 +402,7 @@ export const MOCK_TEBLIGATLAR: Tebligat[] = [
   },
   {
     id: "t3",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m7",
     musteriAdi: "Güven Sigorta Aracılık A.Ş.",
     vknTckn: "3344556677",
@@ -395,6 +413,7 @@ export const MOCK_TEBLIGATLAR: Tebligat[] = [
   },
   {
     id: "t4",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m5",
     musteriAdi: "Ege İnşaat Taahhüt Ltd. Şti.",
     vknTckn: "6677889900",
@@ -405,6 +424,7 @@ export const MOCK_TEBLIGATLAR: Tebligat[] = [
   },
   {
     id: "t5",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m4",
     musteriAdi: "Delta Yazılım Teknoloji Ltd.",
     vknTckn: "5544332211",
@@ -416,7 +436,15 @@ export const MOCK_TEBLIGATLAR: Tebligat[] = [
   },
 ];
 
-export const MOCK_BEYANNAMELER: Beyanname[] = [
+export const MOCK_TEBLIGATLAR: Tebligat[] = RAW_MOCK_TEBLIGATLAR.map((item, index) => ({
+  ...item,
+  ...buildTebligatSlaFields({
+    ...item,
+    aksiyonSahibi: item.aksiyonSahibi ?? (index % 2 === 0 ? "Selin Kaya" : "Ece Demir"),
+  }),
+}));
+
+const RAW_MOCK_BEYANNAMELER = [
   {
     id: "b1",
     musteriId: "m1",
@@ -649,6 +677,36 @@ export const MOCK_KDV2: KDV2Hesaplama[] = [
   },
 ];
 
+export const MOCK_BEYANNAMELER: Beyanname[] = RAW_MOCK_BEYANNAMELER.map((item) => {
+  const workflowById = {
+    b1: { yasamDongusuDurum: "hazirlaniyor", kaynakSistem: "manual" },
+    b2: {
+      yasamDongusuDurum: "tahakkuk_olustu",
+      kaynakSistem: "gib",
+      tahakkukFisNo: "TF-B2-2024",
+      tahakkukFisTarihi: "2024-07-20T14:00:00",
+      odemeSonTarihi: "2024-07-27T23:59:00",
+    },
+    b3: { yasamDongusuDurum: "duzeltme_gerekli", kaynakSistem: "manual" },
+    b4: { yasamDongusuDurum: "evrak_bekliyor", kaynakSistem: "manual" },
+    b5: { yasamDongusuDurum: "musavir_onayi", kaynakSistem: "luca" },
+    b6: {
+      yasamDongusuDurum: "odeme_bekliyor",
+      kaynakSistem: "luca",
+      tahakkukFisNo: "TF-B6-2024",
+      tahakkukFisTarihi: "2024-08-08T10:00:00",
+      odemeSonTarihi: "2024-08-14T23:59:00",
+    },
+  } as const;
+
+  const workflow = workflowById[item.id as keyof typeof workflowById];
+  return {
+    ofisId: DEFAULT_OFIS_ID,
+    ...(item as Omit<Beyanname, "ofisId" | "yasamDongusuDurum">),
+    ...workflow,
+  } as Beyanname;
+});
+
 export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
   {
     id: "tk1",
@@ -656,6 +714,7 @@ export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
     musteriId: "m1",
     musteriAdi: "Akdeniz Tekstil A.S.",
     donem: "2026-04",
+    tahakkukTuru: "hizmet",
     hizmetTuru: "mali_musavirlik",
     tutar: 3500,
     odenenTutar: 0,
@@ -673,6 +732,7 @@ export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
     musteriId: "m2",
     musteriAdi: "Bora Lojistik Ltd. Sti.",
     donem: "2026-04",
+    tahakkukTuru: "hizmet",
     hizmetTuru: "mali_musavirlik",
     tutar: 2800,
     odenenTutar: 2800,
@@ -689,6 +749,7 @@ export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
     musteriId: "m5",
     musteriAdi: "Ege Insaat Taahhut Ltd. Sti.",
     donem: "2026-04",
+    tahakkukTuru: "hizmet",
     hizmetTuru: "mali_musavirlik",
     tutar: 2500,
     odenenTutar: 1500,
@@ -699,6 +760,48 @@ export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
     createdBy: "demo-musavir",
     createdAt: "2026-04-12T09:00:00",
   },
+  {
+    id: "tk4",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m1",
+    musteriAdi: "Akdeniz Tekstil A.S.",
+    donem: "2026-04",
+    tahakkukTuru: "vergi",
+    vergiTuru: "KDV",
+    kaynakBeyannameId: "b1",
+    resmiTahakkukFisNo: "TF-KDV-2026-00041",
+    kaynakSistem: "gib",
+    tutar: 18250,
+    odenenTutar: 0,
+    vadeTarihi: "2026-04-26",
+    durum: "bekliyor",
+    bildirimDurumu: "kapali",
+    panelLinki: "/panel",
+    aciklama: "Nisan 2026 KDV tahakkuku",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-21T08:30:00",
+  },
+  {
+    id: "tk5",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m4",
+    musteriAdi: "Delta Yazilim Teknoloji Ltd.",
+    donem: "2026-04",
+    tahakkukTuru: "vergi",
+    vergiTuru: "GECICI_VERGI",
+    kaynakBeyannameId: "b5",
+    resmiTahakkukFisNo: "TF-GV-2026-00012",
+    kaynakSistem: "luca",
+    tutar: 12400,
+    odenenTutar: 12400,
+    vadeTarihi: "2026-04-24",
+    durum: "odendi",
+    bildirimDurumu: "kapali",
+    panelLinki: "/panel",
+    aciklama: "1. donem gecici vergi tahakkuku",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-19T15:15:00",
+  },
 ];
 
 export const MOCK_ODEMELER: Odeme[] = [
@@ -708,6 +811,7 @@ export const MOCK_ODEMELER: Odeme[] = [
     musteriId: "m2",
     musteriAdi: "Bora Lojistik Ltd. Sti.",
     tahakkukId: "tk2",
+    tahakkukTuru: "hizmet",
     tutar: 2800,
     odemeTarihi: "2026-04-18",
     bankaAciklamasi: "Bora Lojistik Nisan musavirlik ucreti",
@@ -715,6 +819,21 @@ export const MOCK_ODEMELER: Odeme[] = [
     durum: "eslesti",
     kaynak: "banka",
     createdAt: "2026-04-18T11:00:00",
+  },
+  {
+    id: "od2",
+    ofisId: DEFAULT_OFIS_ID,
+    musteriId: "m1",
+    musteriAdi: "Akdeniz Tekstil A.S.",
+    tahakkukId: "tk4",
+    tahakkukTuru: "vergi",
+    tutar: 18250,
+    odemeTarihi: "2026-04-23",
+    bankaAciklamasi: "Akdeniz Tekstil KDV odeme TF-KDV-2026-00041",
+    eslesmeSkoru: 98,
+    durum: "eslesti",
+    kaynak: "banka",
+    createdAt: "2026-04-23T11:10:00",
   },
 ];
 
@@ -724,8 +843,8 @@ export const MOCK_BANKA_EKSTRELERI: BankaEkstresi[] = [
     ofisId: DEFAULT_OFIS_ID,
     dosyaAdi: "nisan-2026-banka.csv",
     donem: "2026-04",
-    satirSayisi: 3,
-    eslesenSayisi: 1,
+    satirSayisi: 4,
+    eslesenSayisi: 2,
     onayBekleyenSayisi: 1,
     eslesmeyenSayisi: 1,
     duplicateSayisi: 0,
@@ -740,6 +859,9 @@ export const MOCK_BANKA_EKSTRELERI: BankaEkstresi[] = [
         musteriId: "m2",
         musteriAdi: "Bora Lojistik Ltd. Sti.",
         tahakkukId: "tk2",
+        tahakkukTuru: "hizmet",
+        odemeSinifi: "hizmet",
+        eslesenTahakkukEtiketi: "Mali Musavirlik",
         eslesmeSkoru: 96,
         durum: "eslesti",
       },
@@ -751,14 +873,32 @@ export const MOCK_BANKA_EKSTRELERI: BankaEkstresi[] = [
         musteriId: "m5",
         musteriAdi: "Ege Insaat Taahhut Ltd. Sti.",
         tahakkukId: "tk3",
+        tahakkukTuru: "hizmet",
+        odemeSinifi: "hizmet",
+        eslesenTahakkukEtiketi: "Mali Musavirlik",
         eslesmeSkoru: 78,
         durum: "onay_bekliyor",
       },
       {
         id: "be1-3",
+        tarih: "2026-04-23",
+        aciklama: "Akdeniz Tekstil KDV odeme TF-KDV-2026-00041",
+        tutar: 18250,
+        musteriId: "m1",
+        musteriAdi: "Akdeniz Tekstil A.S.",
+        tahakkukId: "tk4",
+        tahakkukTuru: "vergi",
+        odemeSinifi: "vergi",
+        eslesenTahakkukEtiketi: "KDV",
+        eslesmeSkoru: 98,
+        durum: "eslesti",
+      },
+      {
+        id: "be1-4",
         tarih: "2026-04-20",
         aciklama: "Bilinmeyen havale",
         tutar: 900,
+        odemeSinifi: "belirsiz",
         eslesmeSkoru: 0,
         durum: "eslesmedi",
         uyarilar: ["Musteri ile eslesmedi"],

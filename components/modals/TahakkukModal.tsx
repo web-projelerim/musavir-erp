@@ -12,7 +12,7 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGonderimKaydi, createTahakkuk } from "@/lib/firebase/repositories";
 import { buildTahakkukPanelLink, buildTahakkukWhatsAppMessage } from "@/lib/domain/tahakkuk";
 import { getOfisId } from "@/lib/domain/office";
-import type { HizmetTuru, Tahakkuk } from "@/lib/types";
+import type { HizmetTuru, Tahakkuk, TahakkukKaynakSistem, TahakkukTuru, VergiTahakkukTuru } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -36,7 +36,11 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
   const [form, setForm] = useState({
     musteriId: defaultMusteri?.id ?? "",
     donem: defaultDonem,
+    tahakkukTuru: "hizmet" as TahakkukTuru,
     hizmetTuru: "mali_musavirlik" as HizmetTuru,
+    vergiTuru: "KDV" as VergiTahakkukTuru,
+    resmiTahakkukFisNo: "",
+    kaynakSistem: "manual" as TahakkukKaynakSistem,
     tutar: String(defaultMusteri?.varsayilanHizmetUcreti ?? ""),
     vadeTarihi: today(),
     aciklama: "",
@@ -69,7 +73,11 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
         musteriId: selectedMusteri.id,
         musteriAdi: selectedMusteri.firmaAdi,
         donem: form.donem,
-        hizmetTuru: form.hizmetTuru,
+        tahakkukTuru: form.tahakkukTuru,
+        hizmetTuru: form.tahakkukTuru === "hizmet" ? form.hizmetTuru : undefined,
+        vergiTuru: form.tahakkukTuru === "vergi" ? form.vergiTuru : undefined,
+        resmiTahakkukFisNo: form.tahakkukTuru === "vergi" ? form.resmiTahakkukFisNo || undefined : undefined,
+        kaynakSistem: form.tahakkukTuru === "vergi" ? form.kaynakSistem : undefined,
         tutar,
         odenenTutar: 0,
         vadeTarihi: form.vadeTarihi,
@@ -137,20 +145,73 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
           <Input label="Donem" {...f("donem")} required />
           <Input label="Vade Tarihi" type="date" {...f("vadeTarihi")} required />
         </div>
+        <Select
+          label="Tahakkuk Tipi"
+          value={form.tahakkukTuru}
+          onChange={(event) =>
+            setForm((prev) => ({
+              ...prev,
+              tahakkukTuru: event.target.value as TahakkukTuru,
+              tutar:
+                event.target.value === "hizmet"
+                  ? String(selectedMusteri?.varsayilanHizmetUcreti ?? prev.tutar)
+                  : prev.tutar,
+            }))
+          }
+          options={[
+            { value: "hizmet", label: "Ofis Hizmet Tahakkuku" },
+            { value: "vergi", label: "Resmi Vergi Tahakkuku" },
+          ]}
+        />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Select
-            label="Hizmet Turu"
-            value={form.hizmetTuru}
-            onChange={(event) => setForm((prev) => ({ ...prev, hizmetTuru: event.target.value as HizmetTuru }))}
-            options={[
-              { value: "mali_musavirlik", label: "Mali Musavirlik" },
-              { value: "beyanname", label: "Beyanname" },
-              { value: "danismanlik", label: "Danismanlik" },
-              { value: "diger", label: "Diger" },
-            ]}
-          />
+          {form.tahakkukTuru === "hizmet" ? (
+            <Select
+              label="Hizmet Turu"
+              value={form.hizmetTuru}
+              onChange={(event) => setForm((prev) => ({ ...prev, hizmetTuru: event.target.value as HizmetTuru }))}
+              options={[
+                { value: "mali_musavirlik", label: "Mali Musavirlik" },
+                { value: "beyanname", label: "Beyanname" },
+                { value: "danismanlik", label: "Danismanlik" },
+                { value: "diger", label: "Diger" },
+              ]}
+            />
+          ) : (
+            <Select
+              label="Vergi Turu"
+              value={form.vergiTuru}
+              onChange={(event) => setForm((prev) => ({ ...prev, vergiTuru: event.target.value as VergiTahakkukTuru }))}
+              options={[
+                { value: "KDV", label: "KDV" },
+                { value: "MUHTASAR", label: "Muhtasar" },
+                { value: "GECICI_VERGI", label: "Gecici Vergi" },
+                { value: "KURUMLAR", label: "Kurumlar Vergisi" },
+                { value: "GELIR", label: "Gelir Vergisi" },
+                { value: "DAMGA", label: "Damga Vergisi" },
+                { value: "SGK", label: "SGK" },
+                { value: "DIGER", label: "Diger" },
+              ]}
+            />
+          )}
           <Input label="Tutar" type="number" min="0" step="0.01" {...f("tutar")} required />
         </div>
+        {form.tahakkukTuru === "vergi" && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input label="Resmi Tahakkuk Fis No" {...f("resmiTahakkukFisNo")} />
+            <Select
+              label="Kaynak Sistem"
+              value={form.kaynakSistem}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, kaynakSistem: event.target.value as TahakkukKaynakSistem }))
+              }
+              options={[
+                { value: "manual", label: "Manuel" },
+                { value: "gib", label: "GIB" },
+                { value: "luca", label: "Luca" },
+              ]}
+            />
+          </div>
+        )}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-slate-700">Aciklama</label>
           <textarea

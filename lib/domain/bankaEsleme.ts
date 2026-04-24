@@ -2,6 +2,7 @@
 
 import * as XLSX from "xlsx";
 import type { BankaEkstreSatiri, Musteri, Tahakkuk } from "@/lib/types";
+import { hizmetTuruLabel, tahakkukKalemLabel, vergiTuruLabel } from "@/lib/domain/tahakkuk";
 
 export interface RawBankaSatiri {
   id: string;
@@ -75,12 +76,50 @@ function scoreMusteri(raw: RawBankaSatiri, musteri: Musteri) {
   return Math.min(score, 100);
 }
 
+function inferOdemeSinifi(raw: RawBankaSatiri): BankaEkstreSatiri["odemeSinifi"] {
+  const haystack = normalize(`${raw.aciklama} ${raw.gonderen} ${raw.iban} ${raw.dekontNo}`);
+  if (/kdv|muhtasar|gecici|kurumlar|gelir|damga|sgk|vergi|gib|tahakkuk fi|tf /.test(haystack)) {
+    return "vergi";
+  }
+  if (/musavirlik|muhasebe|defter|hizmet bedeli|ucret|danismanlik|aylik hizmet/.test(haystack)) {
+    return "hizmet";
+  }
+  return "belirsiz";
+}
+
+function scoreTahakkukTipUyumu(raw: RawBankaSatiri, tahakkuk: Tahakkuk) {
+  const sinif = inferOdemeSinifi(raw);
+  if (sinif === "belirsiz") return 0;
+  return sinif === tahakkuk.tahakkukTuru ? 28 : -22;
+}
+
+function scoreTahakkukKalemi(raw: RawBankaSatiri, tahakkuk: Tahakkuk) {
+  const haystack = normalize(`${raw.aciklama} ${raw.gonderen} ${raw.dekontNo}`);
+  const kalem = normalize(tahakkukKalemLabel(tahakkuk));
+  let score = 0;
+
+  if (tahakkuk.resmiTahakkukFisNo && haystack.includes(normalize(tahakkuk.resmiTahakkukFisNo))) score += 40;
+  if (kalem && haystack.includes(kalem)) score += 20;
+  if (tahakkuk.tahakkukTuru === "vergi") {
+    const vergiEtiketi = normalize(vergiTuruLabel(tahakkuk.vergiTuru));
+    if (vergiEtiketi && haystack.includes(vergiEtiketi)) score += 12;
+  } else {
+    const hizmetEtiketi = normalize(hizmetTuruLabel(tahakkuk.hizmetTuru));
+    if (hizmetEtiketi && haystack.includes(hizmetEtiketi)) score += 8;
+  }
+
+  return score;
+}
+
 function scoreTahakkuk(raw: RawBankaSatiri, tahakkuk: Tahakkuk) {
   const kalan = Math.max(0, tahakkuk.tutar - (tahakkuk.odenenTutar ?? 0));
-  if (raw.tutar === tahakkuk.tutar || raw.tutar === kalan) return 25;
-  if (raw.tutar > 0 && Math.abs(raw.tutar - kalan) <= 5) return 18;
-  if (raw.tutar > 0 && raw.tutar < kalan) return 10;
-  return 0;
+  let score = scoreTahakkukTipUyumu(raw, tahakkuk) + scoreTahakkukKalemi(raw, tahakkuk);
+
+  if (raw.tutar === tahakkuk.tutar || raw.tutar === kalan) score += 25;
+  else if (raw.tutar > 0 && Math.abs(raw.tutar - kalan) <= 5) score += 18;
+  else if (raw.tutar > 0 && raw.tutar < kalan) score += 10;
+
+  return score;
 }
 
 export function matchBankaSatirlari(
@@ -91,6 +130,7 @@ export function matchBankaSatirlari(
   const usedDekont = new Set<string>();
 
   return rows.map((raw) => {
+    const odemeSinifi = inferOdemeSinifi(raw);
     const candidates = musteriler
       .map((musteri) => {
         const musteriTahakkuklari = tahakkuklar.filter(
@@ -116,6 +156,8 @@ export function matchBankaSatirlari(
     const durum = duplicate ? "onay_bekliyor" : score >= 85 ? "eslesti" : score >= 55 ? "onay_bekliyor" : "eslesmedi";
     const uyarilar: string[] = [];
     if (duplicate) uyarilar.push("Ayni dekont/referans daha once dosyada var");
+    if (odemeSinifi === "vergi") uyarilar.push("Satir vergi odemesi gibi gorunuyor");
+    if (odemeSinifi === "hizmet") uyarilar.push("Satir hizmet odemesi gibi gorunuyor");
     if (durum === "eslesmedi") uyarilar.push("Musteri ile guvenli eslesme bulunamadi");
     if (durum === "onay_bekliyor") uyarilar.push("Dusuk/orta guvenli eslesme mali musavir onayi bekliyor");
 
@@ -130,6 +172,9 @@ export function matchBankaSatirlari(
       musteriId: durum === "eslesmedi" ? undefined : best?.musteri.id,
       musteriAdi: durum === "eslesmedi" ? undefined : best?.musteri.firmaAdi,
       tahakkukId: durum === "eslesmedi" ? undefined : best?.tahakkuk?.id,
+      tahakkukTuru: durum === "eslesmedi" ? undefined : best?.tahakkuk?.tahakkukTuru,
+      odemeSinifi,
+      eslesenTahakkukEtiketi: durum === "eslesmedi" ? undefined : best?.tahakkuk ? tahakkukKalemLabel(best.tahakkuk) : undefined,
       eslesmeSkoru: score,
       durum,
       uyarilar,

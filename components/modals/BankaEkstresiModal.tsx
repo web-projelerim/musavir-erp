@@ -14,6 +14,7 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createBankaEkstresi, createOdeme, updateTahakkukDurum } from "@/lib/firebase/repositories";
 import { matchBankaSatirlari, parseBankaEkstresiFile } from "@/lib/domain/bankaEsleme";
 import { getOfisId } from "@/lib/domain/office";
+import { tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import type { BankaEkstreSatiri } from "@/lib/types";
 
 interface Props {
@@ -38,6 +39,8 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
   const matched = rows.filter((row) => row.durum === "eslesti");
   const pending = rows.filter((row) => row.durum === "onay_bekliyor");
   const unmatched = rows.filter((row) => row.durum === "eslesmedi");
+  const vergiRows = rows.filter((row) => row.odemeSinifi === "vergi").length;
+  const hizmetRows = rows.filter((row) => row.odemeSinifi === "hizmet").length;
 
   const handleFile = async (file?: File) => {
     if (!file) return;
@@ -78,6 +81,7 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
             musteriId: row.musteriId,
             musteriAdi: row.musteriAdi,
             tahakkukId: row.tahakkukId,
+            tahakkukTuru: row.tahakkukTuru,
             tutar: row.tutar,
             odemeTarihi: row.tarih,
             bankaAciklamasi: row.aciklama,
@@ -134,6 +138,8 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
               <Badge variant="success">{matched.length} eslesen</Badge>
               <Badge variant="warning">{pending.length} onay bekleyen</Badge>
               <Badge variant="danger">{unmatched.length} eslesmeyen</Badge>
+              <Badge variant="info">{hizmetRows} hizmet odemesi sinyali</Badge>
+              <Badge variant="warning">{vergiRows} vergi odemesi sinyali</Badge>
             </div>
             {unmatched.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -147,13 +153,14 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
                     <TableHeadCell>Tarih</TableHeadCell>
                     <TableHeadCell>Aciklama</TableHeadCell>
                     <TableHeadCell>Tutar</TableHeadCell>
+                    <TableHeadCell>Sinif</TableHeadCell>
                     <TableHeadCell>Eslesme</TableHeadCell>
                     <TableHeadCell>Skor</TableHeadCell>
                   </tr>
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
-                    <TableEmpty colSpan={5} />
+                    <TableEmpty colSpan={6} />
                   ) : (
                     rows.map((row) => (
                       <TableRow key={row.id}>
@@ -161,10 +168,23 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
                         <TableCell className="whitespace-normal"><span className="text-xs text-slate-700">{row.aciklama}</span></TableCell>
                         <TableCell><span className="text-xs font-semibold text-slate-900">{row.tutar.toLocaleString("tr-TR")} TL</span></TableCell>
                         <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={row.odemeSinifi === "vergi" ? "warning" : row.odemeSinifi === "hizmet" ? "info" : "neutral"}>
+                              {row.odemeSinifi === "vergi" ? "Vergi" : row.odemeSinifi === "hizmet" ? "Hizmet" : "Belirsiz"}
+                            </Badge>
+                            {row.tahakkukTuru && (
+                              <span className="text-[11px] text-slate-400">{tahakkukTuruLabel(row.tahakkukTuru)}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <div>
                             <Badge variant={row.durum === "eslesti" ? "success" : row.durum === "onay_bekliyor" ? "warning" : "danger"}>
                               {row.durum === "eslesti" ? row.musteriAdi : row.durum === "onay_bekliyor" ? row.musteriAdi : "Eslesmedi"}
                             </Badge>
+                            {row.eslesenTahakkukEtiketi && (
+                              <p className="mt-1 text-xs text-slate-500">{row.eslesenTahakkukEtiketi}</p>
+                            )}
                             {row.uyarilar?.[0] && <p className="mt-1 text-xs text-slate-500">{row.uyarilar[0]}</p>}
                           </div>
                         </TableCell>

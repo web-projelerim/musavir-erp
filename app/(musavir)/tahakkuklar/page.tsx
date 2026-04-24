@@ -28,6 +28,9 @@ export default function TahakkuklarPage() {
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBankaModal, setShowBankaModal] = useState(false);
   const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tahakkuklar);
+  const [filterTur, setFilterTur] = useState<"tumu" | "hizmet" | "vergi">("tumu");
+  const [filterDurum, setFilterDurum] = useState<"tumu" | "bekliyor" | "kismi" | "odendi" | "gecikti">("tumu");
+  const [filterKaynak, setFilterKaynak] = useState<"tumu" | "manuel" | "otomatik">("tumu");
 
   useEffect(() => {
     setLocalTahakkuklar(tahakkuklar);
@@ -52,6 +55,13 @@ export default function TahakkuklarPage() {
   const plannedWhatsApp = gonderimler.filter(
     (item) => item.sablonId === "tahakkuk" && item.durum === "bekliyor"
   ).length;
+  const filtered = normalized.filter((item) => {
+    if (filterTur !== "tumu" && item.tahakkukTuru !== filterTur) return false;
+    if (filterDurum !== "tumu" && item.durum !== filterDurum) return false;
+    if (filterKaynak === "otomatik" && !item.otomatikTuretilmis) return false;
+    if (filterKaynak === "manuel" && item.otomatikTuretilmis) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-5">
@@ -91,6 +101,41 @@ export default function TahakkuklarPage() {
           </Badge>
         </div>
 
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <select
+            value={filterTur}
+            onChange={(event) => setFilterTur(event.target.value as typeof filterTur)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+          >
+            <option value="tumu">Tum kategoriler</option>
+            <option value="hizmet">Hizmet tahakkugu</option>
+            <option value="vergi">Vergi tahakkugu</option>
+          </select>
+          <select
+            value={filterDurum}
+            onChange={(event) => setFilterDurum(event.target.value as typeof filterDurum)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+          >
+            <option value="tumu">Tum durumlar</option>
+            <option value="bekliyor">Bekliyor</option>
+            <option value="kismi">Kismi</option>
+            <option value="odendi">Odendi</option>
+            <option value="gecikti">Gecikti</option>
+          </select>
+          <select
+            value={filterKaynak}
+            onChange={(event) => setFilterKaynak(event.target.value as typeof filterKaynak)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+          >
+            <option value="tumu">Tum kaynaklar</option>
+            <option value="manuel">Manuel/acik kayit</option>
+            <option value="otomatik">Beyannameden turetilen</option>
+          </select>
+          <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            {filtered.length} kayit gorunuyor
+          </div>
+        </div>
+
         <div className="hidden md:block">
           <Table>
             <TableHead>
@@ -107,10 +152,10 @@ export default function TahakkuklarPage() {
               </tr>
             </TableHead>
             <TableBody>
-              {normalized.length === 0 ? (
+              {filtered.length === 0 ? (
                 <TableEmpty colSpan={9} message="Tahakkuk kaydi bulunamadi" />
               ) : (
-                normalized.map((item) => (
+                filtered.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <span className="text-xs font-medium text-slate-800">{item.musteriAdi}</span>
@@ -179,8 +224,8 @@ export default function TahakkuklarPage() {
         </div>
 
         <div className="md:hidden">
-          <MobileList>
-            {normalized.map((item) => (
+          <MobileList empty={filtered.length === 0}>
+            {filtered.map((item) => (
               <MobileCard key={item.id}>
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-slate-900">{item.musteriAdi}</p>

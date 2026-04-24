@@ -14,7 +14,7 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createBankaEkstresi, createOdeme, updateTahakkukDurum } from "@/lib/firebase/repositories";
 import { matchBankaSatirlari, parseBankaEkstresiFile } from "@/lib/domain/bankaEsleme";
 import { getOfisId } from "@/lib/domain/office";
-import { tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
+import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import type { BankaEkstreSatiri } from "@/lib/types";
 
 interface Props {
@@ -41,6 +41,58 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
   const unmatched = rows.filter((row) => row.durum === "eslesmedi");
   const vergiRows = rows.filter((row) => row.odemeSinifi === "vergi").length;
   const hizmetRows = rows.filter((row) => row.odemeSinifi === "hizmet").length;
+
+  const handleSetRowStatus = (rowId: string, next: BankaEkstreSatiri["durum"]) => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        if (next === "eslesmedi") {
+          return {
+            ...row,
+            durum: next,
+            musteriId: undefined,
+            musteriAdi: undefined,
+            tahakkukId: undefined,
+            tahakkukTuru: undefined,
+            eslesenTahakkukEtiketi: undefined,
+            uyarilar: ["Manuel olarak eslesmedi isaretlendi"],
+          };
+        }
+
+        return {
+          ...row,
+          durum: next,
+          uyarilar:
+            next === "eslesti"
+              ? ["Manuel onay ile eslesti"]
+              : ["Manuel inceleme sonrasi onay bekliyor"],
+        };
+      })
+    );
+  };
+
+  const handleSelectTahakkuk = (rowId: string, tahakkukId: string) => {
+    const tahakkuk = tahakkuklar.find((item) => item.id === tahakkukId);
+    if (!tahakkuk) return;
+
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              musteriId: tahakkuk.musteriId,
+              musteriAdi: tahakkuk.musteriAdi,
+              tahakkukId: tahakkuk.id,
+              tahakkukTuru: tahakkuk.tahakkukTuru,
+              odemeSinifi: tahakkuk.tahakkukTuru,
+              eslesenTahakkukEtiketi: tahakkukKalemLabel(tahakkuk),
+              durum: "onay_bekliyor",
+              uyarilar: ["Tahakkuk manuel secildi, onay bekliyor"],
+            }
+          : row
+      )
+    );
+  };
 
   const handleFile = async (file?: File) => {
     if (!file) return;
@@ -156,11 +208,12 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
                     <TableHeadCell>Sinif</TableHeadCell>
                     <TableHeadCell>Eslesme</TableHeadCell>
                     <TableHeadCell>Skor</TableHeadCell>
+                    <TableHeadCell>Manuel</TableHeadCell>
                   </tr>
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
-                    <TableEmpty colSpan={6} />
+                    <TableEmpty colSpan={7} />
                   ) : (
                     rows.map((row) => (
                       <TableRow key={row.id}>
@@ -189,6 +242,53 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
                           </div>
                         </TableCell>
                         <TableCell><span className="text-xs text-slate-600">{row.eslesmeSkoru ?? 0}</span></TableCell>
+                        <TableCell>
+                          <div className="flex min-w-[180px] flex-col gap-2">
+                            <select
+                              value={row.tahakkukId ?? ""}
+                              onChange={(event) => handleSelectTahakkuk(row.id, event.target.value)}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none"
+                            >
+                              <option value="">Tahakkuk sec</option>
+                              {tahakkuklar
+                                .filter((item) => item.durum !== "iptal")
+                                .map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.musteriAdi} - {tahakkukKalemLabel(item)} - {item.donem}
+                                  </option>
+                                ))}
+                            </select>
+                            <div className="flex flex-wrap gap-1">
+                              {row.durum !== "eslesti" && row.tahakkukId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetRowStatus(row.id, "eslesti")}
+                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700"
+                                >
+                                  Onayla
+                                </button>
+                              )}
+                              {row.durum !== "onay_bekliyor" && row.tahakkukId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetRowStatus(row.id, "onay_bekliyor")}
+                                  className="rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700"
+                                >
+                                  Beklet
+                                </button>
+                              )}
+                              {row.durum !== "eslesmedi" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetRowStatus(row.id, "eslesmedi")}
+                                  className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-700"
+                                >
+                                  Reddet
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

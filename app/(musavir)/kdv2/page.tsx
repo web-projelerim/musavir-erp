@@ -10,6 +10,7 @@ import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
 } from "@/components/ui/Table";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import {
@@ -45,7 +46,7 @@ const initialForm = () => ({
 export default function KDV2Page() {
   const toast = useToast();
   const logAudit = useAuditLog();
-  const { kdv2: loadedKdv2, musteriler } = useAppData();
+  const { kdv2: loadedKdv2, musteriler, loading: dataLoading } = useAppData();
   const [kayitlar, setKayitlar] = useState<KDV2Hesaplama[]>(loadedKdv2);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -176,6 +177,8 @@ export default function KDV2Page() {
     { value: "", label: "- Musteri secin -" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
+
+  if (dataLoading) return <PageLoading />;
 
   return (
     <div>

@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
+import { useToast } from "@/lib/context/ToastContext";
 
 export default function GirisPage() {
   const router = useRouter();
   const { user, loading: authLoading, signIn, signUp, resetPassword, isFirebaseReady } = useAuth();
+  const toast = useToast();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -95,7 +97,7 @@ export default function GirisPage() {
     try {
       await resetPassword(email);
       setError(null);
-      alert("Şifre sıfırlama e-postası gönderildi.");
+      toast.success("Şifre sıfırlama e-postası gönderildi.");
     } catch (err) {
       console.error(err);
       setError("Şifre sıfırlama e-postası gönderilemedi.");

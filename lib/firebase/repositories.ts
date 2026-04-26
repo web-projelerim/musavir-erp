@@ -27,6 +27,13 @@ import type {
   TahsilatDurum,
   MukellefiyetProfili,
   Yukumluluk,
+  GibEntegrasyonAyari,
+  LucaEntegrasyonAyari,
+  WhatsAppEntegrasyonAyari,
+  BankaEntegrasyonAyari,
+  EmailEntegrasyonAyari,
+  EntegrasyonLog,
+  Not,
 } from "@/lib/types";
 
 function createId(prefix: string) {
@@ -341,8 +348,67 @@ export async function createGibSyncLog(input: Omit<GibSyncLog, "id">) {
   return log;
 }
 
+export async function upsertGibEntegrasyonAyari(input: Omit<GibEntegrasyonAyari, "updatedAt">) {
+  const ayar: GibEntegrasyonAyari = {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.gibEntegrasyonAyarlari, ayar);
+  return ayar;
+}
+
+export async function upsertLucaEntegrasyonAyari(input: Omit<LucaEntegrasyonAyari, "updatedAt">) {
+  const ayar: LucaEntegrasyonAyari = {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.lucaEntegrasyonAyarlari, ayar);
+  return ayar;
+}
+
+export async function upsertWhatsAppEntegrasyonAyari(input: Omit<WhatsAppEntegrasyonAyari, "updatedAt">) {
+  const ayar: WhatsAppEntegrasyonAyari = {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.whatsappEntegrasyonAyarlari, ayar);
+  return ayar;
+}
+
+export async function createEntegrasyonLog(input: Omit<EntegrasyonLog, "id" | "createdAt">) {
+  const log: EntegrasyonLog = {
+    id: createId("elog"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  await upsertDocument(COLLECTIONS.entegrasyonLoglari, log);
+  return log;
+}
+
 export async function updateTahsilat(id: string, input: Partial<Tahsilat>) {
   await updateDocument<Tahsilat>(COLLECTIONS.tahsilatlar, id, input);
+}
+
+export async function createTebligat(input: Omit<Tebligat, "id">) {
+  const tebligat: Tebligat = {
+    id: createId("teb"),
+    ...input,
+  };
+  await upsertDocument(COLLECTIONS.tebligatlar, tebligat);
+  return tebligat;
+}
+
+export async function createBeyanname(input: Omit<Beyanname, "id">) {
+  const beyanname: Beyanname = {
+    id: createId("bey"),
+    ...input,
+  };
+  await upsertDocument(COLLECTIONS.beyannameler, beyanname);
+  return beyanname;
 }
 
 export async function createBelge(input: Omit<Belge, "id" | "createdAt">) {
@@ -393,6 +459,13 @@ export async function createGonderimKaydi(
   return kayit;
 }
 
+export async function updateGonderimKaydi(
+  id: string,
+  data: Partial<GonderimKaydi>
+) {
+  await updateDocument<GonderimKaydi>(COLLECTIONS.gonderimler, id, data);
+}
+
 export async function createAuditLog(input: Omit<AuditLog, "id" | "createdAt">) {
   const log: AuditLog = {
     id: createId("audit"),
@@ -402,4 +475,18 @@ export async function createAuditLog(input: Omit<AuditLog, "id" | "createdAt">) 
 
   await upsertDocument(COLLECTIONS.auditLogs, log);
   return log;
+}
+
+export async function createNot(input: Omit<Not, "id" | "createdAt">) {
+  const not: Not = {
+    id: createId("not"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.notlar, not);
+  return not;
+}
+
+export async function deleteNot(id: string) {
+  await deleteDocument(COLLECTIONS.notlar, id);
 }

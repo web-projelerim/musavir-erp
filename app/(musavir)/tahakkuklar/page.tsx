@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Upload } from "lucide-react";
+import { Download, Plus, Upload } from "lucide-react";
 import { BankaEkstresiModal } from "@/components/modals/BankaEkstresiModal";
 import { TahakkukModal } from "@/components/modals/TahakkukModal";
 import { Button } from "@/components/ui/Button";
@@ -20,11 +20,28 @@ import {
 } from "@/components/ui/Table";
 import { calculateTahakkukDurum, tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { useAppData } from "@/lib/hooks/useAppData";
-import type { Tahakkuk } from "@/lib/types";
+import { useAuth } from "@/lib/context/AuthContext";
+import { lucaCSVIndir } from "@/lib/reports/lucaExport";
+import { useToast } from "@/lib/context/ToastContext";
+import { hasPermission } from "@/lib/utils/permissions";
+import { PageLoading } from "@/components/ui/PageLoading";
+import type { BankaEkstreSatiri, Tahakkuk } from "@/lib/types";
 import { formatPara, formatTarih } from "@/lib/utils/format";
 
 export default function TahakkuklarPage() {
-  const { tahakkuklar, gonderimler, bankaEkstreleri } = useAppData();
+  const { user } = useAuth();
+  const toast = useToast();
+  const { tahakkuklar, musteriler, gonderimler, bankaEkstreleri, loading } = useAppData();
+  const canWrite = hasPermission(user, "tahakkuk_yazma");
+
+  const handleLucaExport = (liste: typeof normalized) => {
+    if (liste.length === 0) {
+      toast.warning("Dışa aktarılacak tahakkuk yok");
+      return;
+    }
+    lucaCSVIndir(liste, musteriler);
+    toast.success("Luca CSV oluşturuldu", `${liste.length} tahakkuk aktarıldı`);
+  };
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBankaModal, setShowBankaModal] = useState(false);
   const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tahakkuklar);
@@ -63,6 +80,23 @@ export default function TahakkuklarPage() {
     return true;
   });
 
+  const handleBankaSuccess = (matched: BankaEkstreSatiri[]) => {
+    setLocalTahakkuklar((prev) =>
+      prev.map((tahakkuk) => {
+        const payment = matched.find((row) => row.tahakkukId === tahakkuk.id);
+        if (!payment) return tahakkuk;
+        const paid = (tahakkuk.odenenTutar ?? 0) + payment.tutar;
+        return {
+          ...tahakkuk,
+          odenenTutar: paid,
+          durum: paid >= tahakkuk.tutar ? "odendi" : "kismi",
+        };
+      })
+    );
+  };
+
+  if (loading) return <PageLoading />;
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -70,12 +104,19 @@ export default function TahakkuklarPage() {
         subtitle="Ofis hizmet tahakkuklarini ve resmi vergi tahakkuklarini ayri anlamda izleyin"
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => setShowBankaModal(true)}>
-              Banka Ekstresi
+            <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => handleLucaExport(filtered)}>
+              Luca'ya Aktar
             </Button>
-            <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowTahakkukModal(true)}>
-              Yeni Tahakkuk
-            </Button>
+            {canWrite && (
+              <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => setShowBankaModal(true)}>
+                Banka Ekstresi
+              </Button>
+            )}
+            {canWrite && (
+              <Button icon={<Plus className="h-4 w-4" />} onClick={() => setShowTahakkukModal(true)}>
+                Yeni Tahakkuk
+              </Button>
+            )}
           </div>
         }
       />
@@ -268,7 +309,11 @@ export default function TahakkuklarPage() {
         onClose={() => setShowTahakkukModal(false)}
         onSaved={(item) => setLocalTahakkuklar((prev) => [item, ...prev])}
       />
-      <BankaEkstresiModal open={showBankaModal} onClose={() => setShowBankaModal(false)} />
+      <BankaEkstresiModal
+        open={showBankaModal}
+        onClose={() => setShowBankaModal(false)}
+        onSuccess={handleBankaSuccess}
+      />
     </div>
   );
 }

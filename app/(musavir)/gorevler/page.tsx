@@ -17,6 +17,7 @@ import {
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import {
   gorevInputFromOneri,
@@ -64,6 +65,7 @@ export default function GorevlerPage() {
     beyannameler,
     tahsilatlar,
     belgeler,
+    loading,
     source,
   } = useAppData();
   const [gorevler, setGorevler] = useState<Gorev[]>(loadedGorevler);
@@ -254,6 +256,8 @@ export default function GorevlerPage() {
   const bekleyenSayi = gorevler.filter(
     (gorev) => gorev.durum !== "tamamlandi" && gorev.durum !== "iptal"
   ).length;
+
+  if (loading) return <PageLoading />;
 
   return (
     <>

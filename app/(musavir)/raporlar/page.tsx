@@ -18,9 +18,13 @@ import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
 } from "@/components/ui/Table";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
+import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/lib/context/ToastContext";
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
+import { hasPermission } from "@/lib/utils/permissions";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   createGonderimKaydi,
@@ -35,6 +39,18 @@ import { openPrintableReport } from "@/lib/reports/printableReport";
 import { formatTarih } from "@/lib/utils/format";
 import type { Rapor } from "@/lib/types";
 
+const AY_ADLARI_FULL = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+
+function monthToDonem(value: string): string {
+  const [year, month] = value.split("-");
+  return `${AY_ADLARI_FULL[Number(month) - 1] ?? month} ${year}`;
+}
+
+function currentMonthValue(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 const RAPOR_TIP_LABELS: Record<string, string> = {
   gelir_gider: "Gelir - Gider Özeti",
   vergi_beyan: "Vergi & Beyan Durumu",
@@ -43,10 +59,16 @@ const RAPOR_TIP_LABELS: Record<string, string> = {
 };
 
 export default function RaporlarPage() {
+  const { user } = useAuth();
+  const canRapor = hasPermission(user, "rapor_yonetimi");
   const toast = useToast();
   const [filterDurum, setFilterDurum] = useState("tumu");
   const [selected, setSelected] = useState<string[]>([]);
   const [showWaModal, setShowWaModal] = useState(false);
+  const [showRaporModal, setShowRaporModal] = useState(false);
+  const [raporModalTip, setRaporModalTip] = useState("operasyon");
+  const [secilenMusteriId, setSecilenMusteriId] = useState("");
+  const [secilenDonem, setSecilenDonem] = useState(currentMonthValue);
   const {
     raporlar: loadedRaporlar,
     musteriler,
@@ -56,6 +78,7 @@ export default function RaporlarPage() {
     tebligatlar,
     gonderimler,
     kdv2,
+    loading,
   } = useAppData();
   const [raporlar, setRaporlar] = useState<Rapor[]>(loadedRaporlar);
 
@@ -120,20 +143,30 @@ export default function RaporlarPage() {
     );
   };
 
-  const handleRaporUret = async (tip: string) => {
-    const musteri = musteriler[0];
+  const openRaporModal = (tip: string) => {
+    setRaporModalTip(tip);
+    if (!secilenMusteriId && musteriler.length > 0) {
+      setSecilenMusteriId(musteriler[0].id);
+    }
+    setShowRaporModal(true);
+  };
+
+  const handleRaporUret = async (tip: string, musteriId: string, donem: string) => {
+    const musteri = musteriler.find((m) => m.id === musteriId) ?? musteriler[0];
 
     if (!musteri) {
       toast.warning("Müşteri bulunamadı", "Rapor üretmek için en az bir müşteri kaydı gerekir");
       return;
     }
 
+    setShowRaporModal(false);
+
     const yeniRapor: Rapor = {
       id: `r-${Date.now()}`,
       musteriId: musteri.id,
       musteriAdi: musteri.firmaAdi,
       tip: tip as Rapor["tip"],
-      donem: "Temmuz 2024",
+      donem,
       durum: "uretiliyor",
       olusturmaTarihi: new Date().toISOString(),
     };
@@ -257,6 +290,8 @@ export default function RaporlarPage() {
     { title: "Üretiliyor", value: raporlar.filter((r) => r.durum === "uretiliyor").length, subtitle: "İşlemde" },
   ];
 
+  if (loading) return <PageLoading />;
+
   return (
     <div>
       <PageHeader
@@ -284,7 +319,9 @@ export default function RaporlarPage() {
                 </Button>
               </>
             )}
-            <Button icon={<Plus className="w-4 h-4" />} onClick={() => handleRaporUret("operasyon")}>Rapor Oluştur</Button>
+            {canRapor && (
+              <Button icon={<Plus className="w-4 h-4" />} onClick={() => openRaporModal("operasyon")}>Rapor Oluştur</Button>
+            )}
           </div>
         }
       />
@@ -302,7 +339,7 @@ export default function RaporlarPage() {
           {Object.entries(RAPOR_TIP_LABELS).map(([key, label]) => (
             <button
               key={key}
-              onClick={() => handleRaporUret(key)}
+              onClick={() => openRaporModal(key)}
               className="flex flex-col items-start p-4 border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-colors group"
             >
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mb-2 group-hover:bg-blue-200">
@@ -625,6 +662,58 @@ export default function RaporlarPage() {
           setSelected([]);
         }}
       />
+
+      <Modal
+        open={showRaporModal}
+        onClose={() => setShowRaporModal(false)}
+        title="Rapor Oluştur"
+        size="sm"
+      >
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Rapor Türü</label>
+            <select
+              value={raporModalTip}
+              onChange={(e) => setRaporModalTip(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {Object.entries(RAPOR_TIP_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Müşteri</label>
+            <select
+              value={secilenMusteriId}
+              onChange={(e) => setSecilenMusteriId(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {musteriler.map((m) => (
+                <option key={m.id} value={m.id}>{m.firmaAdi}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Dönem</label>
+            <input
+              type="month"
+              value={secilenDonem}
+              onChange={(e) => setSecilenDonem(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-1">
+            <Button variant="secondary" onClick={() => setShowRaporModal(false)}>İptal</Button>
+            <Button
+              onClick={() => handleRaporUret(raporModalTip, secilenMusteriId, monthToDonem(secilenDonem))}
+              disabled={!secilenMusteriId || !secilenDonem}
+            >
+              Üret
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

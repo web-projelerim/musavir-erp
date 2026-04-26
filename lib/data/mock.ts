@@ -20,6 +20,13 @@ import type {
   ResmiGazeteOzeti,
   GibSyncLog,
   Yukumluluk,
+  GibEntegrasyonAyari,
+  LucaEntegrasyonAyari,
+  WhatsAppEntegrasyonAyari,
+  BankaEntegrasyonAyari,
+  EmailEntegrasyonAyari,
+  EntegrasyonLog,
+  Not,
 } from "@/lib/types";
 import {
   buildMukellefiyetProfiliFromMusteri,
@@ -804,6 +811,133 @@ export const MOCK_TAHAKKUKLAR: Tahakkuk[] = [
   },
 ];
 
+export const MOCK_GIB_ENTEGRASYON_AYARLARI: GibEntegrasyonAyari[] = [
+  {
+    id: "gib-default",
+    ofisId: DEFAULT_OFIS_ID,
+    durum: "eksik",
+    entegrasyonModu: "manuel",
+    vknTckn: "1234567890",
+    ivdKullaniciKodu: "AKDENIZ123",
+    ivdSifreSet: false,
+    ebeyannameKullaniciKodu: "MUSAVIR001",
+    ebeyannameParolaSet: false,
+    ebeyannameSifreSet: false,
+    eTebligatAktif: true,
+    beyanGonderimYetkisi: true,
+    borcSorguYetkisi: true,
+    tebligatGoruntulemeYetkisi: true,
+    pdfIndirmeYetkisi: true,
+    manuelSenkronAktif: true,
+    otomatikTebligatSync: false,
+    otomatikBeyanSync: false,
+    otomatikBorcSync: false,
+    syncSaati: "09:30",
+    secretStorageMode: "server_secret_manager",
+    credentialUyarisi: "Parola ve sifreler server-side secret manager baglanmadan kalici saklanmaz.",
+    sonHata: "IVD sifresi girilmedi",
+    updatedBy: "demo-musavir",
+    updatedAt: "2026-04-24T09:15:00",
+  },
+];
+
+export const MOCK_LUCA_ENTEGRASYON_AYARLARI: LucaEntegrasyonAyari[] = [
+  {
+    id: "luca-default",
+    ofisId: DEFAULT_OFIS_ID,
+    durum: "eksik",
+    entegrasyonModu: "import_export",
+    uyeNo: "LUCA-001",
+    adminKullaniciAdi: "ali.musavir",
+    adminSifreSet: false,
+    firmaKodEslemeKurali: "vkn_tckn",
+    musteriImportAktif: true,
+    beyanImportAktif: true,
+    tahakkukImportAktif: true,
+    disaAktarimAktif: true,
+    secretStorageMode: "server_secret_manager",
+    sonHata: "Admin sifresi eksik",
+    updatedBy: "demo-musavir",
+    updatedAt: "2026-04-24T09:20:00",
+  },
+];
+
+export const MOCK_WHATSAPP_ENTEGRASYON_AYARLARI: WhatsAppEntegrasyonAyari[] = [
+  {
+    id: "wa-default",
+    ofisId: DEFAULT_OFIS_ID,
+    durum: "eksik",
+    provider: "meta_cloud_api",
+    businessPhoneNumberId: "760345085992",
+    accessTokenSet: false,
+    verifyTokenSet: false,
+    tahakkukMesajiAktif: true,
+    vadeHatirlatmaAktif: true,
+    belgeEksikAktif: false,
+    davetMesajiAktif: true,
+    secretStorageMode: "server_secret_manager",
+    updatedBy: "demo-musavir",
+    updatedAt: "2026-04-24T09:10:00",
+  },
+];
+
+export const MOCK_BANKA_ENTEGRASYON_AYARLARI: BankaEntegrasyonAyari[] = [
+  {
+    id: "banka-default",
+    ofisId: DEFAULT_OFIS_ID,
+    durum: "bagli",
+    importModu: "xlsx_csv",
+    varsayilanIbanlar: ["TR00 0000 0000 0000 0000 0000 00"],
+    musteriAliaslari: ["Akdeniz", "Bora Lojistik", "Delta Yazilim"],
+    vergiAnahtarKelimeleri: ["kdv", "muhtasar", "vergi", "gib", "sgk", "tahakkuk fi"],
+    hizmetAnahtarKelimeleri: ["musavirlik", "ucret", "hizmet", "danismanlik"],
+    manuelOnayZorunlu: true,
+    sonImportTarihi: "2026-04-23T10:00:00",
+    updatedBy: "demo-musavir",
+    updatedAt: "2026-04-24T09:05:00",
+  },
+];
+
+export const MOCK_EMAIL_ENTEGRASYON_AYARLARI: EmailEntegrasyonAyari[] = [
+  {
+    id: "email-default",
+    ofisId: DEFAULT_OFIS_ID,
+    durum: "eksik",
+    gondericiAdi: "MusavirERP",
+    gondericiEmail: "bildirim@musavirerp.local",
+    smtpHost: "smtp.example.com",
+    smtpPort: 587,
+    smtpKullanici: "bildirim@musavirerp.local",
+    smtpSifreSet: false,
+    secretStorageMode: "server_secret_manager",
+    updatedBy: "demo-musavir",
+    updatedAt: "2026-04-24T09:00:00",
+  },
+];
+
+export const MOCK_ENTEGRASYON_LOGLARI: EntegrasyonLog[] = [
+  {
+    id: "elog-1",
+    ofisId: DEFAULT_OFIS_ID,
+    entegrasyon: "gib",
+    islem: "test",
+    durum: "basarisiz",
+    detay: "IVD sifresi eksik oldugu icin test basarisiz oldu.",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-24T09:30:00",
+  },
+  {
+    id: "elog-2",
+    ofisId: DEFAULT_OFIS_ID,
+    entegrasyon: "luca",
+    islem: "import",
+    durum: "bekliyor",
+    detay: "Ilk import/export kurulumu bekleniyor.",
+    createdBy: "demo-musavir",
+    createdAt: "2026-04-24T09:32:00",
+  },
+];
+
 export const MOCK_ODEMELER: Odeme[] = [
   {
     id: "od1",
@@ -1022,5 +1156,26 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
     summary: "Gorev durumu devam olarak guncellendi",
     after: { durum: "devam" },
     createdAt: "2024-07-14T10:15:00",
+  },
+];
+
+export const MOCK_NOTLAR: Not[] = [
+  {
+    id: "not-1",
+    ofisId: DEFAULT_OFIS_ID,
+    icerik: "Akdeniz Tekstil KDV beyannamesi için belgeleri isteyelim",
+    renk: "sari",
+    createdBy: "demo-musavir",
+    createdByName: "Ali Musavir",
+    createdAt: "2024-07-10T09:00:00",
+  },
+  {
+    id: "not-2",
+    ofisId: DEFAULT_OFIS_ID,
+    icerik: "GIB sifreleri guncellenmeli — tebligat sync calismiyor",
+    renk: "pembe",
+    createdBy: "demo-musavir",
+    createdByName: "Ali Musavir",
+    createdAt: "2024-07-12T14:30:00",
   },
 ];

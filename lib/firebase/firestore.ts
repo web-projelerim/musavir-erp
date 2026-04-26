@@ -4,8 +4,10 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  query,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
   type DocumentData,
   type FirestoreError,
@@ -35,6 +37,13 @@ export const COLLECTIONS = {
   gonderimler: "gonderimler",
   belgeler: "belgeler",
   auditLogs: "auditLogs",
+  gibEntegrasyonAyarlari: "gibEntegrasyonAyarlari",
+  lucaEntegrasyonAyarlari: "lucaEntegrasyonAyarlari",
+  whatsappEntegrasyonAyarlari: "whatsappEntegrasyonAyarlari",
+  bankaEntegrasyonAyarlari: "bankaEntegrasyonAyarlari",
+  emailEntegrasyonAyarlari: "emailEntegrasyonAyarlari",
+  entegrasyonLoglari: "entegrasyonLoglari",
+  notlar: "notlar",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -62,15 +71,20 @@ function withoutUndefined<T extends object>(data: T): DocumentData {
 export function subscribeCollection<T extends { id: string }>(
   collectionName: CollectionName,
   fallback: T[],
-  onData: (data: T[], meta: SubscribeMeta) => void
+  onData: (data: T[], meta: SubscribeMeta) => void,
+  ofisId?: string
 ): Unsubscribe {
   if (!firestoreDb) {
     onData(fallback, { source: "mock" });
     return () => undefined;
   }
 
+  const ref = ofisId
+    ? query(collection(firestoreDb, collectionName), where("ofisId", "==", ofisId))
+    : collection(firestoreDb, collectionName);
+
   return onSnapshot(
-    collection(firestoreDb, collectionName),
+    ref,
     (snapshot) => {
       const data = snapshot.docs.map((snapshotDoc) => ({
         id: snapshotDoc.id,

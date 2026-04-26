@@ -39,6 +39,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateBeyannameDurum, updateBeyannameWorkflow, updateTebligat } from "@/lib/firebase/repositories";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { buildTebligatPdfBlob, tebligatPdfFileName } from "@/lib/reports/tebligatPdf";
@@ -52,7 +53,7 @@ export default function TebligatlarPage() {
   const logAudit = useAuditLog();
   const [activeTab, setActiveTab] = useState("Tebligatlar");
   const [filterDurum, setFilterDurum] = useState("tumu");
-  const { tebligatlar: loadedTebligatlar, beyannameler: loadedBeyannameler, belgeler } = useAppData();
+  const { tebligatlar: loadedTebligatlar, beyannameler: loadedBeyannameler, belgeler, loading } = useAppData();
   const [tebligatlar, setTebligatlar] = useState<Tebligat[]>(loadedTebligatlar);
   const [beyannameler, setBeyannameler] = useState<Beyanname[]>(loadedBeyannameler);
   const [seciliTebligat, setSeciliTebligat] = useState<Tebligat | null>(null);
@@ -259,6 +260,8 @@ export default function TebligatlarPage() {
       variant: "danger" as const,
     },
   ];
+
+  if (loading) return <PageLoading />;
 
   return (
     <div>

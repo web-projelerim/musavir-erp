@@ -22,10 +22,11 @@ import {
   yukumlulukVariant,
 } from "@/lib/domain/yukumluluk";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
 
 export default function YukumluluklerPage() {
-  const { yukumlulukler, mukellefiyetProfilleri } = useAppData();
+  const { yukumlulukler, mukellefiyetProfilleri, loading } = useAppData();
   const [durumFilter, setDurumFilter] = useState("tumu");
   const [tipFilter, setTipFilter] = useState("tumu");
 
@@ -42,6 +43,8 @@ export default function YukumluluklerPage() {
   const aktif = yukumlulukler.filter((item) => item.durum !== "pasif").length;
   const geciken = yukumlulukler.filter((item) => item.durum === "gecikti").length;
   const hazirlanan = yukumlulukler.filter((item) => item.durum === "hazirlaniyor").length;
+
+  if (loading) return <PageLoading />;
 
   return (
     <div className="space-y-5">

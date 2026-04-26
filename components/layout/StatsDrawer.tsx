@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { MetricCard } from "@/components/ui/Card";
+import { ChevronRight, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
 type MetricVariant = "default" | "warning" | "danger" | "success";
 
@@ -22,6 +22,20 @@ interface StatsDrawerProps {
   metrics: StatsDrawerMetric[];
 }
 
+const VARIANT_CARD: Record<MetricVariant, string> = {
+  default: "border-slate-200 bg-white",
+  warning: "border-amber-200 bg-amber-50",
+  danger:  "border-red-200 bg-red-50",
+  success: "border-emerald-200 bg-emerald-50",
+};
+
+const VARIANT_ICON: Record<MetricVariant, string> = {
+  default: "bg-blue-50 text-blue-600",
+  warning: "bg-amber-100 text-amber-700",
+  danger:  "bg-red-100 text-red-700",
+  success: "bg-emerald-100 text-emerald-700",
+};
+
 export function StatsDrawer({
   title,
   subtitle,
@@ -30,43 +44,97 @@ export function StatsDrawer({
 }: StatsDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        aria-label={`${eyebrow} panelini aç`}
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(true)}
-        className="fixed left-0 top-1/2 z-40 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-r-xl border-y border-r border-slate-200 bg-white text-slate-600 shadow-lg transition-colors hover:bg-blue-50 hover:text-blue-600 lg:left-60"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </button>
-    );
-  }
-
   return (
-    <div className="fixed bottom-6 left-0 top-20 z-40 w-[min(420px,calc(100vw-4rem))] lg:left-60">
-      <section className="h-full overflow-y-auto rounded-r-xl border-y border-r border-slate-200 bg-slate-50/95 p-4 shadow-2xl backdrop-blur">
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{eyebrow}</p>
-          <h2 className="mt-1 text-lg font-bold text-slate-900">{title}</h2>
-          {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+    <>
+      {/* Kapalı — sağ üstte sekme */}
+      {!isOpen && (
+        <button
+          type="button"
+          aria-label="İstatistikleri aç"
+          aria-expanded={false}
+          onClick={() => setIsOpen(true)}
+          className="fixed right-6 top-20 z-40 flex items-center justify-center rounded-b-xl border-x border-b border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-md transition-colors hover:bg-blue-50 hover:text-blue-600"
+        >
+          <ChevronRight className="h-4 w-4 flex-shrink-0" />
+        </button>
+      )}
+
+      {/* Açık — yatay panel, sağ üstten açılır */}
+      {isOpen && (
+        <div className="fixed left-0 right-0 top-20 z-40 border-b border-slate-200 bg-white/95 shadow-xl backdrop-blur lg:left-60">
+          <div className="px-5 py-4">
+            {/* Panel başlığı */}
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                  {eyebrow}
+                </p>
+                <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+                {subtitle && (
+                  <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                aria-label="İstatistikleri kapat"
+                aria-expanded={true}
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Yatay metrik kartlar */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {metrics.map((metric) => {
+                const variant = metric.variant ?? "default";
+                return (
+                  <div
+                    key={metric.title}
+                    className={cn("rounded-xl border p-3.5", VARIANT_CARD[variant])}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {metric.icon && (
+                        <span
+                          className={cn(
+                            "mt-0.5 flex-shrink-0 rounded-lg p-1.5",
+                            VARIANT_ICON[variant]
+                          )}
+                        >
+                          {metric.icon}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          {metric.title}
+                        </p>
+                        <p className="mt-0.5 text-xl font-bold text-slate-900">{metric.value}</p>
+                        {metric.subtitle && (
+                          <p className="mt-0.5 truncate text-[10px] text-slate-500">
+                            {metric.subtitle}
+                          </p>
+                        )}
+                        {metric.trend && (
+                          <p
+                            className={cn(
+                              "mt-0.5 text-[10px] font-medium",
+                              metric.trend.value >= 0 ? "text-emerald-600" : "text-red-600"
+                            )}
+                          >
+                            {metric.trend.value >= 0 ? "↑" : "↓"}{" "}
+                            {Math.abs(metric.trend.value)}% {metric.trend.label}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-3">
-          {metrics.map((metric) => (
-            <MetricCard key={metric.title} {...metric} className="shadow-none" />
-          ))}
-        </div>
-      </section>
-      <button
-        type="button"
-        aria-label={`${eyebrow} panelini kapat`}
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(false)}
-        className="absolute -right-11 top-1/2 flex h-16 w-11 -translate-y-1/2 items-center justify-center rounded-r-xl border-y border-r border-slate-200 bg-white text-slate-600 shadow-lg transition-colors hover:bg-blue-50 hover:text-blue-600"
-      >
-        <ChevronLeft className="h-5 w-5" />
-      </button>
-    </div>
+      )}
+    </>
   );
 }

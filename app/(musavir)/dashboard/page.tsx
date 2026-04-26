@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ResmiGazeteOzeti } from "@/lib/types";
 import {
   Users,
   AlertTriangle,
@@ -46,29 +47,11 @@ import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
+import { MiniTakvim } from "@/components/ui/MiniTakvim";
+import type { TakvimOlay } from "@/components/ui/MiniTakvim";
 import { formatTarih } from "@/lib/utils/format";
 import Link from "next/link";
-
-const RISK_DAGILIM = [
-  { name: "Düşük", value: 2, color: "#10b981" },
-  { name: "Orta", value: 2, color: "#f59e0b" },
-  { name: "Yüksek", value: 2, color: "#f97316" },
-  { name: "Kritik", value: 1, color: "#ef4444" },
-];
-
-const BEYAN_OZET = [
-  { donem: "Nis", verildi: 8, bekliyor: 1, gecikti: 0 },
-  { donem: "May", verildi: 9, bekliyor: 0, gecikti: 1 },
-  { donem: "Haz", verildi: 7, bekliyor: 2, gecikti: 1 },
-  { donem: "Tem", verildi: 2, bekliyor: 5, gecikti: 1 },
-];
-
-const TAHSILAT_OZET = [
-  { ay: "Nis", toplam: 28500, odenen: 28500 },
-  { ay: "May", toplam: 31200, odenen: 29800 },
-  { ay: "Haz", toplam: 29400, odenen: 22000 },
-  { ay: "Tem", toplam: 16000, odenen: 5300 },
-];
 
 const RISK_RENKLER = {
   dusuk: { name: "Düşük", color: "#10b981" },
@@ -95,7 +78,50 @@ export default function DashboardPage() {
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
   const [dismissedGazete, setDismissedGazete] = useState<string[]>([]);
-  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs } = useAppData();
+  const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
+  const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
+  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs, loading } = useAppData();
+
+  useEffect(() => {
+    const bugun = new Date().toISOString().slice(0, 10);
+    const cacheKey = `gazete_${bugun}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        setGazeteDynamic(JSON.parse(cached) as ResmiGazeteOzeti[]);
+        return;
+      }
+    } catch {}
+
+    setGazeteYukleniyor(true);
+    fetch("/api/resmi-gazete/ozetle", { method: "POST" })
+      .then((r) => r.json())
+      .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> }) => {
+        if (data.ok && Array.isArray(data.maddeler) && data.maddeler.length > 0) {
+          const items: ResmiGazeteOzeti[] = data.maddeler.map((m, i) => ({
+            id: `gazete-dynamic-${bugun}-${i}`,
+            ofisId: "",
+            yayinTarihi: m.yayinTarihi,
+            baslik: m.baslik,
+            kaynakLink: m.kaynakLink,
+            kategori: "vergi",
+            aiOzet: m.aiOzet,
+            maliMusavirEtkisi: m.maliMusavirEtkisi,
+            aksiyonGerekiyor: m.aksiyonGerekiyor,
+            maliMusavirEtkiPuani: m.maliMusavirEtkiPuani,
+            durum: "yeni" as const,
+            createdAt: new Date().toISOString(),
+          }));
+          setGazeteDynamic(items);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(items));
+          } catch {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => setGazeteYukleniyor(false));
+  }, []);
+
   const bekleyenGorevler = gorevler.filter(
     (g) => g.durum !== "tamamlandi" && g.durum !== "iptal"
   );
@@ -128,18 +154,6 @@ export default function DashboardPage() {
     )
   ).sort((a, b) => a.sortKey.localeCompare(b.sortKey)).slice(-4);
 
-  const tahsilatOzet = Object.values(
-    tahsilatlar.reduce<Record<string, { ay: string; sortKey: string; toplam: number; odenen: number }>>(
-      (acc, tahsilat) => {
-        const key = ayKey(tahsilat.vadeTarihi);
-        acc[key] ??= { ay: ayLabel(key), sortKey: key, toplam: 0, odenen: 0 };
-        acc[key].toplam += tahsilat.tutar;
-        acc[key].odenen += tahsilat.durum === "odendi" ? tahsilat.tutar : tahsilat.odenenTutar ?? 0;
-        return acc;
-      },
-      {}
-    )
-  ).sort((a, b) => a.sortKey.localeCompare(b.sortKey)).slice(-4);
 
   const metrics = [
     {
@@ -186,10 +200,53 @@ export default function DashboardPage() {
     },
   ];
 
-  const visibleGazete = useMemo(
-    () => resmiGazeteOzetleri.filter((item) => !dismissedGazete.includes(item.id)).slice(0, 2),
-    [dismissedGazete, resmiGazeteOzetleri]
-  );
+  const visibleGazete = useMemo(() => {
+    const bugun = new Date().toISOString().slice(0, 10);
+    const dinamikIdsSet = new Set(gazeteDynamic.map((d) => d.id));
+    const firestoreFiltered = resmiGazeteOzetleri.filter(
+      (item) => !dinamikIdsSet.has(item.id) && item.yayinTarihi.startsWith(bugun)
+    );
+    return [...gazeteDynamic, ...firestoreFiltered]
+      .filter((item) => !dismissedGazete.includes(item.id))
+      .slice(0, 5);
+  }, [dismissedGazete, resmiGazeteOzetleri, gazeteDynamic]);
+
+  const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
+    const olaylar: TakvimOlay[] = [];
+    for (const b of beyannameler.filter((b) => b.durum === "bekliyor" || b.durum === "gecikti")) {
+      olaylar.push({
+        tarih: b.sonTarih,
+        renk: b.durum === "gecikti" ? "red" : "red",
+        etiket: `${b.musteriAdi} — ${b.tur} beyanname`,
+        href: "/beyannameler",
+        tur: "beyanname",
+        durum: b.durum,
+      });
+    }
+    for (const g of gorevler.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal")) {
+      olaylar.push({
+        tarih: g.terminTarihi,
+        renk: "blue",
+        etiket: `${g.musteriAdi} — ${g.baslik}`,
+        href: "/gorevler",
+        tur: "gorev",
+        durum: g.durum,
+      });
+    }
+    for (const t of tahsilatlar.filter((t) => t.durum === "bekliyor" || t.durum === "gecikti")) {
+      olaylar.push({
+        tarih: t.vadeTarihi,
+        renk: "amber",
+        etiket: `${t.musteriAdi ?? "Tahsilat"} — ₺${t.tutar.toLocaleString("tr-TR")}`,
+        href: "/tahakkuklar",
+        tur: "tahsilat",
+        durum: t.durum,
+      });
+    }
+    return olaylar;
+  }, [beyannameler, gorevler, tahsilatlar]);
+
+  if (loading) return <PageLoading />;
 
   return (
     <div>
@@ -225,28 +282,44 @@ export default function DashboardPage() {
         metrics={metrics}
       />
 
-      {visibleGazete.length > 0 && (
+      {/* Takvim — full-width, dashboard'a girince ilk görünen */}
+      <div className="mb-6">
+        <MiniTakvim olaylar={takvimOlaylari} />
+      </div>
+
+      {(gazeteYukleniyor || visibleGazete.length > 0) && (
         <div className="mb-6 space-y-3">
+          {gazeteYukleniyor && visibleGazete.length === 0 && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-500 animate-pulse" />
+                <p className="text-sm text-blue-700">Bugünkü Resmi Gazete özeti hazırlanıyor...</p>
+              </div>
+            </div>
+          )}
           {visibleGazete.map((item) => (
             <div key={item.id} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-900">Resmi Gazete AI Ozeti</p>
-                    <Badge variant={item.aksiyonGerekiyor ? "warning" : "info"}>{item.maliMusavirEtkiPuani}</Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Sparkles className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <p className="text-sm font-semibold text-blue-900">Resmi Gazete AI Özeti</p>
+                    {item.aksiyonGerekiyor && (
+                      <Badge variant="warning">ACİL</Badge>
+                    )}
+                    <Badge variant="info">{item.maliMusavirEtkiPuani}/100</Badge>
                   </div>
                   <p className="mt-2 text-sm font-medium text-slate-900">{item.baslik}</p>
                   <p className="mt-1 text-xs text-slate-600">{item.aiOzet}</p>
                   <p className="mt-1 text-xs text-slate-500">{item.maliMusavirEtkisi}</p>
                   <a href={item.kaynakLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-medium text-blue-700 hover:text-blue-800">
-                    Resmi metni ac
+                    Resmi metni aç →
                   </a>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600"
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 flex-shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -257,9 +330,9 @@ export default function DashboardPage() {
       )}
 
       {/* Grafik satırı */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
         {/* Beyanname özeti bar chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-card p-5">
+        <div className="md:col-span-2 lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Beyanname Özeti</h3>
@@ -267,7 +340,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Verildi</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-400 inline-block" />Bekliyor</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" />Bekliyor</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-red-400 inline-block" />Gecikti</span>
             </div>
           </div>
@@ -281,7 +354,7 @@ export default function DashboardPage() {
                 cursor={{ fill: "#f8fafc" }}
               />
               <Bar dataKey="verildi" fill="#10b981" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="bekliyor" fill="#60a5fa" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="bekliyor" fill="#f59e0b" radius={[3, 3, 0, 0]} />
               <Bar dataKey="gecikti" fill="#f87171" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -334,43 +407,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Tahsilat grafiği */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800">Tahsilat Durumu</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Son 4 ay tahsilat özeti (TL)</p>
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={140}>
-          <BarChart data={tahsilatOzet} barSize={28} barGap={4}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="ay" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#94a3b8" }}
-              axisLine={false}
-              tickLine={false}
-              width={50}
-              tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
-            />
-            <Tooltip
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
-              formatter={(value: number) => [`₺${value.toLocaleString("tr-TR")}`, ""]}
-              cursor={{ fill: "#f8fafc" }}
-            />
-            <Bar dataKey="toplam" fill="#dbeafe" name="Toplam" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="odenen" fill="#3b82f6" name="Ödenen" radius={[3, 3, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="flex items-center gap-4 mt-2 text-xs">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-200 inline-block" />Toplam</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500 inline-block" />Ödenen</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Kritik müşteriler */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-card">
+        <div className="md:col-span-2 lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-card">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Kritik & Yüksek Riskli Müşteriler</h3>

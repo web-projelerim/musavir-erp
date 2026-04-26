@@ -36,6 +36,124 @@ export interface Ofis {
   createdAt: string;
 }
 
+export type EntegrasyonDurum = "bagli" | "eksik" | "hata" | "test_edilmedi";
+export type SecretStorageMode = "server_secret_manager" | "encrypted_server_store" | "not_configured";
+export type GibEntegrasyonModu = "manuel" | "ivd" | "ebeyanname" | "resmi_api";
+export type LucaEntegrasyonModu = "import_export" | "yardimli_senkron" | "dogrudan_baglanti";
+
+export interface GibEntegrasyonAyari {
+  id: string;
+  ofisId: string;
+  durum: EntegrasyonDurum;
+  entegrasyonModu: GibEntegrasyonModu;
+  vknTckn?: string;
+  ivdKullaniciKodu?: string;
+  ivdSifreSet: boolean;
+  ebeyannameKullaniciKodu?: string;
+  ebeyannameParolaSet: boolean;
+  ebeyannameSifreSet: boolean;
+  eTebligatAktif: boolean;
+  beyanGonderimYetkisi: boolean;
+  borcSorguYetkisi: boolean;
+  tebligatGoruntulemeYetkisi: boolean;
+  pdfIndirmeYetkisi: boolean;
+  manuelSenkronAktif: boolean;
+  otomatikTebligatSync: boolean;
+  otomatikBeyanSync: boolean;
+  otomatikBorcSync: boolean;
+  syncSaati?: string;
+  secretStorageMode: SecretStorageMode;
+  sonTestTarihi?: string;
+  sonBasariliSync?: string;
+  sonHata?: string;
+  credentialUyarisi?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface LucaEntegrasyonAyari {
+  id: string;
+  ofisId: string;
+  durum: EntegrasyonDurum;
+  entegrasyonModu: LucaEntegrasyonModu;
+  uyeNo?: string;
+  adminKullaniciAdi?: string;
+  adminSifreSet: boolean;
+  firmaKodEslemeKurali?: string;
+  musteriImportAktif: boolean;
+  beyanImportAktif: boolean;
+  tahakkukImportAktif: boolean;
+  disaAktarimAktif: boolean;
+  secretStorageMode: SecretStorageMode;
+  sonTestTarihi?: string;
+  sonImportTarihi?: string;
+  sonHata?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface WhatsAppEntegrasyonAyari {
+  id: string;
+  ofisId: string;
+  durum: EntegrasyonDurum;
+  provider: "meta_cloud_api" | "diger";
+  businessPhoneNumberId?: string;
+  accessTokenSet: boolean;
+  verifyTokenSet: boolean;
+  tahakkukMesajiAktif: boolean;
+  vadeHatirlatmaAktif: boolean;
+  belgeEksikAktif: boolean;
+  davetMesajiAktif: boolean;
+  secretStorageMode: SecretStorageMode;
+  sonTestTarihi?: string;
+  sonHata?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface BankaEntegrasyonAyari {
+  id: string;
+  ofisId: string;
+  durum: EntegrasyonDurum;
+  importModu: "xlsx_csv" | "servis";
+  varsayilanIbanlar: string[];
+  musteriAliaslari: string[];
+  vergiAnahtarKelimeleri: string[];
+  hizmetAnahtarKelimeleri: string[];
+  manuelOnayZorunlu: boolean;
+  sonImportTarihi?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface EmailEntegrasyonAyari {
+  id: string;
+  ofisId: string;
+  durum: EntegrasyonDurum;
+  gondericiAdi?: string;
+  gondericiEmail?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpKullanici?: string;
+  smtpSifreSet: boolean;
+  secretStorageMode: SecretStorageMode;
+  sonTestTarihi?: string;
+  sonHata?: string;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface EntegrasyonLog {
+  id: string;
+  ofisId: string;
+  entegrasyon: "gib" | "luca" | "whatsapp" | "banka" | "email";
+  islem: "test" | "manuel_sync" | "kaydet" | "import" | "export";
+  durum: "bekliyor" | "basarili" | "basarisiz";
+  detay?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export type DavetDurum = "bekliyor" | "kullanildi" | "suresi_doldu" | "iptal";
 
 export interface Davet {
@@ -549,6 +667,19 @@ export interface AuditLog {
   summary: string;
   before?: Record<string, unknown>;
   after?: Record<string, unknown>;
+  createdAt: string;
+}
+
+// ─── Hızlı Not ───────────────────────────────────────────────
+export type NotRenk = "sari" | "mavi" | "yesil" | "pembe";
+
+export interface Not {
+  id: string;
+  ofisId: string;
+  icerik: string;
+  renk: NotRenk;
+  createdBy: string;
+  createdByName: string;
   createdAt: string;
 }
 

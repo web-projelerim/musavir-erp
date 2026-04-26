@@ -20,6 +20,7 @@ import type { BankaEkstreSatiri } from "@/lib/types";
 interface Props {
   open: boolean;
   onClose: () => void;
+  onSuccess?: (matched: BankaEkstreSatiri[]) => void;
 }
 
 function periodFromDate() {
@@ -27,7 +28,7 @@ function periodFromDate() {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function BankaEkstresiModal({ open, onClose }: Props) {
+export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
   const { musteriler, tahakkuklar } = useAppData();
   const { user } = useAuth();
   const toast = useToast();
@@ -152,6 +153,7 @@ export function BankaEkstresiModal({ open, onClose }: Props) {
         }
       } else {
         await new Promise((resolve) => setTimeout(resolve, 500));
+        onSuccess?.(matched);
       }
 
       await logAudit({

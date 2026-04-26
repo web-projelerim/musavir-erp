@@ -9,13 +9,14 @@ import { RiskMetre } from "@/components/ui/RiskMetre";
 import { Table, TableHead, TableHeadCell } from "@/components/ui/Table";
 import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import type { RiskSeviyesi } from "@/lib/types";
 
 const RISK_SEVIYELERI: RiskSeviyesi[] = ["kritik", "yuksek", "orta", "dusuk"];
 
 export default function RiskPage() {
-  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 } = useAppData();
+  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2, loading } = useAppData();
   const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
 
   const sayac = (seviye: RiskSeviyesi) => riskListesi.filter((risk) => risk.seviye === seviye).length;
@@ -45,6 +46,8 @@ export default function RiskPage() {
       variant: "success" as const,
     },
   ];
+
+  if (loading) return <PageLoading />;
 
   return (
     <div>

@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, AlertCircle, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard, FileText, CheckSquare, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { Badge, RiskBadge, TahsilatBadge, TebligatBadge, BeyannameBadge, BeyanWorkflowBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
-import { RiskMetre } from "@/components/ui/RiskMetre";
+import { Badge, TahsilatBadge, TebligatBadge, BeyannameBadge, BeyanWorkflowBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
@@ -19,11 +18,11 @@ import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
 import { DavetModal } from "@/components/modals/DavetModal";
 import { TahakkukModal } from "@/components/modals/TahakkukModal";
 import { useToast } from "@/lib/context/ToastContext";
-import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { yukumlulukTipLabel, yukumlulukVariant } from "@/lib/domain/yukumluluk";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   archiveMusteri,
@@ -72,8 +71,8 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     yukumlulukler: tumYukumlulukler,
     davetler,
     auditLogs,
-    kdv2: tumKdv2,
     source,
+    loading,
   } = useAppData();
   const [localGorevler, setLocalGorevler] = useState<Gorev[]>(tumGorevler);
   const [localTahsilatlar, setLocalTahsilatlar] = useState<Tahsilat[]>(tumTahsilatlar);
@@ -103,6 +102,10 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
 
   const musteri = musteriler.find((m) => m.id === params.id);
 
+  if (loading && !musteri) {
+    return <PageLoading />;
+  }
+
   if (!musteri) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8">
@@ -131,15 +134,24 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 8);
 
-  const hesaplananRisk = hesaplaMusteriRisk({
-    musteri,
-    tebligatlar,
-    beyannameler: beyanlar,
-    gorevler,
-    tahsilatlar,
-    kdv2: tumKdv2,
-  });
-  const riskSinyalleri = hesaplananRisk.sinyaller;
+  // Yaklaşan sorumluluklar: beyanname + görev + tahsilat tarihlerine göre sıralı
+  type SorumlulukItem = { tarih: string; tur: "beyanname" | "gorev" | "tahsilat"; etiket: string };
+  const yaklasanSorumluluklar: SorumlulukItem[] = [
+    ...beyanlar
+      .filter((b) => b.durum === "bekliyor")
+      .map((b) => ({ tarih: b.sonTarih, tur: "beyanname" as const, etiket: `${b.tur} beyanname` })),
+    ...gorevler
+      .filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal")
+      .map((g) => ({ tarih: g.terminTarihi, tur: "gorev" as const, etiket: g.baslik })),
+    ...tahsilatlar
+      .filter((t) => t.durum === "bekliyor")
+      .map((t) => ({ tarih: t.vadeTarihi, tur: "tahsilat" as const, etiket: `₺${Number(t.tutar).toLocaleString("tr-TR")} tahsilat` })),
+  ]
+    .filter((item) => !isNaN(new Date(item.tarih).getTime()))
+    .sort((a, b) => new Date(a.tarih).getTime() - new Date(b.tarih).getTime())
+    .slice(0, 6);
+
+  const enYakinSorumluluk = yaklasanSorumluluklar[0] ?? null;
 
   const runFirebaseAction = async (action: () => Promise<void>, successMessage: string) => {
     if (!isFirebaseConfigured) {
@@ -362,7 +374,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               {musteri.vknTckn}
             </span>
             <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{musteri.durum}</Badge>
-            <RiskBadge seviye={hesaplananRisk.seviye} />
+            <TahsilatBadge durum={musteri.tahsilatDurumu} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -420,12 +432,15 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       {/* Üst bilgi kartları */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="!p-4">
-          <p className="text-xs text-slate-500 mb-1">Risk Skoru</p>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl font-bold text-slate-900">{hesaplananRisk.skor}</span>
-            <span className="text-xs text-slate-500">/100</span>
-          </div>
-          <RiskMetre skor={hesaplananRisk.skor} seviye={hesaplananRisk.seviye} size="md" />
+          <p className="text-xs text-slate-500 mb-1">Yaklaşan Sorumluluk</p>
+          {enYakinSorumluluk ? (
+            <>
+              <p className="text-lg font-bold text-slate-900 mt-1">{formatTarih(enYakinSorumluluk.tarih)}</p>
+              <p className="text-xs text-slate-500 mt-1 truncate">{enYakinSorumluluk.etiket}</p>
+            </>
+          ) : (
+            <p className="text-sm font-medium text-emerald-600 mt-2">Sorumluluk yok</p>
+          )}
         </Card>
         <Card className="!p-4">
           <p className="text-xs text-slate-500 mb-1">Tahsilat Durumu</p>
@@ -564,24 +579,33 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           </div>
 
           <div className="space-y-4">
-            {/* Risk sinyalleri */}
+            {/* Yaklaşan sorumluluklar */}
             <Card>
               <div className="flex items-center gap-2 mb-3">
-                <AlertCircle className="w-4 h-4 text-orange-500" />
-                <h3 className="text-sm font-semibold text-slate-800">Risk Sinyalleri</h3>
+                <CalendarClock className="w-4 h-4 text-blue-500" />
+                <h3 className="text-sm font-semibold text-slate-800">Yaklaşan Sorumluluklar</h3>
               </div>
-              {riskSinyalleri.length === 0 ? (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg">
-                  <span className="text-emerald-600 text-xs font-medium">✓ Risk sinyali bulunmuyor</span>
+              {yaklasanSorumluluklar.length === 0 ? (
+                <div className="p-3 bg-emerald-50 rounded-lg">
+                  <span className="text-emerald-600 text-xs font-medium">✓ Yaklaşan sorumluluk yok</span>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {riskSinyalleri.map((s) => (
-                    <div key={s.tip} className={`flex items-center justify-between p-2.5 rounded-lg border border-slate-100 ${s.renk}`}>
-                      <p className="text-xs">{s.label}</p>
-                      <span className="text-xs font-bold">+{s.puan}</span>
-                    </div>
-                  ))}
+                  {yaklasanSorumluluklar.map((item, i) => {
+                    const Icon = item.tur === "beyanname" ? FileText : item.tur === "gorev" ? CheckSquare : CreditCard;
+                    const renk = item.tur === "beyanname" ? "bg-red-50 text-red-700" : item.tur === "gorev" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700";
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${renk}`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-800 truncate">{item.etiket}</p>
+                          <p className="text-[10px] text-slate-500">{formatTarih(item.tarih)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </Card>

@@ -1,159 +1,304 @@
-# MusavirERP - Mevcut Arayuz Bazli Fonksiyonel To-Do
+# MusavirERP — Öncelikli Geliştirme Listesi
 
-Bu liste mevcut GitHub reposu incelenerek hazirlandi ve su anki arayuzun uzerine neyin islevsel olarak eklenmesi gerektigini gosterir.
+> Detaylı spesifikasyon, veri modeli, yetki matrisi ve değişiklik protokolü için → `CLAUDE.md`
 
-## Mevcut Durum Ozeti
+---
 
-- Next.js 14, TypeScript, Tailwind CSS, lucide-react ve recharts kullaniliyor.
-- Giris, musavir panel layout'u, dashboard, musteriler, musteri detay, gorevler, raporlar, tebligat/beyan, risk, KDV2, ayarlar ve mukellef paneli ekranlari var.
-- Ortak UI component'leri var: Button, Card, Badge, Input, Modal, PageHeader, RiskMetre, Table.
-- Musteri, gorev, tebligat, beyanname, rapor, bildirim, tahsilat ve KDV2 tipleri tanimli.
-- Veri su anda `lib/data/mock.ts` icindeki mock kayitlardan geliyor; kalici backend/veritabani yok.
-- Bircok aksiyon toast, alert veya client-side state ile simule ediliyor.
+## 🔴 P0 — Güvenlik (Üretim Bloker)
 
-## P0 - Mock Arayuzu Gercek Uygulamaya Ceviren Temel Eksikler
+### P0-1 · ofisId Firestore Filtresi
+**Problem:** `subscribeCollection()` tüm koleksiyonu filtre olmadan çekiyor.
+Farklı ofisler birbirinin müşteri/beyanname/tebligat verisini görebiliyor.
 
-- [x] Kalici veri katmani ekle: Firebase Auth/Firestore config, seed helper ve environment ayrimi eklendi.
-- [x] Backend/API katmani kur: Firebase repository katmani ile musteri, gorev, rapor, tebligat, beyanname, tahsilat, KDV2, bildirim ve kullanici koleksiyonlari baglandi.
-- [x] `lib/data/mock.ts` bagimliligini kademeli kaldir: ekranlar `useAppData()` ile Firestore + mock fallback uzerinden besleniyor.
-- [x] Gercek kimlik dogrulama ekle: Firebase Auth context, giris, cikis ve session takibi eklendi.
-- [x] Rol bazli route korumasi ekle: musavir/personel ve mukellef layout guard'lari eklendi.
-- [x] Backend seviyesinde yetki kontrolu ekle: Firestore rules ile rol ve mukellef firma kapsami icin ilk kural seti eklendi.
-- [ ] Tum tarihleri guncelle ve dinamik hale getir; mock verideki 2024 tarihleri aktif doneme baglansin.
-- [x] Form submit'lerini kalici hale getir: yeni musteri, musteri duzenleme, yeni gorev, KDV2 kaydi, rapor/gonderim, beyanname ve tahsilat durumlari Firestore'a baglandi.
-- [ ] API loading/error/empty state durumlarini ekle.
+**Etkilenen dosyalar:**
+- `lib/firebase/firestore.ts` → `subscribeCollection()` imzası
+- `lib/hooks/useCollectionData.ts` → `ofisId` parametresi alacak
+- `lib/hooks/useAppData.ts` → her `useCollectionData()` çağrısına `ofisId` geçilecek
 
-## P1 - Mevcut Ekranlarin Islevsel Tamamlanmasi
+**Çözüm:**
+```ts
+// Mevcut
+onSnapshot(collection(db, collectionName), ...)
 
-### Giris ve Yetki
+// Hedef
+const q = query(collection(db, collectionName), where("ofisId", "==", ofisId));
+onSnapshot(q, ...)
+```
 
-- [x] `/giris` formunu demo yonlendirme yerine gercek auth endpoint'ine bagla.
-- [x] Kullanici rolune gore giris sonrasi yonlendirme yap.
-- [x] Sidebar ve TopBar'daki kullanici bilgilerini oturumdan getir.
-- [x] Cikis butonunu session sonlandiracak sekilde calistir.
-- [x] Sifre unutma ve sifre degistirme akisini tamamla: giris ekraninda Firebase password reset akisi eklendi; ayarlar icindeki sifre degistirme formu sonraki sertlestirmede ele alinacak.
+**Kabul Kriteri:**
+- [ ] İki farklı ofis hesabı birbirinin verisini görmüyor
+- [ ] Demo mod (Firebase yok) çalışmaya devam ediyor
+- [ ] `ofisId` alanı olmayan koleksiyonlar (davetler, kullanicilar) ayrı handle ediliyor
+- [ ] `npx tsc --noEmit` → 0 hata
 
-### Dashboard
+---
 
-- [x] Dashboard metriklerini API ozet endpoint'inden al: ekran Firestore + fallback veri hook'u uzerinden hesapliyor.
-- [x] Hazir rapor sayisi su an sabit; gercek rapor durumlarindan hesapla.
-- [ ] Grafik verilerini sabit listeden cikartip beyan/tahsilat kayitlarindan uret.
-- [x] Dashboard aksiyonlari sonrasi ilgili sayilari/listeyi yenile.
-- [x] TopBar genel aramasini calistir.
+### P0-2 · Firestore Security Rules
+**Problem:** Frontend filtresi tek başına güvensiz. Firestore Rules sunucu tarafında izolasyonu
+zorunlu kılar; doğrudan SDK çağrılarına karşı tek gerçek savunma hattıdır.
 
-### Musteriler
+**Etkilenen dosya:** `firestore.rules`
 
-- [x] Yeni musteri modal'i musteri kaydi olustursun ve listeyi guncellesin.
-- [x] Musteri duzenleme, pasife alma/arsivleme ve detay kaydetme akislarini ekle.
-- [x] Musteri detay sayfasinda bilinmeyen `id` icin 404/uyari goster.
-- [x] Eksik filtreleri ekle: sorumlu personel, tahsilat durumu, yaklasan beyan, son tebligat.
-- [ ] Musteri detayina belge/dosya sekmesi ekle.
+**Hedef kural yapısı:**
+```js
+function sameOffice(ofisId) {
+  return request.auth != null &&
+    get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid)).data.ofisId == ofisId;
+}
 
-### Gorevler
+// Tüm ofis-bazlı koleksiyonlar
+match /{collection}/{docId} {
+  allow read:   if sameOffice(resource.data.ofisId)
+                || (request.auth.uid != null &&
+                    get(...kullanicilar/$(request.auth.uid)).data.musteriId == resource.data.musteriId);
+  allow create: if sameOffice(request.resource.data.ofisId);
+  allow update: if sameOffice(resource.data.ofisId);
+  allow delete: if sameOffice(resource.data.ofisId);
+}
+```
 
-- [x] Yeni gorev modal'i kalici gorev olustursun.
-- [x] Gorev durum guncellemesi API'ye yazilsin.
-- [ ] Gorev notlari kalici hale gelsin.
-- [ ] Gorev duzenleme, iptal ve silme aksiyonlari ekle.
-- [ ] Kanban'da surukle-birak ile durum degistirme ekle.
-- [ ] Otomatik gorev uretim kurallari ekle: yaklasan beyan, yeni tebligat, geciken tahsilat, eksik belge.
+**Kabul Kriteri:**
+- [ ] `firebase emulators:start` ile kurallar test edildi
+- [ ] Farklı ofis kullanıcısı başka ofis belgesine erişemez (permission-denied)
+- [ ] Mükellef sadece kendi musteriId'li belgeleri okuyabiliyor
+- [ ] Müşavir kendi ofisinde tam CRUD yapabiliyor
 
-### Tebligat ve Beyanname
+---
 
-- [ ] Tebligat PDF goruntuleme butonunu gercek dosya/PDF baglantisina bagla.
-- [x] "Islendi olarak isaretle" butonu tebligat durumunu kalici guncellesin.
-- [ ] Tebligat detay modal'i ekle.
-- [x] Beyanname durum degistirme akisi ekle.
-- [ ] Yaklasan ve geciken beyanlar aktif tarihe gore otomatik hesaplansin.
+## 🔴 P1 — Kritik İşlevsellik
 
-### Raporlar
+### P1-1 · hasPermission() Helper
+**Problem:** Personel rolü tüm müşavir sayfalarına erişiyor; hangi butonu/formu
+görebileceği kontrol edilmiyor. `KullaniciYetki` tipi tanımlı ama hiç kullanılmıyor.
 
-- [x] "Rapor Olustur" butonunu gercek modal/akisla tamamla: buton artik varsayilan operasyon raporu uretim akisini baslatiyor.
-- [x] Hizli rapor uretimi backend job baslatsin: Firestore kaydi ve durum gecisi ile simule job akisi eklendi.
-- [ ] PDF uretimi ve gercek indirme ekle.
-- [ ] Rapor sablonlari tanimlanabilir olsun.
-- [x] Rapor gonderim durumlari kalici takip edilsin.
-- [x] Secilen raporlar WhatsApp modal'ina aktarilsin.
+**Yeni dosya:** `lib/utils/permissions.ts`
+```ts
+export function hasPermission(user: User | null, yetki: KullaniciYetki): boolean {
+  if (!user) return false;
+  if (user.rol === "musavir") return true;
+  if (user.rol === "mukellef") return false;
+  return user.yetkiler?.includes(yetki) ?? false;
+}
+```
 
-### WhatsApp ve Bildirimler
+**Hangi sayfalara eklenecek:**
 
-- [ ] WhatsApp modal'indaki random basari mantigini provider sonucuna bagla.
-- [x] Gonderim gecmisi veri modeli ve ekrani ekle.
-- [x] Sablon degiskenlerini gercek veriyle doldur.
-- [x] TopBar bildirimlerinde "tumunu gor" ve okundu isaretleme calissin.
-- [ ] Ayarlardaki bildirim toggle'lari kalici tercihlere yazilsin.
+| Sayfa | Kontrol |
+|-------|---------|
+| `musteriler/page.tsx` | "Yeni Müşteri" butonu → `musteri_yazma` |
+| `musteriler/[id]/page.tsx` | Kaydet/düzenle → `musteri_yazma` |
+| `tahakkuklar/page.tsx` | Yeni tahakkuk → `tahakkuk_yazma` |
+| `raporlar/page.tsx` | Rapor üret → `rapor_yonetimi` |
+| `ayarlar/page.tsx` | Tüm sekme → sadece `musavir` rolü |
 
-### Risk Merkezi
+**Kabul Kriteri:**
+- [ ] `personel` + `musteri_yazma` yetkisi olmadan "Yeni Müşteri" butonu görünmüyor
+- [ ] `musavir` her şeyi görebiliyor
+- [ ] TypeScript tipi doğru → `npx tsc --noEmit` → 0 hata
 
-- [ ] Risk skoru hesaplamasini tek domain servisine tasi.
-- [ ] `riskSkoru` ve `riskSeviyesi` mock alanlari yerine sinyallerden hesaplanmis sonuc kullan.
-- [ ] Risk sinyali kaydi olustur ve risk gecmisi goster.
-- [ ] Riskten aksiyona gecis ekle: gorev olustur, mesaj gonder, tebligata git.
+---
 
-### KDV2
+### P1-2 · Mükellef Panelinden Risk Metresini Kaldır
+**Problem:** `app/(mukellef)/panel/page.tsx` müşteriye kendi risk skorunu gösteriyor.
+Müşteri bunu anlayamaz; "kötü müşteri" damgası riski var.
 
-- [x] KDV2 kaydetme islemini `alert` yerine kalici kayda bagla.
-- [ ] Hizmet/fatura tipine gore tevkifat orani secimi ekle.
-- [x] KDV2 hesaplama kaydini musteri detayina bagla.
-- [ ] KDV2 kayitlari icin duzenleme/silme ve denetim izi ekle.
+**Etkilenen dosya:** `app/(mukellef)/panel/page.tsx`
 
-### Tahsilat
+**Yapılacak:**
+- `<RiskMetre>` bileşenini ve `hesaplaMusteriRisk()` çağrısını kaldır
+- "Risk Seviyesi" istatistik kartını kaldır
+- Yerine nötr bir "Müşavirlik Durumu: Aktif" göstergesi koy
 
-- [ ] Tahsilat olusturma, odeme kaydetme, kismi odeme ve vade guncelleme ekle: odendi/kismi durum guncelleme var, yeni tahsilat ve vade formu bekliyor.
-- [ ] Tahsilat hatirlatmasi WhatsApp/e-posta aksiyonuna baglansin.
-- [ ] Dashboard tahsilat grafigi gercek tahsilat kayitlarindan uretilsin.
+**Kabul Kriteri:**
+- [ ] Panel'de risk skoru/seviyesi gösterilmiyor
+- [ ] Müşteri yine de beyanname/tebligat/tahakkuk özetini görüyor
 
-### Mukellef Paneli
+---
 
-- [x] Mukellef paneli ilk musteriye degil, oturumdaki mukellefin firmasina baglansin.
-- [x] Mukellef icin API seviyesinde firma kapsam kontrolu ekle.
-- [ ] Mukellef dosya yukleme/goruntuleme akisi ekle.
-- [ ] Rapor indirme butonu gercek PDF dosyasini indirsin.
-- [ ] Duyurular ve mesajlar kalici veriyle gelsin.
+## 🟡 P2 — Önemli Eksik
 
-## P2 - Entegrasyon ve Arka Plan Isleri
+### P2-1 · WhatsApp Şablon Mesaj Desteği
+**Problem:** Meta Messaging Policy gereği 24 saatlik oturum penceresi dışında serbest metin
+gönderilemez. Müşteri daha önce mesaj atmazsa (çoğunlukla bu durum) mesaj iletilmiyor.
 
-- [ ] GIB adapter arayuzu olustur: tebligat, beyanname durumu, PDF referansi, senkronizasyon sonucu.
-- [ ] Luca adapter arayuzu olustur: musteri listesi, finansal ozet, muhasebe/fatura kayitlari.
-- [x] WhatsApp provider arayuzu olustur: local mock adapter eklendi; gercek provider credential sonraki fazda baglanacak.
-- [ ] Queue/worker altyapisi kur: rapor uretimi, WhatsApp gonderimi, GIB/Luca sync, risk skorlama.
-- [ ] Senkronizasyon loglari ekle.
-- [ ] Entegrasyon ayarlarindaki "Yapilandir" butonlarini gercek baglanti/credential akisi haline getir.
+**Etkilenen dosyalar:**
+- `app/api/whatsapp/send/route.ts`
+- `components/modals/WhatsAppGonderimModal.tsx`
 
-## P3 - Guvenlik, Kalite ve UX Sertlestirme
+**Meta template mesaj formatı:**
+```json
+{
+  "type": "template",
+  "template": {
+    "name": "musavir_hatirlatma",
+    "language": { "code": "tr" },
+    "components": [{
+      "type": "body",
+      "parameters": [
+        { "type": "text", "text": "{{firma_adi}}" },
+        { "type": "text", "text": "{{beyan_turu}}" },
+        { "type": "text", "text": "{{son_tarih}}" }
+      ]
+    }]
+  }
+}
+```
 
-- [ ] Audit log ekle.
-- [ ] VKN/TCKN, finansal tutarlar ve tebligat verileri icin maskeleme/yetki kurallari ekle.
-- [ ] Form validasyonlarini guclendir.
-- [ ] Responsive kontrolleri tamamla; sabit sidebar mobilde drawer'a donsun.
-- [ ] Erisilebilirlik kontrolu yap.
-- [ ] Unit test ekle: risk hesabi, KDV2 hesabi, filtreleme/siralama, format utils.
-- [ ] E2E smoke test ekle.
-- [ ] Build/lint CI ekle.
+**Adımlar:**
+1. Meta Business Manager'da şablon oluştur + onaylat (~48 saat)
+2. `route.ts`'e `useTemplate: boolean` parametresi ekle
+3. UI'ya "Oturum Mesajı / Şablon Mesajı" toggle'ı ekle
 
-## Onerilen Ilk Sprint
+**Kabul Kriteri:**
+- [ ] Onaylı template ile 24 saat dışı gönderim çalışıyor
+- [ ] Template adı ayarlardan konfigüre edilebiliyor
 
-1. Auth, session ve rol bazli route korumasi.
-2. Veritabani modeli, migration ve seed verisi.
-3. Mock data yerine musteri/gorev API'leri.
-4. Yeni musteri ve yeni gorev formlarinin kalici calismasi.
-5. Musteri detayinda gorev, beyan, tebligat, rapor ve tahsilat verilerinin API'den gelmesi.
-6. Risk hesaplama servisinin tek kaynaga alinmasi.
-7. Rapor uretim job'u ve PDF indirme.
-8. WhatsApp gonderim loglari.
-9. Mukellef panelinin oturumdaki firmaya baglanmasi.
-10. Temel smoke testler ve responsive duzeltmeler.
+---
 
-## MVP Kabul Kriterleri
+### P2-2 · Başarısız WhatsApp Gönderim Retry
+**Problem:** `durum: "basarisiz"` olan gönderimler için retry mekanizması yok.
+Kullanıcı hatayı görüyor ama yeniden gönderemiyor.
 
-- [ ] Musavir gercek hesapla giris yapabiliyor ve dashboard verileri veritabanindan geliyor.
-- [ ] Musteri ekleme/duzenleme/detay goruntuleme kalici calisiyor.
-- [ ] Gorev olusturma, durum guncelleme ve not ekleme kalici calisiyor.
-- [ ] Tebligat ve beyanname durumlari guncellenebiliyor.
-- [ ] Risk skoru tek servis tarafindan hesaplanip aciklanabiliyor.
-- [ ] KDV2 hesaplama kaydediliyor ve musteriyle iliskileniyor.
-- [ ] Rapor PDF olarak uretilip indirilebiliyor.
-- [ ] WhatsApp/e-posta gonderim denemeleri loglaniyor.
-- [ ] Mukellef sadece kendi firmasinin verilerini gorebiliyor.
-- [ ] Audit log ve temel yetki kontrolleri calisiyor.
-- [ ] Smoke testler geciyor.
+**Nerede:** `app/(musavir)/ayarlar/page.tsx` → yeni "Gönderimler" alt sekmesi
+
+**Yapılacak:**
+- `gonderimler` koleksiyonunu filtreli listele (durum: basarisiz)
+- Her satırda "Yeniden Gönder" butonu
+- Tıklayınca: `/api/whatsapp/send` → `denemeSayisi++` → durum güncelle
+
+**Kabul Kriteri:**
+- [ ] Başarısız gönderimler listeleniyor, neden başarısız olduğu gösteriliyor
+- [ ] Retry çalışıyor, `denemeSayisi` artıyor
+- [ ] Max 3 denemeden sonra buton devre dışı
+
+---
+
+### P2-3 · Vercel Cron — Otomatik Zamanlayıcılar
+**Problem:** GİB sync ve vade hatırlatmaları tamamen manüel. Üretimde günlük otomatik
+çalışması gerekiyor.
+
+**Yeni dosyalar:**
+- `app/api/cron/gib-sync/route.ts`
+- `app/api/cron/vade-hatirlatma/route.ts`
+- `vercel.json`
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/gib-sync", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/vade-hatirlatma", "schedule": "0 9 * * *" }
+  ]
+}
+```
+
+**GİB cron akışı:**
+1. Tüm ofislerin aktif GİB entegrasyon ayarlarını çek
+2. Her ofis → aktif müşteriler → `/api/gib/sync` (musteriVkn ile)
+3. Sonuçları Firestore'a yaz + GibSyncLog
+
+**Vade hatırlatma akışı:**
+1. Vade tarihi 3 gün içinde olan tahakkukları bul
+2. Müşteri telefonlarına WhatsApp gönder
+3. GonderimKaydi oluştur
+
+**Kabul Kriteri:**
+- [ ] `vercel.json` cron tanımları deploy sonrası aktif
+- [ ] Her sabah 08:00 GİB sync log kaydı görünüyor
+- [ ] 3 gün öncesinde WhatsApp gittiği gonderimler'de görünüyor
+
+---
+
+## 🟢 P3 — İyileştirme (Faz 2)
+
+### P3-1 · Luca CSV Export
+**Neden:** Luca muhasebe entegrasyonu MVP dışı ama CSV ile manuel aktarım mümkün.
+
+**Yeni dosya:** `lib/reports/lucaExport.ts`
+
+```ts
+// Luca mahsup fişi CSV kolonları
+["Tarih", "Belge No", "Hesap Kodu", "Açıklama", "Borç", "Alacak"]
+```
+
+**Kabul Kriteri:**
+- [ ] Tahakkuklar sayfasında "Luca'ya Aktar" butonu
+- [ ] İndirilen CSV Luca'ya import edilebilir
+
+---
+
+### P3-2 · Resmi Gazete AI Özeti (Claude API)
+**Neden:** Dashboard'da `resmiGazeteOzetleri` UI'ı hazır ama veri manuel.
+
+**Yeni dosya:** `app/api/resmi-gazete/ozetle/route.ts`
+
+**Akış:**
+1. Resmi Gazete RSS çek
+2. Mali müşavirlikle ilgili maddeleri filtrele
+3. `CLAUDE_API_KEY` ile özetle
+4. `resmiGazeteOzetleri` koleksiyonuna yaz
+
+**Gereksinim:** `CLAUDE_API_KEY` env var
+
+**Kabul Kriteri:**
+- [ ] Günlük cron'la otomatik çalışıyor
+- [ ] Dashboard'da özetler görünüyor, aksiyonGerekiyor bayrağı işaret ediyor
+
+---
+
+### P3-3 · E-posta SMTP Gönderimi
+**Neden:** Davet linkleri şu an manuel paylaşılıyor; rapor hazır bildirimi gitmiyor.
+
+**Yeni dosya:** `app/api/email/send/route.ts`
+
+**Gereksinim:** `SMTP_HOST` + `SMTP_USER` + `SMTP_PASS` env varlar
+
+**Önce:** `DavetModal.tsx`'e "E-posta Gönder" toggle'ı
+
+**Kabul Kriteri:**
+- [ ] Davet oluşturulunca müşteriye e-posta gidiyor (davet linki içinde)
+- [ ] Rapor hazırlandığında müşteriye bildirim gidiyor
+
+---
+
+## ✅ Bu Oturumda Tamamlananlar
+
+| # | Özellik | Dosyalar |
+|---|---------|---------|
+| ✅ | Beyanname CRUD sayfası | `app/(musavir)/beyannameler/page.tsx` |
+| ✅ | Yeni Beyanname modal | `components/modals/YeniBeyanameModal.tsx` |
+| ✅ | Sidebar Beyannameler linki | `components/layout/Sidebar.tsx` |
+| ✅ | GİB sync müşteri bazlı loop | `app/(musavir)/ayarlar/page.tsx` |
+| ✅ | WhatsApp Meta Cloud API route | `app/api/whatsapp/send/route.ts` |
+| ✅ | WhatsApp provider gerçek API | `lib/integrations/whatsapp/provider.ts` |
+| ✅ | WhatsApp ayarlar paneli (düzenlenebilir) | `app/(musavir)/ayarlar/page.tsx` |
+| ✅ | Select bileşeni children desteği | `components/ui/Input.tsx` |
+| ✅ | Dashboard mini takvim | `components/ui/MiniTakvim.tsx` |
+| ✅ | GİB şifreleme + API routes | `lib/integrations/gib/encrypt.ts` + `app/api/gib/` |
+| ✅ | ErrorBoundary | `components/ui/ErrorBoundary.tsx` |
+| ✅ | PageLoading tüm sayfalarda | `components/ui/PageLoading.tsx` |
+| ✅ | Raporlar modal (müşteri/dönem/tür) | `app/(musavir)/raporlar/page.tsx` |
+| ✅ | Banka ekstresi state güncellemesi | `app/(musavir)/tahakkuklar/page.tsx` |
+| ✅ | Modal mobil bottom-sheet | `components/ui/Modal.tsx` |
+| ✅ | CLAUDE.md proje spesifikasyonu | `CLAUDE.md` |
+
+---
+
+## Ortam Değişkeni Durum Tablosu
+
+```
+# Firebase (zorunlu)
+NEXT_PUBLIC_FIREBASE_API_KEY           [ ] eksik
+NEXT_PUBLIC_FIREBASE_PROJECT_ID        [ ] eksik
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET    [ ] eksik
+
+# GİB şifreleme (zorunlu, min 32 karakter)
+GIB_SECRET_KEY                         [ ] eksik
+
+# WhatsApp (opsiyonel — yoksa simülasyon modu)
+WHATSAPP_ACCESS_TOKEN                  [ ] eksik
+WHATSAPP_PHONE_NUMBER_ID               [ ] eksik
+
+# Faz 2
+CLAUDE_API_KEY                         — henüz gerekmez
+SMTP_HOST / SMTP_USER / SMTP_PASS      — henüz gerekmez
+```

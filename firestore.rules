@@ -2,6 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── Yardımcı fonksiyonlar ────────────────────────────────────────────────
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,110 +13,310 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid));
     }
 
-    function role() {
-      return isSignedIn() && userDoc().data.rol != null ? userDoc().data.rol : null;
+    function currentRole() {
+      return isSignedIn() ? userDoc().data.rol : null;
     }
 
-    function officeId() {
-      return isSignedIn() && userDoc().data.ofisId != null ? userDoc().data.ofisId : 'ofis-default';
-    }
-
-    function isStaff() {
-      return role() in ['musavir', 'personel'];
+    function currentOfisId() {
+      return isSignedIn() ? userDoc().data.ofisId : null;
     }
 
     function isMusavir() {
-      return role() == 'musavir';
+      return currentRole() == 'musavir';
     }
 
+    function isStaff() {
+      return currentRole() in ['musavir', 'personel'];
+    }
+
+    // Belgenin ofisId'si giriş yapmış kullanıcının ofisId'siyle eşleşiyor mu?
+    function sameOffice(docOfisId) {
+      return isStaff() && currentOfisId() == docOfisId;
+    }
+
+    // Yeni/güncellenen belgenin ofisId'si kullanıcının ofisId'siyle eşleşiyor mu?
+    function writingToOwnOffice() {
+      return isStaff() && request.resource.data.ofisId == currentOfisId();
+    }
+
+    // Mükellef kendi musteriId'li belgelere erişebilir mi?
     function isMukellefFor(musteriId) {
-      return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
-    }
-
-    function sameOffice(data) {
-      return isStaff() && (data.ofisId == null || data.ofisId == officeId());
+      return currentRole() == 'mukellef' && userDoc().data.musteriId == musteriId;
     }
 
     function ownUser(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    match /ofisler/{ofisId} {
-      allow read: if sameOffice(resource.data);
-      allow write: if isMusavir() && (request.resource == null || request.resource.data.id == ofisId);
+    // ─── Ofis kaydı ───────────────────────────────────────────────────────────
+
+    match /ofisler/{docOfisId} {
+      allow read:   if isSignedIn() && currentOfisId() == docOfisId;
+      allow create: if isMusavir() && request.resource.data.id == docOfisId;
+      allow update: if isMusavir() && currentOfisId() == docOfisId;
+      allow delete: if false;
     }
 
+    // ─── Kullanıcılar (uid bazlı, ofisId filtresi yok) ────────────────────────
+
     match /kullanicilar/{userId} {
-      allow read: if ownUser(userId) || sameOffice(resource.data);
+      allow read:   if isSignedIn() && (ownUser(userId) || isStaff());
       allow create: if ownUser(userId)
-        && request.resource.data.email == request.auth.token.email;
+                    && request.resource.data.email == request.auth.token.email;
       allow update: if ownUser(userId) || isMusavir();
       allow delete: if false;
     }
 
-    match /musteriler/{musteriId} {
-      allow read: if sameOffice(resource.data) || isMukellefFor(musteriId);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
-    }
+    // ─── Davetler (ofisId filtreli) ───────────────────────────────────────────
 
     match /davetler/{davetId} {
-      allow read: if sameOffice(resource.data);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if isSignedIn() &&
+                      (sameOffice(resource.data.ofisId) ||
+                       // Davet tokeni ile kayıt akışında kendi davetini okuyabilir
+                       request.auth.uid != null);
+      allow create: if writingToOwnOffice() && isStaff();
+      allow update: if sameOffice(resource.data.ofisId) ||
+                      // Davet kabul edilirken (kullanildi: true) mükellef güncelleyebilir
+                      (isSignedIn() && resource.data.davetliEmail == request.auth.token.email);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── Müşteriler ───────────────────────────────────────────────────────────
+
+    match /musteriler/{musteriId} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId) && writingToOwnOffice();
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Mükellef profilleri ──────────────────────────────────────────────────
+
+    match /mukellefiyetProfilleri/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Yükümlülükler ───────────────────────────────────────────────────────
+
+    match /yukumlulukler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Görevler ────────────────────────────────────────────────────────────
+
+    match /gorevler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Tebligatlar ─────────────────────────────────────────────────────────
+
+    match /tebligatlar/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Beyannameler ────────────────────────────────────────────────────────
+
+    match /beyannameler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Raporlar ────────────────────────────────────────────────────────────
+
+    match /raporlar/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Bildirimler ─────────────────────────────────────────────────────────
+
+    match /bildirimler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Tahakkuklar ─────────────────────────────────────────────────────────
 
     match /tahakkuklar/{id} {
-      allow read: if sameOffice(resource.data) || isMukellefFor(resource.data.musteriId);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── Tahsilatlar ─────────────────────────────────────────────────────────
+
+    match /tahsilatlar/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Ödemeler ────────────────────────────────────────────────────────────
 
     match /odemeler/{id} {
-      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── Banka ekstreleri ─────────────────────────────────────────────────────
 
     match /bankaEkstreleri/{id} {
-      allow read: if sameOffice(resource.data);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── Resmi gazete özetleri ────────────────────────────────────────────────
 
     match /resmiGazeteOzetleri/{id} {
-      allow read: if sameOffice(resource.data);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── GİB sync logları ─────────────────────────────────────────────────────
 
     match /gibSyncLogs/{id} {
-      allow read: if sameOffice(resource.data);
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
-    match /belgeler/{belgeId} {
-      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
-      allow create: if sameOffice(request.resource.data)
-        || (request.resource.data.musteriId != null && isMukellefFor(request.resource.data.musteriId));
-      allow update, delete: if sameOffice(resource.data)
-        || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
+    // ─── KDV2 ────────────────────────────────────────────────────────────────
+
+    match /kdv2/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    // ─── Gönderimler ──────────────────────────────────────────────────────────
+
+    match /gonderimler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Belgeler ────────────────────────────────────────────────────────────
+
+    match /belgeler/{id} {
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      allow create: if writingToOwnOffice() ||
+                      (isMukellefFor(request.resource.data.musteriId) &&
+                       request.resource.data.ofisId == currentOfisId());
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isStaff() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Audit logları ────────────────────────────────────────────────────────
 
     match /auditLogs/{logId} {
-      allow read: if sameOffice(resource.data);
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
       allow create: if isSignedIn()
-        && request.resource.data.actorId is string
-        && request.resource.data.createdAt is string
-        && (sameOffice(request.resource.data) || request.resource.data.actorId == request.auth.uid);
+                    && request.resource.data.actorId is string
+                    && request.resource.data.createdAt is string
+                    && (isStaff()
+                        ? request.resource.data.ofisId == currentOfisId()
+                        : true);
       allow update, delete: if false;
     }
 
-    match /{collection}/{docId} {
-      allow read: if sameOffice(resource.data) || (resource.data.musteriId != null && isMukellefFor(resource.data.musteriId));
-      allow create, update: if sameOffice(request.resource.data);
-      allow delete: if sameOffice(resource.data);
+    // ─── Entegrasyon ayarları ─────────────────────────────────────────────────
+
+    match /gibEntegrasyonAyarlari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if isMusavir() && writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
+
+    match /lucaEntegrasyonAyarlari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if isMusavir() && writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /whatsappEntegrasyonAyarlari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if isMusavir() && writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /bankaEntegrasyonAyarlari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if isMusavir() && writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /emailEntegrasyonAyarlari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if isMusavir() && writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /entegrasyonLoglari/{id} {
+      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if isMusavir() && sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── GİB entegrasyon ayarları (şifreli) — sadece musavir ─────────────────
+    // Not: gibEntegrasyonAyarlari şifreli secret blob içerir.
+    // Yukarıda isMusavir() kontrolü zaten var; burada ek kural gerekmez.
+
+    // ─── Hızlı notlar ────────────────────────────────────────────────────────
+
+    match /notlar/{notId} {
+      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
+      allow create: if isStaff() && writingToOwnOffice();
+      allow delete: if isStaff() && sameOffice(resource.data.ofisId);
+      allow update: if false;
+    }
+
   }
 }

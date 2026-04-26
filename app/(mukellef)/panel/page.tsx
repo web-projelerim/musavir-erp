@@ -20,7 +20,9 @@ import { MetricCard, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuth } from "@/lib/context/AuthContext";
+// hesaplaMusteriRisk: sadece PDF oluşturma için kullanılır, panelde gösterilmez (P1-2)
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { buildReportPdfBlob, buildReportPdfFileName, downloadPdfBlob } from "@/lib/reports/pdfReport";
@@ -46,6 +48,7 @@ export default function MukellefPanelPage() {
     belgeler: tumBelgeler,
     gorevler: tumGorevler,
     kdv2,
+    loading,
   } = useAppData();
   const [showBelgeModal, setShowBelgeModal] = useState(false);
   const [localBelgeler, setLocalBelgeler] = useState<Belge[]>(tumBelgeler);
@@ -53,6 +56,8 @@ export default function MukellefPanelPage() {
   useEffect(() => {
     setLocalBelgeler(tumBelgeler);
   }, [tumBelgeler]);
+
+  if (loading) return <PageLoading />;
 
   const musteri = musteriler.find((m) => m.id === user?.musteriId) ?? musteriler[0];
 
@@ -151,7 +156,7 @@ export default function MukellefPanelPage() {
                 <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                   VKN: {musteri.vknTckn}
                 </span>
-                <Badge variant="success">Aktif Mükellef</Badge>
+                <Badge variant="success">Müşavirlik Durumu: Aktif</Badge>
               </div>
             </div>
             <div className="text-right">

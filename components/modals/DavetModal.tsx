@@ -31,6 +31,8 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
   const [email, setEmail] = useState(defaultEmail);
   const [loading, setLoading] = useState(false);
   const [createdLink, setCreatedLink] = useState("");
+  const [emailGonder, setEmailGonder] = useState(true);
+  const [emailGonderiliyor, setEmailGonderiliyor] = useState(false);
   const fixedMukellef = Boolean(musteriId);
 
   useEffect(() => {
@@ -79,6 +81,39 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       });
       setCreatedLink(link);
       toast.success("Davet olusturuldu");
+
+      // P3-3: E-posta gönderimi (SMTP env varsa)
+      if (emailGonder) {
+        setEmailGonderiliyor(true);
+        try {
+          const emailRes = await fetch("/api/email/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: email,
+              subject: "MusavirERP Davet Linkiniz",
+              html: `
+                <div style="font-family:sans-serif;max-width:480px;margin:auto;">
+                  <h2 style="color:#1e40af;">MusavirERP'ye Davetlisiniz</h2>
+                  ${musteriAdi ? `<p>Mali müşaviriniz sizi <strong>${musteriAdi}</strong> hesabına bağlamak üzere davet etti.</p>` : "<p>Mali müşaviriniz sizi sisteme davet etti.</p>"}
+                  <p>Aşağıdaki linke tıklayarak hesabınızı oluşturun:</p>
+                  <a href="${link}" style="display:inline-block;background:#2563eb;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Hesabı Aktifleştir</a>
+                  <p style="color:#64748b;font-size:12px;margin-top:16px;">Bu link 7 gün geçerlidir. Beklemiyor iseniz bu e-postayı görmezden gelebilirsiniz.</p>
+                </div>
+              `,
+            }),
+          });
+          if (emailRes.status === 501) {
+            toast.info("E-posta gönderilemedi", "SMTP env değişkenleri tanımlı değil — link manuel paylaşın");
+          } else if (emailRes.ok) {
+            toast.success("Davet e-postası gönderildi", email);
+          }
+        } catch {
+          // E-posta hatası davet oluşturmayı engellemez
+        } finally {
+          setEmailGonderiliyor(false);
+        }
+      }
     } catch (error) {
       console.error(error);
       toast.error("Davet olusturulamadi");
@@ -120,6 +155,26 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
             Davet bu musteri hesabina baglanacak: <strong>{musteriAdi}</strong>
           </div>
         )}
+        {/* P3-3: E-posta gönderimi toggle */}
+        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <div>
+            <p className="text-xs font-semibold text-slate-700">Davet e-postası gönder</p>
+            <p className="text-xs text-slate-500 mt-0.5">SMTP tanımlıysa müşteriye link e-posta ile gider</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEmailGonder((v) => !v)}
+            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+              emailGonder ? "bg-blue-600" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                emailGonder ? "translate-x-4" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
         {createdLink && (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-800">

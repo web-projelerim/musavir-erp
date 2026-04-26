@@ -50,6 +50,8 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
   const [seciliMusteriler, setSeciliMusteriler] = useState<string[]>(musteriId ? [musteriId] : []);
   const [secilenSablon, setSecilenSablon] = useState(SABLONLAR[0].id);
   const [gonderimSonuclari, setGonderimSonuclari] = useState<{ musteriId: string; basarili: boolean }[]>([]);
+  /** true → Meta onaylı template, false → serbest metin (oturum içi) */
+  const [useTemplate, setUseTemplate] = useState(false);
 
   const toggleMusteri = (id: string) => {
     setSeciliMusteriler((prev) =>
@@ -80,12 +82,24 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
       .map((id) => {
         const musteri = musteriler.find((m) => m.id === id);
         if (!musteri) return null;
-
+        const filledText = fillTemplate(musteri.id);
+        const beyan = beyannameler.find((b) => b.musteriId === id && b.durum !== "verildi");
+        const tahsilat = tahsilatlar.find((t) => t.musteriId === id && t.durum !== "odendi");
         return {
           musteriId: musteri.id,
           musteriAdi: musteri.firmaAdi,
           phone: musteri.telefon,
-          body: fillTemplate(musteri.id),
+          body: filledText,
+          // Şablon parametreleri: [firma_adi, beyan_turu, son_tarih] (musavir_hatirlatma şablonu için)
+          templateParams: [
+            musteri.firmaAdi,
+            beyan?.tur ?? "ilgili beyanname",
+            beyan?.sonTarih
+              ? new Date(beyan.sonTarih).toLocaleDateString("tr-TR")
+              : tahsilat?.vadeTarihi
+              ? new Date(tahsilat.vadeTarihi).toLocaleDateString("tr-TR")
+              : "yaklaşan tarih",
+          ],
         };
       })
       .filter(Boolean) as {
@@ -93,8 +107,9 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
         musteriAdi: string;
         phone: string;
         body: string;
+        templateParams: string[];
       }[];
-    const providerSonuclari = await sendWhatsAppMessages(mesajlar);
+    const providerSonuclari = await sendWhatsAppMessages(mesajlar, { useTemplate });
     const sonuclar = providerSonuclari.map((sonuc) => ({
       musteriId: sonuc.musteriId,
       basarili: sonuc.basarili,
@@ -247,6 +262,33 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
       {/* Adım 2: Şablon seçimi */}
       {step === "onay" && (
         <div>
+          {/* Oturum / Şablon toggle */}
+          <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-slate-700">
+                {useTemplate ? "Şablon Mesajı (Template)" : "Oturum Mesajı (Serbest Metin)"}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {useTemplate
+                  ? "Meta onaylı şablon — 24 saat dışı gönderim için zorunlu"
+                  : "Serbest metin — sadece müşteri son 24 saatte mesaj atmışsa çalışır"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUseTemplate((v) => !v)}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                useTemplate ? "bg-blue-600" : "bg-slate-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  useTemplate ? "translate-x-4" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
           <div className="space-y-2 mb-4">
             {SABLONLAR.map((s) => (
               <label

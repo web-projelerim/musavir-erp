@@ -8,16 +8,15 @@ import { cn } from "@/lib/utils/cn";
 import {
   LayoutDashboard,
   Users,
-  CalendarRange,
   CheckSquare,
   FileText,
   Bell,
-  AlertTriangle,
   Calculator,
   CreditCard,
   Settings,
   Building2,
   LogOut,
+  ScrollText,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -29,12 +28,11 @@ const navItems: {
   badge: string | number | null;
 }[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
-  { label: "Yukumlulukler", href: "/yukumlulukler", icon: CalendarRange, badge: null },
   { label: "Müşteriler", href: "/musteriler", icon: Users, badge: null },
   { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
-  { label: "Tebligat & Beyan", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
-  { label: "Risk Merkezi", href: "/risk", icon: AlertTriangle, badge: null },
+  { label: "Beyannameler", href: "/beyannameler", icon: ScrollText, badge: null },
+  { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
 ];

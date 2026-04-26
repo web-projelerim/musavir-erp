@@ -31,23 +31,18 @@ interface MobileCardProps {
 }
 
 export function MobileCard({ children, className, onClick }: MobileCardProps) {
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(
-          "block w-full px-4 py-4 text-left transition-colors hover:bg-slate-50 active:bg-slate-100",
-          className
-        )}
-      >
-        {children}
-      </button>
-    );
-  }
-
   return (
-    <div className={cn("block w-full px-4 py-4 text-left transition-colors", className)}>
+    <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") onClick(); } : undefined}
+      className={cn(
+        "block w-full px-4 py-4 text-left transition-colors",
+        onClick && "cursor-pointer hover:bg-slate-50 active:bg-slate-100",
+        className
+      )}
+    >
       {children}
     </div>
   );

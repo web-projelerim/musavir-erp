@@ -82,7 +82,7 @@ export default function TebligatlarPage() {
     }
 
     downloadPdfBlob(buildTebligatPdfBlob(tebligat), tebligatPdfFileName(tebligat));
-    toast.info("Takip PDF'i indirildi", "GIB PDF referansi bulunmadigi icin sistem dokumu uretildi");
+    toast.info("Takip PDF'i indirildi", "GİB PDF referansı bulunmadığı için sistem dökümanı üretildi");
   };
 
   const handleTebligatIslendi = async (id: string) => {
@@ -97,7 +97,7 @@ export default function TebligatlarPage() {
     );
 
     if (!isFirebaseConfigured) {
-      toast.success("Tebligat islendi olarak isaretlendi");
+      toast.success("Tebligat işlendi olarak işaretlendi");
       return;
     }
 
@@ -112,10 +112,10 @@ export default function TebligatlarPage() {
         before: tebligat ? { durum: tebligat.durum } : undefined,
         after: { durum: "islendi", aksiyonDurumu: "tamamlandi" },
       });
-      toast.success("Tebligat islendi olarak isaretlendi");
+      toast.success("Tebligat işlendi olarak işaretlendi");
     } catch (error) {
       console.error(error);
-      toast.error("Tebligat guncellenemedi", "Firestore yetkilerini kontrol edin");
+      toast.error("Tebligat güncellenemedi", "Firestore yetkilerini kontrol edin");
       throw error;
     }
   };
@@ -174,7 +174,7 @@ export default function TebligatlarPage() {
     );
 
     if (!isFirebaseConfigured) {
-      toast.info("Demo modu", "Beyanname durumu yerelde guncellendi");
+      toast.info("Demo modu", "Beyanname durumu yerelde güncellendi");
       return;
     }
 
@@ -348,7 +348,7 @@ export default function TebligatlarPage() {
 
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <MobileField label="Tarih">{formatTarih(tebligat.tarih)}</MobileField>
-                    <MobileField label="Tur">
+                    <MobileField label="Tür">
                       <Badge variant="neutral">{tebligat.tur}</Badge>
                     </MobileField>
                     <MobileField label="SLA">
@@ -437,7 +437,7 @@ export default function TebligatlarPage() {
                 <TableHeadCell>Musteri</TableHeadCell>
                 <TableHeadCell>VKN/TCKN</TableHeadCell>
                 <TableHeadCell>Baslik</TableHeadCell>
-                <TableHeadCell>Tur</TableHeadCell>
+                <TableHeadCell>Tür</TableHeadCell>
                 <TableHeadCell>SLA</TableHeadCell>
                 <TableHeadCell>Aksiyon</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
@@ -626,7 +626,7 @@ export default function TebligatlarPage() {
             <TableHead>
               <tr>
                 <TableHeadCell>Musteri</TableHeadCell>
-                <TableHeadCell>Tur</TableHeadCell>
+                <TableHeadCell>Tür</TableHeadCell>
                 <TableHeadCell>Donem</TableHeadCell>
                 <TableHeadCell>Son Tarih</TableHeadCell>
                 <TableHeadCell>Workflow</TableHeadCell>

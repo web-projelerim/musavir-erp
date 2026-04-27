@@ -61,24 +61,24 @@ type TabId = (typeof TABS)[number]["id"];
 type IntegrationPanel = "gib" | "luca" | "whatsapp" | "banka" | "email";
 
 const ROL_LABELS: Record<string, string> = {
-  musavir: "Mali Musavir",
+  musavir: "Mali Müşavir",
   personel: "Personel",
-  mukellef: "Mukellef",
+  mukellef: "Mükellef",
 };
 
 const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
-  create: "Olusturma",
-  update: "Guncelleme",
+  create: "Oluşturma",
+  update: "Güncelleme",
   delete: "Silme",
   status_change: "Durum",
-  upload: "Yukleme",
-  send: "Gonderim",
+  upload: "Yükleme",
+  send: "Gönderim",
   seed: "Seed",
   import: "Import",
   invite: "Davet",
-  match: "Eslesme",
+  match: "Eşleşme",
   sync: "Sync",
-  summarize: "Ozet",
+  summarize: "Özet",
 };
 
 function auditVariant(action: AuditAction) {
@@ -232,7 +232,7 @@ export default function AyarlarPage() {
       title: "E-posta",
       subtitle: "SMTP ve resmi bildirim kopyalari",
       durum: emailEntegrasyonAyarlari[0]?.durum ?? "test_edilmedi",
-      meta: emailEntegrasyonAyarlari[0]?.smtpSifreSet ? "SMTP hazir" : "SMTP eksik",
+      meta: emailEntegrasyonAyarlari[0]?.smtpSifreSet ? "SMTP hazır" : "SMTP eksik",
     },
   ];
 
@@ -715,8 +715,8 @@ export default function AyarlarPage() {
                 type="password"
                 value={gibSecrets.ivdSifre}
                 onChange={(event) => setGibSecrets((prev) => ({ ...prev, ivdSifre: event.target.value }))}
-                placeholder={gibDraftSafe.ivdSifreSet ? "Guncellemek icin yeniden girin" : "Gecici secret taslagi"}
-                hint={gibDraftSafe.ivdSifreSet ? "Sifre bir kez tanimli gorunuyor" : "Bu alan kalici olarak istemcide saklanmaz"}
+                placeholder={gibDraftSafe.ivdSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
+                hint={gibDraftSafe.ivdSifreSet ? "Şifre bir kez tanımlı görünüyor" : "Bu alan kalıcı olarak istemcide saklanmaz"}
               />
               <Input
                 label="e-Beyanname Kullanici Kodu"
@@ -731,14 +731,14 @@ export default function AyarlarPage() {
                 type="password"
                 value={gibSecrets.ebeyannameParola}
                 onChange={(event) => setGibSecrets((prev) => ({ ...prev, ebeyannameParola: event.target.value }))}
-                placeholder={gibDraftSafe.ebeyannameParolaSet ? "Guncellemek icin yeniden girin" : "Gecici secret taslagi"}
+                placeholder={gibDraftSafe.ebeyannameParolaSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
               />
               <Input
                 label="e-Beyanname Sifre"
                 type="password"
                 value={gibSecrets.ebeyannameSifre}
                 onChange={(event) => setGibSecrets((prev) => ({ ...prev, ebeyannameSifre: event.target.value }))}
-                placeholder={gibDraftSafe.ebeyannameSifreSet ? "Guncellemek icin yeniden girin" : "Gecici secret taslagi"}
+                placeholder={gibDraftSafe.ebeyannameSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
               />
               <Input
                 label="Gunluk Senkron Saati"
@@ -863,7 +863,7 @@ export default function AyarlarPage() {
                 type="password"
                 value={lucaSecret}
                 onChange={(event) => setLucaSecret(event.target.value)}
-                placeholder={lucaDraftSafe.adminSifreSet ? "Guncellemek icin yeniden girin" : "Gecici secret taslagi"}
+                placeholder={lucaDraftSafe.adminSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
               />
               <Input
                 label="Firma Kod Esleme Kurali"
@@ -1383,7 +1383,7 @@ export default function AyarlarPage() {
                     <TableHeadCell>Kullanici</TableHeadCell>
                     <TableHeadCell>Aksiyon</TableHeadCell>
                     <TableHeadCell>Kaynak</TableHeadCell>
-                    <TableHeadCell>Ozet</TableHeadCell>
+                    <TableHeadCell>Özet</TableHeadCell>
                   </tr>
                 </TableHead>
                 <TableBody>
@@ -1434,7 +1434,7 @@ export default function AyarlarPage() {
               </Card>
 
               <Card>
-                <h3 className="text-sm font-semibold text-slate-800">Resmi Gazete Ozeti</h3>
+                <h3 className="text-sm font-semibold text-slate-800">Resmi Gazete Özeti</h3>
                 <div className="mt-3 space-y-2">
                   {resmiGazeteOzetleri.slice(0, 3).map((item) => (
                     <div key={item.id} className="rounded-lg border border-slate-200 p-3">

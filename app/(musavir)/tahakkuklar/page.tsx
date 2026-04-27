@@ -100,8 +100,8 @@ export default function TahakkuklarPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tahakkuk ve Odemeler"
-        subtitle="Ofis hizmet tahakkuklarini ve resmi vergi tahakkuklarini ayri anlamda izleyin"
+        title="Tahakkuk ve Ödemeler"
+        subtitle="Ofis hizmet tahakkuklarını ve resmi vergi tahakkuklarını ayrı anlamda izleyin"
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => handleLucaExport(filtered)}>
@@ -121,12 +121,12 @@ export default function TahakkuklarPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-        <MetricCard title="Hizmet Tahakkugu" value={formatPara(hizmetToplam)} subtitle={`${hizmetKayitlari.length} kayit`} />
-        <MetricCard title="Vergi Tahakkugu" value={formatPara(vergiToplam)} subtitle={`${vergiKayitlari.length} resmi kayit`} variant="warning" />
-        <MetricCard title="Tahsil Edilen" value={formatPara(totalPaid)} subtitle={`Toplam ${formatPara(total)} icinden`} variant="success" />
-        <MetricCard title="Bekleyen" value={pending} subtitle="Odeme veya kismi odeme bekliyor" variant={pending > 0 ? "warning" : "default"} />
-        <MetricCard title="Planli WhatsApp" value={plannedWhatsApp} subtitle="Hizmet tahakkugu bildirimi" variant={plannedWhatsApp > 0 ? "warning" : "default"} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <MetricCard title="Hizmet Tahakkuku" value={formatPara(hizmetToplam)} subtitle={`${hizmetKayitlari.length} kayıt`} />
+        <MetricCard title="Vergi Tahakkuku" value={formatPara(vergiToplam)} subtitle={`${vergiKayitlari.length} resmi kayıt`} variant="warning" />
+        <MetricCard title="Tahsil Edilen" value={formatPara(totalPaid)} subtitle={`Toplam ${formatPara(total)} içinden`} variant="success" />
+        <MetricCard title="Bekleyen" value={pending} subtitle="Ödeme veya kısmi ödeme bekliyor" variant={pending > 0 ? "warning" : "default"} />
+        <MetricCard title="Planlı WhatsApp" value={plannedWhatsApp} subtitle="Hizmet tahakkuku bildirimi" variant={plannedWhatsApp > 0 ? "warning" : "default"} />
       </div>
 
       <Card>
@@ -134,7 +134,7 @@ export default function TahakkuklarPage() {
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Tahakkuk Listesi</h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              Hizmet tahakkugu ile vergi tahakkugu ayni ekranda, ama farkli kategori ve kalem mantigi ile izlenir.
+              Hizmet tahakkuku ile vergi tahakkuku aynı ekranda, ama farklı kategori ve kalem mantığı ile izlenir.
             </p>
           </div>
           <Badge variant={bankaEkstreleri.length > 0 ? "info" : "neutral"}>
@@ -148,19 +148,19 @@ export default function TahakkuklarPage() {
             onChange={(event) => setFilterTur(event.target.value as typeof filterTur)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tum kategoriler</option>
-            <option value="hizmet">Hizmet tahakkugu</option>
-            <option value="vergi">Vergi tahakkugu</option>
+            <option value="tumu">Tüm kategoriler</option>
+            <option value="hizmet">Hizmet tahakkuku</option>
+            <option value="vergi">Vergi tahakkuku</option>
           </select>
           <select
             value={filterDurum}
             onChange={(event) => setFilterDurum(event.target.value as typeof filterDurum)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tum durumlar</option>
+            <option value="tumu">Tüm durumlar</option>
             <option value="bekliyor">Bekliyor</option>
-            <option value="kismi">Kismi</option>
-            <option value="odendi">Odendi</option>
+            <option value="kismi">Kısmi</option>
+            <option value="odendi">Ödendi</option>
             <option value="gecikti">Gecikti</option>
           </select>
           <select
@@ -168,12 +168,12 @@ export default function TahakkuklarPage() {
             onChange={(event) => setFilterKaynak(event.target.value as typeof filterKaynak)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tum kaynaklar</option>
-            <option value="manuel">Manuel/acik kayit</option>
-            <option value="otomatik">Beyannameden turetilen</option>
+            <option value="tumu">Tüm kaynaklar</option>
+            <option value="manuel">Manuel/açık kayıt</option>
+            <option value="otomatik">Beyannameden türetilen</option>
           </select>
           <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            {filtered.length} kayit gorunuyor
+            {filtered.length} kayıt görünüyor
           </div>
         </div>
 
@@ -181,12 +181,12 @@ export default function TahakkuklarPage() {
           <Table>
             <TableHead>
               <tr>
-                <TableHeadCell>Musteri</TableHeadCell>
-                <TableHeadCell>Donem</TableHeadCell>
+                <TableHeadCell>Müşteri</TableHeadCell>
+                <TableHeadCell>Dönem</TableHeadCell>
                 <TableHeadCell>Kategori</TableHeadCell>
                 <TableHeadCell>Kalem</TableHeadCell>
                 <TableHeadCell>Tutar</TableHeadCell>
-                <TableHeadCell>Odenen</TableHeadCell>
+                <TableHeadCell>Ödenen</TableHeadCell>
                 <TableHeadCell>Vade</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
                 <TableHeadCell>Bildirim</TableHeadCell>
@@ -194,7 +194,7 @@ export default function TahakkuklarPage() {
             </TableHead>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableEmpty colSpan={9} message="Tahakkuk kaydi bulunamadi" />
+                <TableEmpty colSpan={9} message="Tahakkuk kaydı bulunamadı" />
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item.id}>
@@ -216,7 +216,7 @@ export default function TahakkuklarPage() {
                           <span className="text-[11px] text-slate-400">{item.resmiTahakkukFisNo}</span>
                         )}
                         {item.otomatikTuretilmis && (
-                          <span className="text-[11px] text-blue-500">Beyannameden otomatik turetildi</span>
+                          <span className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</span>
                         )}
                       </div>
                     </TableCell>
@@ -282,7 +282,7 @@ export default function TahakkuklarPage() {
                   {item.otomatikTuretilmis && <Badge variant="info">Beyannameden</Badge>}
                 </div>
                 <MobileField label="Tutar">{formatPara(item.tutar)}</MobileField>
-                <MobileField label="Odenen">{formatPara(item.odenenTutar ?? 0)}</MobileField>
+                <MobileField label="Ödenen">{formatPara(item.odenenTutar ?? 0)}</MobileField>
                 <MobileField label="Vade">{formatTarih(item.vadeTarihi)}</MobileField>
                 <div className="flex flex-wrap gap-2">
                   <TahsilatBadge

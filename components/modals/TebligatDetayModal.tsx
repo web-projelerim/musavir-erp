@@ -49,18 +49,18 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
 
   const kalanGun = tebligatKalanGun(tebligat);
   const detaylar = [
-    { icon: User, label: "Musteri", value: tebligat.musteriAdi },
+    { icon: User, label: "Müşteri", value: tebligat.musteriAdi },
     { icon: Hash, label: "VKN/TCKN", value: tebligat.vknTckn },
     { icon: Calendar, label: "Tebligat Tarihi", value: formatTarih(tebligat.tarih) },
-    { icon: FileText, label: "Tur", value: tebligat.tur },
+    { icon: FileText, label: "Tür", value: tebligat.tur },
     {
       icon: Calendar,
-      label: "Ulasma Tarihi",
+      label: "Ulaşma Tarihi",
       value: tebligat.ulasmaTarihi ? formatTarih(tebligat.ulasmaTarihi) : "-",
     },
     {
       icon: Calendar,
-      label: "Teblig Edilmis Sayilma",
+      label: "Tebliğ Edilmiş Sayılma",
       value: tebligat.tebligEdilmisSayilmaTarihi ? formatTarih(tebligat.tebligEdilmisSayilmaTarihi) : "-",
     },
     {
@@ -76,7 +76,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
   ];
 
   return (
-    <Modal open={Boolean(tebligat)} onClose={onClose} title="Tebligat Detayi" size="lg">
+    <Modal open={Boolean(tebligat)} onClose={onClose} title="Tebligat Detayı" size="lg">
       <div className="space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -117,7 +117,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
               {tebligat.aksiyonDurumu ? (
                 <TebligatAksiyonBadge durum={tebligat.aksiyonDurumu} />
               ) : (
-                <Badge variant="neutral">Tanimsiz</Badge>
+                <Badge variant="neutral">Tanımsız</Badge>
               )}
               <span className="text-xs text-slate-500">{tebligatAksiyonDurumLabel(tebligat.aksiyonDurumu)}</span>
             </div>
@@ -130,11 +130,11 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
             <Badge variant="neutral">{tebligat.id}</Badge>
           </div>
           <p className="text-sm leading-relaxed text-slate-700">
-            {tebligat.notlar || "Bu tebligat icin ek not bulunmuyor."}
+            {tebligat.notlar || "Bu tebligat için ek not bulunmuyor."}
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
           {tebligat.aksiyonDurumu !== "tamamlandi" && (
             <Button
               type="button"
@@ -143,7 +143,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
               onClick={handleAksiyon}
               loading={aksiyonLoading}
             >
-              {tebligat.aksiyonDurumu === "bekliyor" ? "Isleme Al" : "Aksiyonu Tamamla"}
+              {tebligat.aksiyonDurumu === "bekliyor" ? "İşleme Al" : "Aksiyonu Tamamla"}
             </Button>
           )}
           <Button
@@ -152,7 +152,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
             icon={<Download className="h-3.5 w-3.5" />}
             onClick={() => onPdf(tebligat)}
           >
-            PDF Goruntule
+            PDF Görüntüle
           </Button>
           {tebligat.durum !== "islendi" && (
             <Button
@@ -161,7 +161,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
               onClick={handleIslendi}
               loading={loading}
             >
-              Islendi Isaretle
+              İşlendi İşaretle
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose}>

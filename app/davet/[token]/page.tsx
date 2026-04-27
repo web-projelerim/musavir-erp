@@ -42,7 +42,7 @@ export default function DavetPage({ params }: { params: { token: string } }) {
     event.preventDefault();
     if (!davet || !usable) return;
     if (form.password.length < 6) {
-      toast.error("Sifre en az 6 karakter olmali");
+      toast.error("Şifre en az 6 karakter olmalı");
       return;
     }
     setLoading(true);
@@ -64,11 +64,11 @@ export default function DavetPage({ params }: { params: { token: string } }) {
           usedAt: new Date().toISOString(),
         });
       }
-      toast.success("Hesabiniz olusturuldu");
+      toast.success("Hesabınız oluşturuldu");
       router.replace(davet.rol === "mukellef" ? "/panel" : "/dashboard");
     } catch (error) {
       console.error(error);
-      toast.error("Hesap olusturulamadi", "E-posta daha once kullanilmis olabilir");
+      toast.error("Hesap oluşturulamadı", "E-posta daha önce kullanılmış olabilir");
     } finally {
       setLoading(false);
     }
@@ -83,30 +83,30 @@ export default function DavetPage({ params }: { params: { token: string } }) {
           </div>
           <div>
             <p className="text-sm font-semibold">MusavirERP</p>
-            <p className="text-xs text-slate-400">Davetli hesap olusturma</p>
+            <p className="text-xs text-slate-400">Davetli hesap oluşturma</p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
           {!davet ? (
             <div>
-              <h1 className="text-lg font-bold">Davet bulunamadi</h1>
-              <p className="mt-2 text-sm text-slate-400">Bu davet linki gecersiz veya demo veride henuz yuklenmedi.</p>
+              <h1 className="text-lg font-bold">Davet bulunamadı</h1>
+              <p className="mt-2 text-sm text-slate-400">Bu davet linki geçersiz veya demo veride henüz yüklenmedi.</p>
             </div>
           ) : !usable ? (
             <div>
-              <h1 className="text-lg font-bold">Davet kullanilamaz</h1>
-              <p className="mt-2 text-sm text-slate-400">Davet suresi dolmus, iptal edilmis veya daha once kullanilmis.</p>
+              <h1 className="text-lg font-bold">Davet kullanılamaz</h1>
+              <p className="mt-2 text-sm text-slate-400">Davet süresi dolmuş, iptal edilmiş veya daha önce kullanılmış.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-blue-300" />
-                  <span className="text-sm font-semibold">Davet dogrulandi</span>
+                  <span className="text-sm font-semibold">Davet doğrulandı</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant="info">{davet.rol === "mukellef" ? "Mukellef" : "Personel"}</Badge>
+                  <Badge variant="info">{davet.rol === "mukellef" ? "Mükellef" : "Personel"}</Badge>
                   {davet.musteriAdi && <Badge variant="neutral">{davet.musteriAdi}</Badge>}
                 </div>
                 <p className="mt-2 text-xs text-blue-100">{davet.email}</p>
@@ -116,14 +116,14 @@ export default function DavetPage({ params }: { params: { token: string } }) {
                 <Input label="Soyad" value={form.soyad} onChange={(event) => setForm({ ...form, soyad: event.target.value })} required />
               </div>
               <Input
-                label="Sifre"
+                label="Şifre"
                 type="password"
                 value={form.password}
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
                 required
               />
               <Button type="submit" loading={loading} className="w-full">
-                Hesabi Olustur
+                Hesabı Oluştur
               </Button>
             </form>
           )}

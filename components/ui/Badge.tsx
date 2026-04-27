@@ -105,8 +105,8 @@ export function BeyannameBadge({ durum }: { durum: BeyannameDurum }) {
 export function TebligatAksiyonBadge({ durum }: { durum: TebligatAksiyonDurum }) {
   const map = {
     bekliyor: { label: "Bekliyor", variant: "warning" as const },
-    islemde: { label: "Islemde", variant: "info" as const },
-    tamamlandi: { label: "Tamamlandi", variant: "success" as const },
+    islemde: { label: "İşlemde", variant: "info" as const },
+    tamamlandi: { label: "Tamamlandı", variant: "success" as const },
   };
   const { label, variant } = map[durum];
   return <Badge variant={variant}>{label}</Badge>;

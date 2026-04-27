@@ -38,7 +38,7 @@ import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
-const TABS = ["Ozet", "Yukumlulukler", "Gorevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+const TABS = ["Özet", "Yükümlülükler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
 function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -48,7 +48,7 @@ function formatDosyaBoyutu(bytes: number) {
 export default function MusteriDetayPage({ params }: { params: { id: string } }) {
   const toast = useToast();
   const logAudit = useAuditLog();
-  const [activeTab, setActiveTab] = useState("Ozet");
+  const [activeTab, setActiveTab] = useState("Özet");
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showMusteriModal, setShowMusteriModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
@@ -225,7 +225,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           entityType: "musteri",
           entityId: musteri.id,
           entityLabel: musteri.firmaAdi,
-          summary: "Musteri pasife alindi",
+          summary: "Müşteri pasife alındı",
           before: { durum: musteri.durum },
           after: { durum: "pasif" },
         });
@@ -485,7 +485,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       </div>
 
       {/* Tab içeriği */}
-      {activeTab === "Ozet" && (
+      {activeTab === "Özet" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <Card>
@@ -528,13 +528,13 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
 
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-800">Tahakkuk ve Odeme Ozeti</h3>
+                <h3 className="text-sm font-semibold text-slate-800">Tahakkuk ve Ödeme Özeti</h3>
                 <Button size="sm" variant="outline" onClick={() => setShowTahakkukModal(true)}>
                   Tahakkuk Ekle
                 </Button>
               </div>
               {tahakkuklar.length === 0 ? (
-                <p className="text-xs text-slate-400">Tahakkuk kaydi bulunamadi</p>
+                <p className="text-xs text-slate-400">Tahakkuk kaydı bulunamadı</p>
               ) : (
                 <div className="space-y-2">
                   {tahakkuklar.slice(0, 4).map((tahakkuk) => (
@@ -639,7 +639,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                 {aktifDavet && <Badge variant="info">Portal daveti bekliyor</Badge>}
               </div>
               {musteriAudit.length === 0 ? (
-                <p className="text-xs text-slate-400">Zaman cizelgesi kaydi bulunamadi</p>
+                <p className="text-xs text-slate-400">Zaman çizelgesi kaydı bulunamadı</p>
               ) : (
                 <div className="space-y-3">
                   {musteriAudit.map((log) => (
@@ -656,7 +656,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
-      {activeTab === "Gorevler" && (
+      {activeTab === "Görevler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
             <TableHead>
@@ -699,7 +699,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Belgeler</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Musteri dosyalari ve paylasilan evraklar</p>
+              <p className="text-xs text-slate-500 mt-0.5">Müşteri dosyaları ve paylaşılan evraklar</p>
             </div>
             <Button
               size="sm"
@@ -800,13 +800,13 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
-      {activeTab === "Yukumlulukler" && (
+      {activeTab === "Yükümlülükler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <Table>
             <TableHead>
               <tr>
                 <TableHeadCell>Tip</TableHeadCell>
-                <TableHeadCell>Donem</TableHeadCell>
+                <TableHeadCell>Dönem</TableHeadCell>
                 <TableHeadCell>Son Tarih</TableHeadCell>
                 <TableHeadCell>Sorumlu</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
@@ -815,7 +815,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             </TableHead>
             <TableBody>
               {yukumlulukler.length === 0 ? (
-                <TableEmpty colSpan={6} message="Yukumluluk kaydi bulunamadi" />
+                <TableEmpty colSpan={6} message="Yükümlülük kaydı bulunamadı" />
               ) : (
                 yukumlulukler.map((item) => (
                   <TableRow key={item.id}>
@@ -1021,7 +1021,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             <Table>
               <TableHead>
                 <tr>
-                  <TableHeadCell>Donem</TableHeadCell>
+                  <TableHeadCell>Dönem</TableHeadCell>
                   <TableHeadCell>Kalem</TableHeadCell>
                   <TableHeadCell>Tutar</TableHeadCell>
                   <TableHeadCell>Odenen</TableHeadCell>
@@ -1032,7 +1032,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               </TableHead>
               <TableBody>
                 {tahakkuklar.length === 0 ? (
-                  <TableEmpty colSpan={7} message="Tahakkuk bulunamadi" />
+                  <TableEmpty colSpan={7} message="Tahakkuk bulunamadı" />
                 ) : (
                   tahakkuklar.map((item) => (
                     <TableRow key={item.id}>

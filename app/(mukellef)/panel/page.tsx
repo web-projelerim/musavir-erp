@@ -192,7 +192,7 @@ export default function MukellefPanelPage() {
         )}
 
         {/* Metrikler */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <MetricCard
             title="Bekleyen Beyan"
             value={beyanlar.filter((b) => b.durum === "bekliyor").length}
@@ -250,11 +250,11 @@ export default function MukellefPanelPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-slate-500" />
-                Guncel Tahakkuklarim
+                Güncel Tahakkuklarım
               </h3>
             </div>
             {tahakkuklar.length === 0 ? (
-              <p className="text-xs text-slate-400">Guncel tahakkuk bulunamadi</p>
+              <p className="text-xs text-slate-400">Güncel tahakkuk bulunamadı</p>
             ) : (
               <div className="space-y-2.5">
                 {tahakkuklar.map((t) => (
@@ -273,11 +273,11 @@ export default function MukellefPanelPage() {
                       </Badge>
                     </div>
                     {t.otomatikTuretilmis && (
-                      <p className="mt-2 text-[11px] text-blue-500">Beyannameden otomatik turetildi</p>
+                      <p className="mt-2 text-[11px] text-blue-500">Beyannameden otomatik türetildi</p>
                     )}
                     <div className="mt-2 flex items-center justify-between text-xs">
                       <span className="text-slate-800 font-semibold">{formatPara(t.tutar)}</span>
-                      <span className="text-slate-500">Odenen: {formatPara(t.odenenTutar ?? 0)}</span>
+                      <span className="text-slate-500">Ödenen: {formatPara(t.odenenTutar ?? 0)}</span>
                     </div>
                   </div>
                 ))}
@@ -364,11 +364,11 @@ export default function MukellefPanelPage() {
                 icon={<Upload className="w-3.5 h-3.5" />}
                 onClick={() => setShowBelgeModal(true)}
               >
-                Yukle
+                Yükle
               </Button>
             </div>
             {belgeler.length === 0 ? (
-              <p className="text-xs text-slate-400">Paylasilan veya yuklenen belge yok</p>
+              <p className="text-xs text-slate-400">Paylaşılan veya yüklenen belge yok</p>
             ) : (
               <div className="space-y-2.5">
                 {belgeler.map((belge) => (
@@ -421,7 +421,7 @@ export default function MukellefPanelPage() {
             )}
             {odemeler.length > 0 && (
               <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-                <p className="text-xs font-semibold text-emerald-800">Sisteme islenen son banka hareketi</p>
+                <p className="text-xs font-semibold text-emerald-800">Sisteme işlenen son banka hareketi</p>
                 <p className="mt-1 text-xs text-emerald-700">
                   {formatPara(odemeler[0].tutar)} · {formatTarih(odemeler[0].odemeTarihi)} · {odemeler[0].durum}
                 </p>

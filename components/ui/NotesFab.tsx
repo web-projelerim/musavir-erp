@@ -159,13 +159,13 @@ export function NotesFab() {
             {sortedNotlar.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                 <Pencil className="mb-2 h-6 w-6 opacity-40" />
-                <p className="text-sm">Henuz not yok</p>
+                <p className="text-sm">Henüz not yok</p>
                 <button
                   type="button"
                   onClick={() => { setYazmaAcik(true); setPanelAcik(false); }}
                   className="mt-2 text-xs text-amber-600 hover:underline"
                 >
-                  Ilk notu ekle
+                  İlk notu ekle
                 </button>
               </div>
             ) : (
@@ -228,7 +228,7 @@ export function NotesFab() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.ctrlKey) handleKaydet();
               }}
-              placeholder="Notunuzu yazin..."
+              placeholder="Notunuzu yazın..."
               rows={4}
               className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 placeholder-slate-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-100"
             />
@@ -282,7 +282,7 @@ export function NotesFab() {
           setPanelAcik((v) => !v);
           setYazmaAcik(false);
         }}
-        title="Not ekle (Sag tik: tum notlar)"
+        title="Not ekle (Sağ tık: tüm notlar)"
         className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-white shadow-lg transition-all hover:bg-amber-500 hover:scale-105 active:scale-95"
       >
         <Pencil className="h-5 w-5" />

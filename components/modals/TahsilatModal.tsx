@@ -86,12 +86,12 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
     const odenenTutar = Number(form.odenenTutar || 0);
 
     if (!form.musteriId || !selectedMusteri) {
-      toast.error("Musteri secimi zorunludur");
+      toast.error("Müşteri seçimi zorunludur");
       return;
     }
 
     if (!Number.isFinite(tutar) || tutar <= 0) {
-      toast.error("Gecerli bir tahsilat tutari girin");
+      toast.error("Geçerli bir tahsilat tutarı girin");
       return;
     }
 
@@ -132,11 +132,11 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
         entityType: "tahsilat",
         entityId: saved.id,
         entityLabel: `${saved.musteriAdi} - ${saved.donem}`,
-        summary: tahsilat ? "Tahsilat guncellendi" : "Tahsilat olusturuldu",
+        summary: tahsilat ? "Tahsilat güncellendi" : "Tahsilat oluşturuldu",
         before: tahsilat ? (tahsilat as unknown as Record<string, unknown>) : undefined,
         after: saved as unknown as Record<string, unknown>,
       });
-      toast.success(tahsilat ? "Tahsilat guncellendi" : "Tahsilat olusturuldu");
+      toast.success(tahsilat ? "Tahsilat güncellendi" : "Tahsilat oluşturuldu");
       onClose();
     } catch (error) {
       console.error(error);
@@ -150,31 +150,31 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
     <Modal
       open={open}
       onClose={onClose}
-      title={tahsilat ? "Tahsilat Guncelle" : "Yeni Tahsilat"}
+      title={tahsilat ? "Tahsilat Güncelle" : "Yeni Tahsilat"}
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Musteri"
+          label="Müşteri"
           disabled={Boolean(musteriId)}
           options={musteriOptions}
           {...f("musteriId")}
         />
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Donem" placeholder="2026-04" {...f("donem")} required />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input label="Dönem" placeholder="2026-04" {...f("donem")} required />
           <Input label="Vade Tarihi" type="date" {...f("vadeTarihi")} required />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="Tutar" type="number" min="0" step="0.01" {...f("tutar")} required />
-          <Input label="Odenen Tutar" type="number" min="0" step="0.01" {...f("odenenTutar")} />
+          <Input label="Ödenen Tutar" type="number" min="0" step="0.01" {...f("odenenTutar")} />
         </div>
         <Select
           label="Durum"
           options={[
             { value: "bekliyor", label: "Bekliyor" },
             { value: "gecikti", label: "Gecikti" },
-            { value: "kismi", label: "Kismi" },
-            { value: "odendi", label: "Odendi" },
+            { value: "kismi", label: "Kısmi" },
+            { value: "odendi", label: "Ödendi" },
           ]}
           {...f("durum")}
         />
@@ -190,7 +190,7 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Iptal
+            İptal
           </Button>
           <Button type="submit" loading={loading}>
             Kaydet

@@ -35,6 +35,22 @@ const DURUM_SIRALAMA: GorevDurum[] = ["beklemede", "devam", "tamamlandi"];
 const ONCELIKLER: GorevOncelik[] = ["dusuk", "normal", "yuksek", "kritik"];
 const TIPLER: GorevTip[] = ["beyanname", "tebligat", "tahsilat", "belge", "kdv2", "diger"];
 
+const ONCELIK_LABEL: Record<GorevOncelik, string> = {
+  dusuk: "Düşük",
+  normal: "Normal",
+  yuksek: "Yüksek",
+  kritik: "Kritik",
+};
+
+const TIP_LABEL: Record<GorevTip, string> = {
+  beyanname: "Beyanname",
+  tebligat: "Tebligat",
+  tahsilat: "Tahsilat",
+  belge: "Belge",
+  kdv2: "KDV2",
+  diger: "Diğer",
+};
+
 export function GorevDetayDrawer({
   gorev,
   onClose,
@@ -76,7 +92,7 @@ export function GorevDetayDrawer({
     setSaving(true);
     try {
       await onDurumGuncelle?.(gorev.id, yeniDurum);
-      toast.success("Durum guncellendi", `Gorev durumu "${yeniDurum}" olarak degistirildi`);
+      toast.success("Durum güncellendi", `Görev durumu "${yeniDurum}" olarak değiştirildi`);
     } catch (error) {
       console.error(error);
       toast.error("Durum kaydedilemedi");
@@ -105,7 +121,7 @@ export function GorevDetayDrawer({
 
   const handleDuzenlemeKaydet = async () => {
     if (!editForm.baslik.trim()) {
-      toast.error("Gorev basligi zorunludur");
+      toast.error("Görev başlığı zorunludur");
       return;
     }
 
@@ -119,26 +135,26 @@ export function GorevDetayDrawer({
         oncelik: editForm.oncelik,
         tip: editForm.tip,
       });
-      toast.success("Gorev guncellendi");
+      toast.success("Görev güncellendi");
     } catch (error) {
       console.error(error);
-      toast.error("Gorev kaydedilemedi");
+      toast.error("Görev kaydedilemedi");
     } finally {
       setSaving(false);
     }
   };
 
   const handleSil = async () => {
-    if (!window.confirm("Bu gorev kalici olarak silinsin mi?")) return;
+    if (!window.confirm("Bu görev kalıcı olarak silinsin mi?")) return;
 
     setSaving(true);
     try {
       await onGorevSil?.(gorev.id);
-      toast.success("Gorev silindi");
+      toast.success("Görev silindi");
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Gorev silinemedi");
+      toast.error("Görev silinemedi");
     } finally {
       setSaving(false);
     }
@@ -181,7 +197,7 @@ export function GorevDetayDrawer({
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   )}
                 >
-                  {d === "beklemede" ? "Beklemede" : d === "devam" ? "Devam" : "Tamamlandi"}
+                  {d === "beklemede" ? "Beklemede" : d === "devam" ? "Devam" : "Tamamlandı"}
                 </button>
               ))}
             </div>
@@ -190,13 +206,13 @@ export function GorevDetayDrawer({
           <div className="px-5 py-4 border-b border-slate-100 space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Detaylar</p>
             {[
-              { icon: Building2, label: "Musteri", value: gorev.musteriAdi },
+              { icon: Building2, label: "Müşteri", value: gorev.musteriAdi },
               { icon: User, label: "Atanan", value: gorev.atananKisi },
               { icon: Calendar, label: "Termin", value: formatTarih(gorev.terminTarihi) },
-              { icon: Tag, label: "Tur", value: gorev.tip },
+              { icon: Tag, label: "Tür", value: gorev.tip },
               {
                 icon: AlertCircle,
-                label: "Oncelik",
+                label: "Öncelik",
                 value: (
                   <Badge
                     variant={
@@ -204,11 +220,11 @@ export function GorevDetayDrawer({
                       gorev.oncelik === "yuksek" ? "warning" : "neutral"
                     }
                   >
-                    {gorev.oncelik}
+                    {ONCELIK_LABEL[gorev.oncelik]}
                   </Badge>
                 ),
               },
-              { icon: Clock, label: "Olusturma", value: formatSureGecmis(gorev.createdAt) },
+              { icon: Clock, label: "Oluşturma", value: formatSureGecmis(gorev.createdAt) },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-3">
                 <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
@@ -223,19 +239,19 @@ export function GorevDetayDrawer({
           </div>
 
           <div className="px-5 py-4 border-b border-slate-100 space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Duzenle</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Düzenle</p>
             <input
               value={editForm.baslik}
               onChange={(e) => setEditForm((prev) => ({ ...prev, baslik: e.target.value }))}
               className={inputClass}
-              placeholder="Gorev basligi"
+              placeholder="Görev başlığı"
             />
             <textarea
               value={editForm.aciklama}
               onChange={(e) => setEditForm((prev) => ({ ...prev, aciklama: e.target.value }))}
               rows={3}
               className={`${inputClass} resize-none`}
-              placeholder="Aciklama"
+              placeholder="Açıklama"
             />
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -248,7 +264,7 @@ export function GorevDetayDrawer({
                 value={editForm.atananKisi}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, atananKisi: e.target.value }))}
                 className={inputClass}
-                placeholder="Atanan kisi"
+                placeholder="Atanan kişi"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -258,7 +274,7 @@ export function GorevDetayDrawer({
                 className={inputClass}
               >
                 {ONCELIKLER.map((oncelik) => (
-                  <option key={oncelik} value={oncelik}>{oncelik}</option>
+                  <option key={oncelik} value={oncelik}>{ONCELIK_LABEL[oncelik]}</option>
                 ))}
               </select>
               <select
@@ -267,7 +283,7 @@ export function GorevDetayDrawer({
                 className={inputClass}
               >
                 {TIPLER.map((tip) => (
-                  <option key={tip} value={tip}>{tip}</option>
+                  <option key={tip} value={tip}>{TIP_LABEL[tip]}</option>
                 ))}
               </select>
             </div>
@@ -324,7 +340,7 @@ export function GorevDetayDrawer({
               onClick={() => handleDurumDegistir("tamamlandi")}
               loading={saving}
             >
-              Tamamlandi
+              Tamamlandı
             </Button>
           )}
           {gorev.durum !== "iptal" && (
@@ -335,7 +351,7 @@ export function GorevDetayDrawer({
               onClick={() => handleDurumDegistir("iptal")}
               disabled={saving}
             >
-              Iptal
+              İptal
             </Button>
           )}
           <Button

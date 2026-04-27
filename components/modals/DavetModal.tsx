@@ -76,11 +76,11 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
         entityType: "davet",
         entityId: token,
         entityLabel: email,
-        summary: `${fixedMukellef ? "Mukellef" : role} daveti olusturuldu`,
+        summary: `${fixedMukellef ? "Mükellef" : role} daveti oluşturuldu`,
         after: { email, role: fixedMukellef ? "mukellef" : role, musteriId },
       });
       setCreatedLink(link);
-      toast.success("Davet olusturuldu");
+      toast.success("Davet oluşturuldu");
 
       // P3-3: E-posta gönderimi (SMTP env varsa)
       if (emailGonder) {
@@ -116,7 +116,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       }
     } catch (error) {
       console.error(error);
-      toast.error("Davet olusturulamadi");
+      toast.error("Davet oluşturulamadı");
     } finally {
       setLoading(false);
     }
@@ -125,11 +125,11 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
   const copyLink = async () => {
     if (!createdLink) return;
     await navigator.clipboard.writeText(createdLink);
-    toast.success("Davet linki kopyalandi");
+    toast.success("Davet linki kopyalandı");
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={fixedMukellef ? "Mukellef Daveti" : "Personel Daveti"} size="md">
+    <Modal open={open} onClose={onClose} title={fixedMukellef ? "Mükellef Daveti" : "Personel Daveti"} size="md">
       <form onSubmit={handleCreate} className="space-y-4">
         <Input
           label="E-posta"
@@ -146,13 +146,13 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
             onChange={(event) => setRole(event.target.value as UserRole)}
             options={[
               { value: "personel", label: "Personel" },
-              { value: "musavir", label: "Mali Musavir" },
+              { value: "musavir", label: "Mali Müşavir" },
             ]}
           />
         )}
         {musteriAdi && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
-            Davet bu musteri hesabina baglanacak: <strong>{musteriAdi}</strong>
+            Davet bu müşteri hesabına bağlanacak: <strong>{musteriAdi}</strong>
           </div>
         )}
         {/* P3-3: E-posta gönderimi toggle */}
@@ -179,7 +179,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-800">
               <Link2 className="h-3.5 w-3.5" />
-              Davet linki hazir
+              Davet linki hazır
             </div>
             <div className="flex gap-2">
               <input
@@ -195,7 +195,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
         )}
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
           <Button type="button" variant="secondary" onClick={onClose}>Kapat</Button>
-          <Button type="submit" loading={loading}>Davet Olustur</Button>
+          <Button type="submit" loading={loading}>Davet Oluştur</Button>
         </div>
       </form>
     </Modal>

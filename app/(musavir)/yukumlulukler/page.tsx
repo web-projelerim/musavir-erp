@@ -49,23 +49,23 @@ export default function YukumluluklerPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Yukumlulukler"
-        subtitle="Mukellefiyet profillerinden uretilen beyan ve takip yukumlulukleri"
+        title="Yükümlülükler"
+        subtitle="Mükellefiyet profillerinden üretilen beyan ve takip yükümlülükleri"
       />
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <MetricCard title="Toplam Profil" value={mukellefiyetProfilleri.length} subtitle="Musteri bazli profil" />
-        <MetricCard title="Aktif Yukumluluk" value={aktif} subtitle="Bu donem uretildi" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <MetricCard title="Toplam Profil" value={mukellefiyetProfilleri.length} subtitle="Müşteri bazlı profil" />
+        <MetricCard title="Aktif Yükümlülük" value={aktif} subtitle="Bu dönem üretildi" />
         <MetricCard
-          title="Hazirlaniyor"
+          title="Hazırlanıyor"
           value={hazirlanan}
-          subtitle="Son tarih yaklasti"
+          subtitle="Son tarih yaklaştı"
           variant={hazirlanan > 0 ? "warning" : "default"}
         />
         <MetricCard
           title="Geciken"
           value={geciken}
-          subtitle="Acil mudahale gerekir"
+          subtitle="Acil müdahale gerekir"
           variant={geciken > 0 ? "danger" : "success"}
         />
       </div>
@@ -77,11 +77,11 @@ export default function YukumluluklerPage() {
             onChange={(event) => setDurumFilter(event.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tum durumlar</option>
+            <option value="tumu">Tüm durumlar</option>
             <option value="bekliyor">Bekliyor</option>
-            <option value="hazirlaniyor">Hazirlaniyor</option>
+            <option value="hazirlaniyor">Hazırlanıyor</option>
             <option value="gecikti">Gecikti</option>
-            <option value="tamamlandi">Tamamlandi</option>
+            <option value="tamamlandi">Tamamlandı</option>
             <option value="pasif">Pasif</option>
           </select>
           <select
@@ -89,21 +89,21 @@ export default function YukumluluklerPage() {
             onChange={(event) => setTipFilter(event.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tum tipler</option>
+            <option value="tumu">Tüm tipler</option>
             <option value="kdv">KDV</option>
             <option value="muhtasar">Muhtasar</option>
-            <option value="gecici_vergi">Gecici Vergi</option>
+            <option value="gecici_vergi">Geçici Vergi</option>
             <option value="sgk">SGK</option>
           </select>
-          <span className="ml-auto text-xs text-slate-500">{filtered.length} kayit</span>
+          <span className="ml-auto text-xs text-slate-500">{filtered.length} kayıt</span>
         </div>
       </Card>
 
       <Card padding="none">
         <div className="border-b border-slate-100 px-5 py-4">
-          <h3 className="text-sm font-semibold text-slate-800">Donemsel Yukumluluk Listesi</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Dönemsel Yükümlülük Listesi</h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Bu liste MVP olarak mukellefiyet profilinden otomatik uretilir.
+            Bu liste mükellefiyet profilinden otomatik üretilir.
           </p>
         </div>
 
@@ -133,7 +133,7 @@ export default function YukumluluklerPage() {
                   href={`/musteriler/${item.musteriId}`}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
-                  Musteri detayi
+                  Müşteri detayı
                 </Link>
               </MobileCard>
             );
@@ -143,9 +143,9 @@ export default function YukumluluklerPage() {
         <Table className="hidden md:block">
           <TableHead>
             <tr>
-              <TableHeadCell>Musteri</TableHeadCell>
+              <TableHeadCell>Müşteri</TableHeadCell>
               <TableHeadCell>Tip</TableHeadCell>
-              <TableHeadCell>Donem</TableHeadCell>
+              <TableHeadCell>Dönem</TableHeadCell>
               <TableHeadCell>Son Tarih</TableHeadCell>
               <TableHeadCell>Sorumlu</TableHeadCell>
               <TableHeadCell>Durum</TableHeadCell>
@@ -154,7 +154,7 @@ export default function YukumluluklerPage() {
           </TableHead>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableEmpty colSpan={7} message="Yukumluluk kaydi bulunamadi" />
+              <TableEmpty colSpan={7} message="Yükümlülük kaydı bulunamadı" />
             ) : (
               filtered.map((item) => {
                 const profil = mukellefiyetProfilleri.find((row) => row.id === item.profilId);

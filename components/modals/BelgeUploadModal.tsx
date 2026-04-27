@@ -68,17 +68,17 @@ export function BelgeUploadModal({
     e.preventDefault();
 
     if (!file) {
-      toast.error("Dosya secin");
+      toast.error("Dosya seçin");
       return;
     }
 
     if (!selectedMusteri) {
-      toast.error("Musteri secimi zorunludur");
+      toast.error("Müşteri seçimi zorunludur");
       return;
     }
 
     if (file.size > 12 * 1024 * 1024) {
-      toast.error("Dosya cok buyuk", "12 MB altinda bir dosya secin");
+      toast.error("Dosya çok büyük", "12 MB altında bir dosya seçin");
       return;
     }
 
@@ -103,7 +103,7 @@ export function BelgeUploadModal({
         storagePath,
         kategori: form.kategori,
         gorunurluk: form.gorunurluk,
-        yukleyen: user ? `${user.ad} ${user.soyad}` : "Demo Kullanici",
+        yukleyen: user ? `${user.ad} ${user.soyad}` : "Demo Kullanıcı",
         yukleyenRol: user?.rol ?? "musavir",
         notlar: form.notlar.trim() || undefined,
       };
@@ -122,7 +122,7 @@ export function BelgeUploadModal({
         entityType: "belge",
         entityId: belge.id,
         entityLabel: belge.dosyaAdi,
-        summary: "Belge yuklendi",
+        summary: "Belge yüklendi",
         after: {
           musteriId: belge.musteriId,
           kategori: belge.kategori,
@@ -130,21 +130,21 @@ export function BelgeUploadModal({
           boyut: belge.boyut,
         },
       });
-      toast.success("Belge yuklendi", `${file.name} kaydedildi`);
+      toast.success("Belge yüklendi", `${file.name} kaydedildi`);
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Belge yuklenemedi", "Firebase Storage ve Firestore yetkilerini kontrol edin");
+      toast.error("Belge yüklenemedi", "Firebase Storage ve Firestore yetkilerini kontrol edin");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Belge Yukle" size="md">
+    <Modal open={open} onClose={onClose} title="Belge Yükle" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Musteri"
+          label="Müşteri"
           disabled={Boolean(musteriId)}
           value={form.musteriId}
           onChange={(e) => setForm({ ...form, musteriId: e.target.value })}
@@ -155,10 +155,10 @@ export function BelgeUploadModal({
           <label className="flex flex-col items-center justify-center gap-2 border border-dashed border-slate-300 rounded-xl px-4 py-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-colors">
             <Upload className="w-5 h-5 text-slate-400" />
             <span className="text-sm font-medium text-slate-700">
-              {file ? file.name : "Dosya sec veya surukle"}
+              {file ? file.name : "Dosya seç veya sürükle"}
             </span>
             <span className="text-xs text-slate-400">
-              {file ? formatBoyut(file.size) : "PDF, Excel, Word veya gorsel - maks. 12 MB"}
+              {file ? formatBoyut(file.size) : "PDF, Excel, Word veya görsel — maks. 12 MB"}
             </span>
             <input
               type="file"
@@ -167,7 +167,7 @@ export function BelgeUploadModal({
             />
           </label>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Select
             label="Kategori"
             value={form.kategori}
@@ -176,17 +176,17 @@ export function BelgeUploadModal({
               { value: "beyanname", label: "Beyanname" },
               { value: "tebligat", label: "Tebligat" },
               { value: "rapor", label: "Rapor" },
-              { value: "sozlesme", label: "Sozlesme" },
+              { value: "sozlesme", label: "Sözleşme" },
               { value: "fatura", label: "Fatura" },
-              { value: "diger", label: "Diger" },
+              { value: "diger", label: "Diğer" },
             ]}
           />
           <Select
-            label="Gorunurluk"
+            label="Görünürlük"
             value={form.gorunurluk}
             onChange={(e) => setForm({ ...form, gorunurluk: e.target.value as BelgeGorunurluk })}
             options={[
-              { value: "mukellef", label: "Mukellef gorsun" },
+              { value: "mukellef", label: "Mükellef görsün" },
               { value: "musavir", label: "Sadece ofis" },
             ]}
           />
@@ -195,15 +195,15 @@ export function BelgeUploadModal({
           label="Not"
           value={form.notlar}
           onChange={(e) => setForm({ ...form, notlar: e.target.value })}
-          placeholder="Belgeyle ilgili kisa not"
+          placeholder="Belgeyle ilgili kısa not"
         />
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
           <Button type="button" variant="secondary" onClick={onClose}>
-            Iptal
+            İptal
           </Button>
           <Button type="submit" loading={loading}>
-            Yukle
+            Yükle
           </Button>
         </div>
       </form>

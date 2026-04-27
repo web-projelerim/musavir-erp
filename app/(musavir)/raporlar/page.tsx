@@ -335,7 +335,7 @@ export default function RaporlarPage() {
       {/* Şablonlar */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5 mb-6">
         <h3 className="text-sm font-semibold text-slate-800 mb-4">Hızlı Rapor Üret</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Object.entries(RAPOR_TIP_LABELS).map(([key, label]) => (
             <button
               key={key}

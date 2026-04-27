@@ -83,7 +83,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
         entityType: "gorev",
         entityId: createdGorev.id,
         entityLabel: createdGorev.baslik,
-        summary: "Gorev olusturuldu",
+        summary: "Görev oluşturuldu",
         after: {
           tip: createdGorev.tip,
           oncelik: createdGorev.oncelik,

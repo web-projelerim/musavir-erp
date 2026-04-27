@@ -85,7 +85,7 @@ export default function KDV2Page() {
     e.preventDefault();
 
     if (!Number.isFinite(kdvMatrahi) || kdvMatrahi <= 0) {
-      toast.error("Gecerli bir KDV matrahi girin");
+      toast.error("Geçerli bir KDV matrahı girin");
       return;
     }
 
@@ -118,11 +118,11 @@ export default function KDV2Page() {
           entityType: "kdv2",
           entityId: editingId,
           entityLabel: updated.belgeNo,
-          summary: "KDV2 kaydi guncellendi",
+          summary: "KDV2 kaydı güncellendi",
           before: editingKayit as unknown as Record<string, unknown>,
           after: updated as unknown as Record<string, unknown>,
         });
-        toast.success("KDV2 kaydi guncellendi", `KDV2 Tutari: ${formatPara(kdv2Tutari)}`);
+        toast.success("KDV2 kaydı güncellendi", `KDV2 Tutarı: ${formatPara(kdv2Tutari)}`);
       } else {
         const created = isFirebaseConfigured
           ? await createKDV2Hesaplama(payload)
@@ -134,23 +134,23 @@ export default function KDV2Page() {
           entityType: "kdv2",
           entityId: created.id,
           entityLabel: created.belgeNo,
-          summary: "KDV2 kaydi olusturuldu",
+          summary: "KDV2 kaydı oluşturuldu",
           after: created as unknown as Record<string, unknown>,
         });
-        toast.success("KDV2 hesaplamasi kaydedildi", `KDV2 Tutari: ${formatPara(kdv2Tutari)}`);
+        toast.success("KDV2 hesaplaması kaydedildi", `KDV2 Tutarı: ${formatPara(kdv2Tutari)}`);
       }
 
       resetForm();
     } catch (error) {
       console.error(error);
-      toast.error("KDV2 kaydi kaydedilemedi", "Firebase baglantisi veya yetkileri kontrol edin");
+      toast.error("KDV2 kaydı kaydedilemedi", "Firebase bağlantısı veya yetkileri kontrol edin");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (kayit: KDV2Hesaplama) => {
-    if (!window.confirm(`${kayit.belgeNo} numarali KDV2 kaydi silinsin mi?`)) return;
+    if (!window.confirm(`${kayit.belgeNo} numaralı KDV2 kaydı silinsin mi?`)) return;
 
     setKayitlar((prev) => prev.filter((item) => item.id !== kayit.id));
     if (editingId === kayit.id) resetForm();
@@ -162,19 +162,19 @@ export default function KDV2Page() {
         entityType: "kdv2",
         entityId: kayit.id,
         entityLabel: kayit.belgeNo,
-        summary: "KDV2 kaydi silindi",
+        summary: "KDV2 kaydı silindi",
         before: kayit as unknown as Record<string, unknown>,
       });
-      toast.success("KDV2 kaydi silindi");
+      toast.success("KDV2 kaydı silindi");
     } catch (error) {
       console.error(error);
       setKayitlar((prev) => [kayit, ...prev]);
-      toast.error("KDV2 kaydi silinemedi", "Firebase yetkilerini kontrol edin");
+      toast.error("KDV2 kaydı silinemedi", "Firebase yetkilerini kontrol edin");
     }
   };
 
   const musteriOptions = [
-    { value: "", label: "- Musteri secin -" },
+    { value: "", label: "— Müşteri seçin —" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
 
@@ -184,16 +184,16 @@ export default function KDV2Page() {
     <div>
       <PageHeader
         title="KDV2 Hesaplama"
-        subtitle="Tevkifatli KDV hesaplama ve kayit modulu"
+        subtitle="Tevkifatlı KDV hesaplama ve kayıt modülü"
       />
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-blue-800">KDV2 (Tevkifat) Hakkinda</p>
+            <p className="text-sm font-semibold text-blue-800">KDV2 (Tevkifat) Hakkında</p>
             <p className="text-xs text-blue-600 mt-1">
-              KDV2 tevkifatinda, hizmet bedeli uzerinden hesaplanan KDV&apos;nin belirli kismi alici tarafindan beyan edilerek odenir. Bu modul KDV tevkifat tutarini otomatik hesaplar ve musteri bazli kayit altina alir.
+              KDV2 tevkifatında, hizmet bedeli üzerinden hesaplanan KDV&apos;nin belirli kısmı alıcı tarafından beyan edilerek ödenir. Bu modül KDV tevkifat tutarını otomatik hesaplar ve müşteri bazlı kayıt altına alır.
             </p>
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function KDV2Page() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                 <Calculator className="w-4 h-4 text-blue-600" />
-                {editingId ? "KDV2 Kaydi Duzenle" : "Yeni Hesaplama"}
+                {editingId ? "KDV2 Kaydı Düzenle" : "Yeni Hesaplama"}
               </h3>
               {editingId && (
                 <Button
@@ -215,18 +215,18 @@ export default function KDV2Page() {
                   icon={<X className="w-3.5 h-3.5" />}
                   onClick={resetForm}
                 >
-                  Vazgec
+                  Vazgeç
                 </Button>
               )}
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <Select
-                label="Musteri"
+                label="Müşteri"
                 value={form.musteriId}
                 onChange={(e) => setForm({ ...form, musteriId: e.target.value })}
                 options={musteriOptions}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   label="Belge Tarihi"
                   type="date"
@@ -243,9 +243,9 @@ export default function KDV2Page() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
-                  label="KDV Matrahi (TL)"
+                  label="KDV Matrahı (TL)"
                   type="number"
                   min="0"
                   step="0.01"
@@ -255,26 +255,26 @@ export default function KDV2Page() {
                   required
                 />
                 <Select
-                  label="KDV Orani"
+                  label="KDV Oranı"
                   value={form.kdvOrani}
                   onChange={(e) => setForm({ ...form, kdvOrani: e.target.value })}
                   options={KDV_ORANLARI}
                 />
               </div>
               <Input
-                label="Aciklama (istege bagli)"
+                label="Açıklama (isteğe bağlı)"
                 type="text"
                 value={form.aciklama}
                 onChange={(e) => setForm({ ...form, aciklama: e.target.value })}
-                placeholder="Hizmet turu veya belge aciklamasi..."
+                placeholder="Hizmet türü veya belge açıklaması..."
               />
 
               {kdvMatrahi > 0 && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-semibold text-slate-700 mb-3">Hesap Ozeti</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-3">Hesap Özeti</p>
                   {[
-                    { label: "KDV Matrahi", value: formatPara(kdvMatrahi), bold: false },
-                    { label: `KDV Tutari (%${kdvOrani})`, value: formatPara(kdvTutari), bold: false },
+                    { label: "KDV Matrahı", value: formatPara(kdvMatrahi), bold: false },
+                    { label: `KDV Tutarı (%${kdvOrani})`, value: formatPara(kdvTutari), bold: false },
                     { label: "Toplam Tutar", value: formatPara(toplamTutar), bold: false },
                     { label: `KDV2 Tevkifat (%${KDV2_ORANI_MAP[form.kdvOrani] * 100} tevkifat)`, value: formatPara(kdv2Tutari), bold: true },
                   ].map(({ label, value, bold }) => (
@@ -289,7 +289,7 @@ export default function KDV2Page() {
               )}
 
               <Button type="submit" className="w-full" loading={loading} icon={editingId ? <Save className="w-4 h-4" /> : undefined}>
-                {editingId ? "Kaydi Guncelle" : "Hesaplamayi Kaydet"}
+                {editingId ? "Kaydı Güncelle" : "Hesaplamayı Kaydet"}
               </Button>
             </form>
           </Card>
@@ -297,12 +297,12 @@ export default function KDV2Page() {
 
         <div className="lg:col-span-2 space-y-4">
           <Card>
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Tevkifat Oranlari</h3>
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">Tevkifat Oranları</h3>
             <div className="space-y-2">
               {[
-                { label: "%1 KDV islemleri", tevkifat: "%50 (1/2)" },
-                { label: "%10 KDV islemleri", tevkifat: "%50 (1/2)" },
-                { label: "%20 KDV islemleri", tevkifat: "%50 (1/2)" },
+                { label: "%1 KDV işlemleri", tevkifat: "%50 (1/2)" },
+                { label: "%10 KDV işlemleri", tevkifat: "%50 (1/2)" },
+                { label: "%20 KDV işlemleri", tevkifat: "%50 (1/2)" },
               ].map(({ label, tevkifat }) => (
                 <div key={label} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                   <span className="text-xs text-slate-600">{label}</span>
@@ -311,7 +311,7 @@ export default function KDV2Page() {
               ))}
             </div>
             <p className="text-xs text-slate-400 mt-3">
-              * Tevkifat oranlari hizmet turune gore degisebilir. Guncel oranlarda GIB mevzuatini kontrol edin.
+              * Tevkifat oranları hizmet türüne göre değişebilir. Güncel oranlarda GİB mevzuatını kontrol edin.
             </p>
           </Card>
 
@@ -327,7 +327,7 @@ export default function KDV2Page() {
                 >
                   <div className="flex items-start justify-between mb-1.5">
                     <span className="text-xs font-semibold text-slate-800 truncate flex-1">
-                      {k.musteriAdi ?? "Genel Kayit"}
+                      {k.musteriAdi ?? "Genel Kayıt"}
                     </span>
                     <span className="text-xs text-slate-400 ml-2">{formatTarih(k.belgeTarihi)}</span>
                   </div>
@@ -341,7 +341,7 @@ export default function KDV2Page() {
                 </button>
               ))}
               {kayitlar.length === 0 && (
-                <p className="text-xs text-slate-400">Henuz KDV2 kaydi yok</p>
+                <p className="text-xs text-slate-400">Henüz KDV2 kaydı yok</p>
               )}
             </div>
           </Card>
@@ -350,20 +350,20 @@ export default function KDV2Page() {
 
       <div className="mt-6 bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-800">Tum KDV2 Kayitlari</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Tüm KDV2 Kayıtları</h3>
         </div>
         <Table>
           <TableHead>
             <tr>
               <TableHeadCell>Belge Tarihi</TableHeadCell>
-              <TableHeadCell>Musteri</TableHeadCell>
+              <TableHeadCell>Müşteri</TableHeadCell>
               <TableHeadCell>Belge No</TableHeadCell>
-              <TableHeadCell>KDV Matrahi</TableHeadCell>
-              <TableHeadCell>KDV Orani</TableHeadCell>
-              <TableHeadCell>KDV Tutari</TableHeadCell>
-              <TableHeadCell>KDV2 Tutari</TableHeadCell>
-              <TableHeadCell>Aciklama</TableHeadCell>
-              <TableHeadCell>Islem</TableHeadCell>
+              <TableHeadCell>KDV Matrahı</TableHeadCell>
+              <TableHeadCell>KDV Oranı</TableHeadCell>
+              <TableHeadCell>KDV Tutarı</TableHeadCell>
+              <TableHeadCell>KDV2 Tutarı</TableHeadCell>
+              <TableHeadCell>Açıklama</TableHeadCell>
+              <TableHeadCell>İşlem</TableHeadCell>
             </tr>
           </TableHead>
           <TableBody>
@@ -373,7 +373,7 @@ export default function KDV2Page() {
               kayitlar.map((k) => (
                 <TableRow key={k.id}>
                   <TableCell><span className="text-xs text-slate-600">{formatTarih(k.belgeTarihi)}</span></TableCell>
-                  <TableCell><span className="text-xs font-medium text-slate-800">{k.musteriAdi ?? "Genel Kayit"}</span></TableCell>
+                  <TableCell><span className="text-xs font-medium text-slate-800">{k.musteriAdi ?? "Genel Kayıt"}</span></TableCell>
                   <TableCell><span className="text-xs font-mono text-slate-600">{k.belgeNo}</span></TableCell>
                   <TableCell><span className="text-xs font-medium text-slate-800">{formatPara(k.kdvMatrahi)}</span></TableCell>
                   <TableCell><span className="text-xs text-slate-600">%{k.kdvOrani}</span></TableCell>
@@ -392,7 +392,7 @@ export default function KDV2Page() {
                         type="button"
                         onClick={() => handleEdit(k)}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Duzenle"
+                        title="Düzenle"
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>

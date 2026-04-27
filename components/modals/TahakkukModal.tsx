@@ -60,7 +60,7 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
     event.preventDefault();
     const tutar = Number(form.tutar);
     if (!selectedMusteri || !Number.isFinite(tutar) || tutar <= 0) {
-      toast.error("Musteri ve gecerli tutar zorunludur");
+      toast.error("Müşteri ve geçerli tutar zorunludur");
       return;
     }
 
@@ -118,10 +118,10 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
         entityType: "tahakkuk",
         entityId: saved.id,
         entityLabel: `${saved.musteriAdi} - ${saved.donem}`,
-        summary: "Tahakkuk olusturuldu",
+        summary: "Tahakkuk oluşturuldu",
         after: saved as unknown as Record<string, unknown>,
       });
-      toast.success("Tahakkuk olusturuldu");
+      toast.success("Tahakkuk oluşturuldu");
       onClose();
     } catch (error) {
       console.error(error);
@@ -135,14 +135,14 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
     <Modal open={open} onClose={onClose} title="Yeni Tahakkuk" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Musteri"
+          label="Müşteri"
           disabled={Boolean(musteriId)}
           value={form.musteriId}
           onChange={(event) => setForm((prev) => ({ ...prev, musteriId: event.target.value }))}
           options={musteriler.map((m) => ({ value: m.id, label: m.firmaAdi }))}
         />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input label="Donem" {...f("donem")} required />
+          <Input label="Dönem" {...f("donem")} required />
           <Input label="Vade Tarihi" type="date" {...f("vadeTarihi")} required />
         </div>
         <Select
@@ -166,30 +166,30 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {form.tahakkukTuru === "hizmet" ? (
             <Select
-              label="Hizmet Turu"
+              label="Hizmet Türü"
               value={form.hizmetTuru}
               onChange={(event) => setForm((prev) => ({ ...prev, hizmetTuru: event.target.value as HizmetTuru }))}
               options={[
-                { value: "mali_musavirlik", label: "Mali Musavirlik" },
+                { value: "mali_musavirlik", label: "Mali Müşavirlik" },
                 { value: "beyanname", label: "Beyanname" },
-                { value: "danismanlik", label: "Danismanlik" },
-                { value: "diger", label: "Diger" },
+                { value: "danismanlik", label: "Danışmanlık" },
+                { value: "diger", label: "Diğer" },
               ]}
             />
           ) : (
             <Select
-              label="Vergi Turu"
+              label="Vergi Türü"
               value={form.vergiTuru}
               onChange={(event) => setForm((prev) => ({ ...prev, vergiTuru: event.target.value as VergiTahakkukTuru }))}
               options={[
                 { value: "KDV", label: "KDV" },
                 { value: "MUHTASAR", label: "Muhtasar" },
-                { value: "GECICI_VERGI", label: "Gecici Vergi" },
+                { value: "GECICI_VERGI", label: "Geçici Vergi" },
                 { value: "KURUMLAR", label: "Kurumlar Vergisi" },
                 { value: "GELIR", label: "Gelir Vergisi" },
                 { value: "DAMGA", label: "Damga Vergisi" },
                 { value: "SGK", label: "SGK" },
-                { value: "DIGER", label: "Diger" },
+                { value: "DIGER", label: "Diğer" },
               ]}
             />
           )}
@@ -197,7 +197,7 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
         </div>
         {form.tahakkukTuru === "vergi" && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Resmi Tahakkuk Fis No" {...f("resmiTahakkukFisNo")} />
+            <Input label="Resmi Tahakkuk Fiş No" {...f("resmiTahakkukFisNo")} />
             <Select
               label="Kaynak Sistem"
               value={form.kaynakSistem}
@@ -206,14 +206,14 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
               }
               options={[
                 { value: "manual", label: "Manuel" },
-                { value: "gib", label: "GIB" },
+                { value: "gib", label: "GİB" },
                 { value: "luca", label: "Luca" },
               ]}
             />
           </div>
         )}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Aciklama</label>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Açıklama</label>
           <textarea
             value={form.aciklama}
             onChange={(event) => setForm((prev) => ({ ...prev, aciklama: event.target.value }))}
@@ -231,8 +231,8 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
           WhatsApp tahakkuk bildirimi planla
         </label>
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>Iptal</Button>
-          <Button type="submit" loading={loading}>Tahakkuk Olustur</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
+          <Button type="submit" loading={loading}>Tahakkuk Oluştur</Button>
         </div>
       </form>
     </Modal>

@@ -59,9 +59,10 @@ export async function sendWhatsAppMessages(
     const payload: Record<string, unknown> = { messages: valid, useTemplate };
     if (templateName) payload.templateName = templateName;
 
+    const { authHeaders } = await import("@/lib/firebase/client");
     const res = await fetch("/api/whatsapp/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(payload),
     });
 

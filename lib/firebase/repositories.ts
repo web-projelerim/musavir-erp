@@ -133,6 +133,7 @@ export async function updateYukumluluk(id: string, input: Partial<Yukumluluk>) {
 }
 
 export async function createGorev(input: {
+  ofisId: string;
   baslik: string;
   aciklama?: string;
   musteriId: string;
@@ -145,6 +146,7 @@ export async function createGorev(input: {
 }) {
   const gorev: Gorev = {
     id: createId("g"),
+    ofisId: input.ofisId,
     baslik: input.baslik,
     aciklama: input.aciklama,
     musteriId: input.musteriId,
@@ -177,7 +179,7 @@ export async function deleteGorev(id: string) {
   await deleteDocument(COLLECTIONS.gorevler, id);
 }
 
-export async function createRapor(input: Pick<Rapor, "musteriId" | "musteriAdi" | "tip" | "donem">) {
+export async function createRapor(input: Pick<Rapor, "ofisId" | "musteriId" | "musteriAdi" | "tip" | "donem">) {
   const rapor: Rapor = {
     id: createId("r"),
     ...input,

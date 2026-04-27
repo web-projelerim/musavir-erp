@@ -5,10 +5,12 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
+import { useAuth } from "@/lib/context/AuthContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGorev } from "@/lib/firebase/repositories";
+import { getOfisId } from "@/lib/domain/office";
 import type { Gorev, GorevOncelik, GorevTip } from "@/lib/types";
 
 interface Props {
@@ -21,6 +23,7 @@ interface Props {
 
 export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess }: Props) {
   const toast = useToast();
+  const { user } = useAuth();
   const logAudit = useAuditLog();
   const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split("T")[0];
@@ -50,6 +53,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
 
       if (isFirebaseConfigured) {
         createdGorev = await createGorev({
+          ofisId: getOfisId(user?.ofisId),
           baslik: form.baslik,
           aciklama: form.aciklama,
           musteriId: form.musteriId,
@@ -64,6 +68,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
         await new Promise((r) => setTimeout(r, 700));
         createdGorev = {
           id: `g-${Date.now()}`,
+          ofisId: getOfisId(user?.ofisId),
           baslik: form.baslik,
           aciklama: form.aciklama,
           musteriId: form.musteriId,

@@ -274,7 +274,7 @@ export interface GorevNot {
 
 export interface Gorev {
   id: string;
-  ofisId?: string;
+  ofisId: string;
   baslik: string;
   aciklama?: string;
   musteriId: string;
@@ -373,7 +373,7 @@ export type RaporTip = "gelir_gider" | "vergi_beyan" | "operasyon" | "risk";
 
 export interface Rapor {
   id: string;
-  ofisId?: string;
+  ofisId: string;
   musteriId: string;
   musteriAdi: string;
   tip: RaporTip;

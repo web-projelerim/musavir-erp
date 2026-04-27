@@ -130,8 +130,12 @@ function yaklasiyorMu(tarih: string, today: Date, gun = 7) {
   return kalan >= 0 && kalan <= gun;
 }
 
-export function gorevInputFromOneri(oneri: OtomatikGorevOnerisi): Omit<Gorev, "id" | "durum" | "createdAt" | "tamamlanmaTarihi" | "notlar"> {
+export function gorevInputFromOneri(
+  oneri: OtomatikGorevOnerisi,
+  ofisId: string
+): Omit<Gorev, "id" | "durum" | "createdAt" | "tamamlanmaTarihi" | "notlar"> {
   return {
+    ofisId,
     baslik: oneri.baslik,
     aciklama: `${oneri.aciklama}\n\n${kaynakMarker(oneri.kaynak, oneri.kaynakId)}`,
     musteriId: oneri.musteriId,

@@ -17,8 +17,10 @@ import {
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { getOfisId } from "@/lib/domain/office";
 import {
   gorevInputFromOneri,
   hesaplaOtomatikGorevOnerileri,
@@ -50,6 +52,7 @@ const ONCELIK_RENK: Record<GorevOncelik, string> = {
 
 export default function GorevlerPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const logAudit = useAuditLog();
   const [view, setView] = useState<"kanban" | "tablo">("tablo");
   const [aramaText, setAramaText] = useState("");
@@ -198,7 +201,7 @@ export default function GorevlerPage() {
     try {
       const created = await Promise.all(
         otomatikOneriler.map(async (oneri, index) => {
-          const input = gorevInputFromOneri(oneri);
+          const input = gorevInputFromOneri(oneri, getOfisId(user?.ofisId));
 
           if (source === "firebase") {
             return createGorevFirebase(input);

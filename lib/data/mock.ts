@@ -300,6 +300,7 @@ export const MOCK_YUKUMLULUKLER: Yukumluluk[] = MOCK_MUSTERILER.flatMap((musteri
 export const MOCK_GOREVLER: Gorev[] = [
   {
     id: "g1",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "KDV Beyannamesi Hazırla - Temmuz 2024",
     aciklama: "Akdeniz Tekstil için Temmuz 2024 KDV beyannamesi hazırlanacak",
     musteriId: "m1",
@@ -314,6 +315,7 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
   {
     id: "g2",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "Tebligat İnceleme - Delta Yazılım",
     aciklama: "Yeni tebligat alındı, incelenmesi ve yanıt verilmesi gerekiyor",
     musteriId: "m4",
@@ -328,6 +330,7 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
   {
     id: "g3",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "Tahsilat Hatırlatması - Güven Sigorta",
     aciklama: "Haziran 2024 faturası hâlâ ödenmedi, müşteri aranacak",
     musteriId: "m7",
@@ -342,6 +345,7 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
   {
     id: "g4",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "Muhtasar Beyanname - Bora Lojistik",
     musteriId: "m2",
     musteriAdi: "Bora Lojistik Ltd. Şti.",
@@ -355,6 +359,7 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
   {
     id: "g5",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "Gelir Gider Raporu - Can Gıda",
     musteriId: "m3",
     musteriAdi: "Can Gıda Sanayi A.Ş.",
@@ -369,6 +374,7 @@ export const MOCK_GOREVLER: Gorev[] = [
   },
   {
     id: "g6",
+    ofisId: DEFAULT_OFIS_ID,
     baslik: "KDV2 Kontrol - Akdeniz Tekstil",
     aciklama: "KDV2 matrah kontrolü yapılacak",
     musteriId: "m1",
@@ -522,6 +528,7 @@ const RAW_MOCK_BEYANNAMELER = [
 export const MOCK_RAPORLAR: Rapor[] = [
   {
     id: "r1",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m3",
     musteriAdi: "Can Gıda Sanayi A.Ş.",
     tip: "gelir_gider",
@@ -533,6 +540,7 @@ export const MOCK_RAPORLAR: Rapor[] = [
   },
   {
     id: "r2",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m2",
     musteriAdi: "Bora Lojistik Ltd. Şti.",
     tip: "vergi_beyan",
@@ -542,6 +550,7 @@ export const MOCK_RAPORLAR: Rapor[] = [
   },
   {
     id: "r3",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m1",
     musteriAdi: "Akdeniz Tekstil A.Ş.",
     tip: "operasyon",
@@ -551,6 +560,7 @@ export const MOCK_RAPORLAR: Rapor[] = [
   },
   {
     id: "r4",
+    ofisId: DEFAULT_OFIS_ID,
     musteriId: "m8",
     musteriAdi: "Hızlı Kargo Dağıtım A.Ş.",
     tip: "gelir_gider",

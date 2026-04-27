@@ -20,7 +20,7 @@ import {
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { isMusavir } from "@/lib/utils/permissions";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   createAuditLog,
   createBeyanname,
@@ -283,7 +283,7 @@ export default function AyarlarPage() {
       try {
         const res = await fetch("/api/gib/secrets", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await authHeaders(),
           body: JSON.stringify(gibSecrets),
         });
         const data = await res.json();
@@ -425,7 +425,7 @@ export default function AyarlarPage() {
         for (const musteri of targets) {
           const res = await fetch("/api/gib/sync", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await authHeaders(),
             body: JSON.stringify({
               ofisId: gibDraftSafe.ofisId,
               syncTipi,
@@ -593,7 +593,7 @@ export default function AyarlarPage() {
 
       const res = await fetch("/api/whatsapp/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           messages: [
             {

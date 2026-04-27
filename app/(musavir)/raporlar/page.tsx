@@ -24,6 +24,7 @@ import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 import { hasPermission } from "@/lib/utils/permissions";
+import { getOfisId } from "@/lib/domain/office";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import {
@@ -163,6 +164,7 @@ export default function RaporlarPage() {
 
     const yeniRapor: Rapor = {
       id: `r-${Date.now()}`,
+      ofisId: getOfisId(user?.ofisId),
       musteriId: musteri.id,
       musteriAdi: musteri.firmaAdi,
       tip: tip as Rapor["tip"],
@@ -174,6 +176,7 @@ export default function RaporlarPage() {
     if (isFirebaseConfigured) {
       try {
         const created = await createRapor({
+          ofisId: yeniRapor.ofisId,
           musteriId: yeniRapor.musteriId,
           musteriAdi: yeniRapor.musteriAdi,
           tip: yeniRapor.tip,

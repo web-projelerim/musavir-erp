@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pencil, X, Trash2, ChevronDown, Users } from "lucide-react";
+import { Pencil, X, Trash2, ChevronDown, Users, PencilOff } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
@@ -111,14 +111,14 @@ export function NotesFab() {
       };
 
       if (isFirebaseConfigured) {
-        const saved = await createNot({
+        // Firebase modunda optimistik güncelleme yapma — onSnapshot zaten güncelleyecek
+        await createNot({
           ofisId: yeni.ofisId,
           icerik: yeni.icerik,
           renk: yeni.renk,
           createdBy: yeni.createdBy,
           createdByName: yeni.createdByName,
         });
-        setLocalNotlar((prev) => [saved, ...prev]);
       } else {
         setLocalNotlar((prev) => [yeni, ...prev]);
       }
@@ -308,7 +308,10 @@ export function NotesFab() {
                   if (e.target.value.length <= MAX_ICERIK) setIcerik(e.target.value);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.ctrlKey) handleKaydet();
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleKaydet();
+                  }
                 }}
                 placeholder="Notunuzu yazın..."
                 rows={4}
@@ -348,7 +351,7 @@ export function NotesFab() {
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-1">
-              <p className="text-[10px] text-slate-400">Ctrl+Enter ile kaydet</p>
+              <p className="text-[10px] text-slate-400">Enter · Shift+Enter yeni satır</p>
               <button
                 type="button"
                 onClick={handleKaydet}
@@ -368,6 +371,7 @@ export function NotesFab() {
         onClick={() => {
           if (panelAcik) {
             setPanelAcik(false);
+            setFiltre("hepsi");
           } else if (yazmaAcik) {
             setYazmaAcik(false);
           } else {
@@ -379,10 +383,17 @@ export function NotesFab() {
           setPanelAcik((v) => !v);
           setYazmaAcik(false);
         }}
-        title="Not ekle (Sağ tık: tüm notlar)"
-        className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-white shadow-lg transition-all hover:bg-amber-500 hover:scale-105 active:scale-95"
+        title={panelAcik || yazmaAcik ? "Kapat" : "Not ekle (Sağ tık: tüm notlar)"}
+        className={cn(
+          "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-all hover:scale-105 active:scale-95",
+          panelAcik || yazmaAcik ? "bg-slate-600 hover:bg-slate-700" : "bg-amber-400 hover:bg-amber-500"
+        )}
       >
-        <Pencil className="h-5 w-5" />
+        {panelAcik || yazmaAcik ? (
+          <PencilOff className="h-5 w-5" />
+        ) : (
+          <Pencil className="h-5 w-5" />
+        )}
         {localNotlar.length > 0 && !panelAcik && !yazmaAcik && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
             {localNotlar.length > 9 ? "9+" : localNotlar.length}

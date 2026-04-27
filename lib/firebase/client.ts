@@ -32,3 +32,22 @@ export const firebaseApp = app;
 export const firebaseAuth: Auth | null = app ? getAuth(app) : null;
 export const firestoreDb: Firestore | null = app ? getFirestore(app) : null;
 export const firebaseStorage: FirebaseStorage | null = app ? getStorage(app) : null;
+
+/** Mevcut kullanıcının Firebase ID token'ını döner. Demo modunda null. */
+export async function getIdToken(): Promise<string | null> {
+  const currentUser = firebaseAuth?.currentUser;
+  if (!currentUser) return null;
+  try {
+    return await currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
+/** API fetch çağrıları için Authorization header'lı headers objesi döner. */
+export async function authHeaders(): Promise<HeadersInit> {
+  const token = await getIdToken();
+  return token
+    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+}

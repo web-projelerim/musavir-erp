@@ -145,8 +145,8 @@ export function NotesFab() {
   };
 
   const sortedNotlar = [...localNotlar]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .filter((n) => filtre === "hepsi" || n.renk === filtre);
+    .filter((n) => filtre === "hepsi" || n.renk === filtre)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const kalanKarakter = MAX_ICERIK - icerik.length;
 
@@ -200,14 +200,14 @@ export function NotesFab() {
               </div>
               <button
                 type="button"
-                onClick={() => { setYazmaAcik(true); setPanelAcik(false); }}
+                onClick={() => { setYazmaAcik(true); setPanelAcik(false); setFiltre("hepsi"); }}
                 className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition-colors"
               >
                 + Not Ekle
               </button>
               <button
                 type="button"
-                onClick={() => setPanelAcik(false)}
+                onClick={() => { setPanelAcik(false); setFiltre("hepsi"); }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
               >
                 <ChevronDown className="h-4 w-4" />
@@ -225,7 +225,7 @@ export function NotesFab() {
                 {filtre === "hepsi" && (
                   <button
                     type="button"
-                    onClick={() => { setYazmaAcik(true); setPanelAcik(false); }}
+                    onClick={() => { setYazmaAcik(true); setPanelAcik(false); setFiltre("hepsi"); }}
                     className="mt-2 text-xs text-amber-600 hover:underline"
                   >
                     İlk notu ekle
@@ -249,7 +249,10 @@ export function NotesFab() {
                       <button
                         type="button"
                         onClick={() => handleSil(not.id)}
-                        className="absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-white/70 hover:text-red-500 group-hover:flex transition-colors"
+                        className={cn(
+                          "absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-white/70 hover:text-red-500 transition-colors",
+                          kendi && "group-hover:flex"
+                        )}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

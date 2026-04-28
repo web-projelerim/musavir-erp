@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Bell, Clock, Copy, Database, Link2, Mail, Plus, Shield, Sliders, Users, X } from "lucide-react";
 import { DavetModal } from "@/components/modals/DavetModal";
+import { GibOnayModal } from "@/components/modals/GibOnayModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Input";
@@ -59,6 +60,7 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 type IntegrationPanel = "gib" | "luca" | "whatsapp" | "banka" | "email";
+type ManualSyncTipi = "tebligat" | "beyanname" | "tahakkuk" | "tumu";
 
 const ROL_LABELS: Record<string, string> = {
   musavir: "Mali Müşavir",
@@ -166,6 +168,8 @@ export default function AyarlarPage() {
   const [localGibLogs, setLocalGibLogs] = useState<GibSyncLog[]>([]);
   const [localIntegrationLogs, setLocalIntegrationLogs] = useState<EntegrasyonLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [gibOnayAcik, setGibOnayAcik] = useState(false);
+  const [pendingSyncTipi, setPendingSyncTipi] = useState<ManualSyncTipi>("tebligat");
 
   const sortedAuditLogs = useMemo(
     () => [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
@@ -243,6 +247,11 @@ export default function AyarlarPage() {
 
   const addGibSyncLogLocal = (entry: GibSyncLog) => {
     setLocalGibLogs((prev) => [entry, ...prev].slice(0, 20));
+  };
+
+  const openGibOnay = (tipi: ManualSyncTipi) => {
+    setPendingSyncTipi(tipi);
+    setGibOnayAcik(true);
   };
 
   const handleSeedFirebase = async () => {
@@ -405,7 +414,7 @@ export default function AyarlarPage() {
     }
   };
 
-  const handleManualGibSync = async (syncTipi: GibSyncLog["syncTipi"]) => {
+  const handleManualGibSync = async (syncTipi: ManualSyncTipi) => {
     if (!gibDraftSafe) return;
 
     setSyncLoading(true);
@@ -414,60 +423,118 @@ export default function AyarlarPage() {
     let islenenKayitSayisi = 0;
     let sonHata: string | undefined;
 
-    // GİB kredansiyeli olan aktif müşterileri bul
-    const hedefler = musteriler.filter(
-      (m) => m.durum === "aktif" && m.vknTckn && m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
+    const ofisId = gibDraftSafe.ofisId;
+    const aktifVknMusteriler = musteriler.filter(
+      (m) => m.durum === "aktif" && m.vknTckn
+    );
+    const gibCredMusteriler = aktifVknMusteriler.filter(
+      (m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
     );
 
-    if (hedefler.length === 0) {
-      toast.warning("GİB kredansiyeli bulunan müşteri yok", "Müşteri Excel importu sırasında GİB bilgilerini eşleştirin");
+    const hedefBeyanname =
+      syncTipi === "beyanname" || syncTipi === "tahakkuk" || syncTipi === "tumu"
+        ? aktifVknMusteriler
+        : [];
+    const hedefTebligat =
+      syncTipi === "tebligat" || syncTipi === "tumu" ? gibCredMusteriler : [];
+
+    if (hedefBeyanname.length === 0 && hedefTebligat.length === 0) {
+      toast.warning(
+        "Senkronize edilecek müşteri yok",
+        syncTipi === "tebligat"
+          ? "Tebligat için müşteri GİB IVD bilgilerini girin"
+          : "Aktif VKN'li müşteri bulunamadı"
+      );
       setSyncLoading(false);
       return;
     }
 
     try {
-      for (const musteri of hedefler) {
+      // ── Beyanname / Tahakkuk: ofis env credentials ──────────────────────
+      for (const musteri of hedefBeyanname) {
+        const apiSyncTipi =
+          syncTipi === "tumu" ? "tumu" : (syncTipi as "beyanname" | "tahakkuk");
         const res = await fetch("/api/gib/sync", {
           method: "POST",
           headers: await authHeaders(),
           body: JSON.stringify({
-            ofisId: gibDraftSafe.ofisId,
-            syncTipi,
-            ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
-            vknTckn: musteri.vknTckn,
-            encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
+            ofisId,
+            syncTipi: apiSyncTipi === "tumu" ? "beyanname" : apiSyncTipi,
             musteriVkn: musteri.vknTckn,
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          // Tek müşteri hatası tüm sync'i durdurmaz — logla devam et
-          console.warn(`[GIB Sync] ${musteri.firmaAdi}:`, data.error);
+          console.warn(`[GIB Beyanname Sync] ${musteri.firmaAdi}:`, data.error);
           continue;
         }
 
-        const ofisId = gibDraftSafe.ofisId;
-        const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
-          ...(t as object),
-          ofisId,
-          musteriId: musteri.id,
-          musteriAdi: musteri.firmaAdi,
-        }));
         const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
           ...(b as object),
           ofisId,
           musteriId: musteri.id,
           musteriAdi: musteri.firmaAdi,
         }));
-        islenenKayitSayisi += tebligatlar.length + beyannameler.length;
+        islenenKayitSayisi += beyannameler.length;
+
+        if (isFirebaseConfigured) {
+          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
+          await Promise.all(
+            (beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b))
+          );
+        }
+
+        // Tahakkuk ayrı sorgu (tumu modunda da çek)
+        if (syncTipi === "tahakkuk" || syncTipi === "tumu") {
+          const tRes = await fetch("/api/gib/sync", {
+            method: "POST",
+            headers: await authHeaders(),
+            body: JSON.stringify({
+              ofisId,
+              syncTipi: "tahakkuk",
+              musteriVkn: musteri.vknTckn,
+            }),
+          });
+          const tData = await tRes.json();
+          if (tRes.ok) {
+            islenenKayitSayisi += (tData.tahakkuklar ?? []).length;
+          }
+        }
+      }
+
+      // ── Tebligat: mükellef kendi IVD bilgileri ───────────────────────────
+      for (const musteri of hedefTebligat) {
+        const res = await fetch("/api/gib/sync", {
+          method: "POST",
+          headers: await authHeaders(),
+          body: JSON.stringify({
+            ofisId,
+            syncTipi: "tebligat",
+            musteriVkn: musteri.vknTckn,
+            ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
+            vknTckn: musteri.vknTckn,
+            encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.warn(`[GIB Tebligat Sync] ${musteri.firmaAdi}:`, data.error);
+          continue;
+        }
+
+        const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
+          ...(t as object),
+          ofisId,
+          musteriId: musteri.id,
+          musteriAdi: musteri.firmaAdi,
+        }));
+        islenenKayitSayisi += tebligatlar.length;
 
         if (isFirebaseConfigured) {
           type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
-          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
-          await Promise.all([
-            ...(tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)),
-            ...(beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)),
-          ]);
+          await Promise.all(
+            (tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t))
+          );
         }
       }
     } catch (err) {
@@ -476,10 +543,11 @@ export default function AyarlarPage() {
       toast.error("GİB senkronizasyon hatası", sonHata);
     }
 
+    const logSyncTipi = syncTipi === "tahakkuk" ? "borc" : syncTipi === "tumu" ? "tebligat" : syncTipi;
     const entry: GibSyncLog = {
       id: `gib-local-${Date.now()}`,
       ofisId: gibDraftSafe.ofisId,
-      syncTipi,
+      syncTipi: logSyncTipi as GibSyncLog["syncTipi"],
       durum: syncDurum,
       baslamaTarihi,
       bitisTarihi: new Date().toISOString(),
@@ -680,8 +748,12 @@ export default function AyarlarPage() {
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
       const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
-      const hazir = Boolean(gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && encSifre);
       const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
+      const hazirTebligat = aktifMusteriler.some(
+        (m) => m.vknTckn && m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
+      );
+      const hazirBeyanname = aktifMusteriler.some((m) => m.vknTckn);
+      const hazir = Boolean(gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && encSifre);
 
       return (
         <>
@@ -740,31 +812,50 @@ export default function AyarlarPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800">Manuel Senkron</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {aktifMusteriler.length > 0
-                      ? `${aktifMusteriler.length} aktif müşteri için veri çekilecek`
-                      : "Müşteri bulunamadı — ofis VKN için sorgu yapılır"}
+                    Beyanname: {hazirBeyanname ? `${aktifMusteriler.filter((m) => m.vknTckn).length} müşteri` : "VKN'li müşteri yok"} —
+                    Tebligat: {hazirTebligat ? `${aktifMusteriler.filter((m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre).length} mükellef` : "IVD bilgisi yok"}
                   </p>
                 </div>
-                {!hazir && (
-                  <Badge variant="warning">Kimlik bilgileri eksik</Badge>
+                {!hazirBeyanname && !hazirTebligat && (
+                  <Badge variant="warning">Müşteri bulunamadı</Badge>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {(
                   [
-                    { tipi: "tebligat" as const, label: "Tebligatlar", aciklama: "e-Tebligat listesi" },
-                    { tipi: "beyanname" as const, label: "Beyannameler", aciklama: "Verilen beyannameler" },
-                    { tipi: "tahakkuk" as const, label: "Borç / Tahakkuk", aciklama: "Ödeme gereken vergi borçları" },
-                    { tipi: "tumu" as const, label: "Tümünü Çek", aciklama: "Tek seferde hepsini" },
+                    {
+                      tipi: "tebligat" as const,
+                      label: "Tebligatlar",
+                      aciklama: "Mükellef IVD bilgileriyle",
+                      aktif: hazirTebligat,
+                    },
+                    {
+                      tipi: "beyanname" as const,
+                      label: "Beyannameler",
+                      aciklama: "Ofis GİB API koduyla",
+                      aktif: hazirBeyanname,
+                    },
+                    {
+                      tipi: "tahakkuk" as const,
+                      label: "Borç / Tahakkuk",
+                      aciklama: "Ofis GİB API koduyla",
+                      aktif: hazirBeyanname,
+                    },
+                    {
+                      tipi: "tumu" as const,
+                      label: "Tümünü Çek",
+                      aciklama: "Beyanname + tebligat",
+                      aktif: hazirTebligat || hazirBeyanname,
+                    },
                   ] as const
-                ).map(({ tipi, label, aciklama }) => (
+                ).map(({ tipi, label, aciklama, aktif }) => (
                   <button
                     key={tipi}
-                    disabled={!hazir || syncLoading}
-                    onClick={() => openGibOnay(tipi as GibSyncLog["syncTipi"])}
+                    disabled={!aktif || syncLoading}
+                    onClick={() => openGibOnay(tipi)}
                     className={`flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors ${
-                      hazir && !syncLoading
+                      aktif && !syncLoading
                         ? "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50"
                         : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
                     }`}

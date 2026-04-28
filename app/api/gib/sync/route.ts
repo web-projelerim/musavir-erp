@@ -8,9 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gibDecrypt } from "@/lib/integrations/gib/encrypt";
 import { requireAuth } from "@/lib/firebase/verifyToken";
-import { fetchTebligatlar, fetchBeyannameler, fetchMukellefDurumu } from "@/lib/integrations/gib/ivd-client";
+import { fetchTebligatlar, fetchBeyannameler, fetchBorcListesi, fetchMukellefDurumu } from "@/lib/integrations/gib/ivd-client";
 
-type SyncTipi = "tebligat" | "beyanname" | "mukellef_durum" | "tumu";
+type SyncTipi = "tebligat" | "beyanname" | "tahakkuk" | "mukellef_durum" | "tumu";
 
 interface SyncBody {
   ofisId: string;
@@ -85,6 +85,9 @@ export async function POST(req: NextRequest) {
     }
     if (syncTipi === "beyanname" || syncTipi === "tumu") {
       sonuclar.beyannameler = await fetchBeyannameler(creds, musteriVkn);
+    }
+    if (syncTipi === "tahakkuk" || syncTipi === "tumu") {
+      sonuclar.tahakkuklar = await fetchBorcListesi(creds, musteriVkn);
     }
     if ((syncTipi === "mukellef_durum" || syncTipi === "tumu") && musteriVkn) {
       sonuclar.mukellefDurumu = await fetchMukellefDurumu(creds, musteriVkn);

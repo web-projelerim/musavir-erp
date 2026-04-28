@@ -19,13 +19,14 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { firebaseAuth, firestoreDb, isFirebaseConfigured } from "@/lib/firebase/client";
-import type { KullaniciYetki, User, UserRole } from "@/lib/types";
+import type { KullaniciYetki, Ofis, User, UserRole } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   isFirebaseReady: boolean;
   signIn: (email: string, password: string) => Promise<User>;
+  signInDemo: (email: string) => User;
   signUp: (input: SignUpInput) => Promise<User>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -111,15 +112,24 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
   const snapshot = await getDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid));
 
   if (snapshot.exists()) {
-    return {
-      id: snapshot.id,
-      ...snapshot.data(),
-    } as User;
+    const data = snapshot.data() as User;
+    return { ...data, id: snapshot.id };
   }
 
-  const fallbackUser = fallbackUserFromEmail(firebaseUser.email ?? "", firebaseUser.uid);
-  await setDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid), fallbackUser, { merge: true });
-  return fallbackUser;
+  // No Firestore doc — signUp flow didn't complete. Return an in-memory musavir fallback;
+  // signUp's own setDoc is responsible for persisting the real user document.
+  const displayName = firebaseUser.displayName ?? "";
+  const [ad = "Kullanici", soyad = ""] = displayName.split(" ");
+  return {
+    id: firebaseUser.uid,
+    ofisId: `ofis-${firebaseUser.uid}`,
+    ad,
+    soyad,
+    email: firebaseUser.email ?? "",
+    rol: "musavir",
+    aktif: true,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -165,13 +175,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return demoUser;
   }, []);
 
+  // Firebase bypass — her zaman localStorage demo kullanıcısını yükler
+  const signInDemo = useCallback((email: string) => {
+    const demoUser = demoUsers[email] ?? fallbackUserFromEmail(email);
+    window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
+    setUser(demoUser);
+    return demoUser;
+  }, []);
+
   const signUp = useCallback(async ({
     ad,
     soyad,
     email,
     password,
     rol = "musavir",
-    ofisId = "ofis-default",
+    ofisId,
     musteriId,
     davetId,
     yetkiler,
@@ -184,9 +202,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: `${ad} ${soyad}`.trim(),
       });
 
+      // For self-registering müşavirler, generate a unique ofis.
+      const resolvedOfisId = rol === "musavir" && !ofisId
+        ? `ofis-${credential.user.uid}`
+        : (ofisId ?? "ofis-default");
+
+      if (rol === "musavir" && !ofisId) {
+        const ofisDoc: Ofis = {
+          id: resolvedOfisId,
+          unvan: `${ad} ${soyad}`.trim(),
+          whatsappDurum: "pasif",
+          gibDurum: "pasif",
+          createdAt,
+        };
+        await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), ofisDoc);
+      }
+
       const appUser: User = {
         id: credential.user.uid,
-        ofisId,
+        ofisId: resolvedOfisId,
         ad,
         soyad,
         email,
@@ -205,7 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const demoUser: User = {
       id: `demo-${Date.now()}`,
-      ofisId,
+      ofisId: ofisId ?? "ofis-default",
       ad,
       soyad,
       email,
@@ -240,11 +274,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isFirebaseReady: isFirebaseConfigured,
       signIn,
+      signInDemo,
       signUp,
       signOut,
       resetPassword,
     }),
-    [loading, resetPassword, signIn, signOut, signUp, user]
+    [loading, resetPassword, signIn, signInDemo, signOut, signUp, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

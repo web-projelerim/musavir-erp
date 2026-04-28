@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * GİB İnteraktif Vergi Dairesi (IVD) HTTP istemcisi.
  *
@@ -8,7 +10,18 @@
  * yalnızca bu dosyayı güncellemeniz yeterlidir.
  */
 
-import type { Beyanname, BeyannameType, Tebligat } from "@/lib/types";
+import type { Beyanname, BeyannameType, Tahakkuk, VergiTahakkukTuru, Tebligat } from "@/lib/types";
+
+const VERGI_TUR_MAP: Record<string, VergiTahakkukTuru> = {
+  KDV: "KDV",
+  MUHTAS: "MUHTASAR",
+  MUHTASAR: "MUHTASAR",
+  KURUM: "KURUMLAR",
+  GELIR: "GELIR",
+  GECICI: "GECICI_VERGI",
+  DAMGA: "DAMGA",
+  SGK: "SGK",
+};
 
 export interface IvdCredentials {
   vknTckn: string;
@@ -124,6 +137,60 @@ export async function fetchBeyannameler(
     sorumlu: "",
     kaynakSistem: "gib",
   }));
+}
+
+/** Vergi borç/tahakkuk listesini çeker (borc_listesi endpoint'i).
+ *  Dönen kayıtlarda ofisId yoktur — caller inject etmelidir. */
+export async function fetchBorcListesi(
+  creds: IvdCredentials,
+  musteriVkn?: string
+): Promise<Omit<Tahakkuk, "id" | "ofisId">[]> {
+  const token = await ivdLogin(creds);
+  const vkn = musteriVkn ?? creds.vknTckn;
+
+  const res = await fetch(`${BASE}/dispatch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Token: token,
+    },
+    body: new URLSearchParams({
+      assoscmd: "borc_listesi",
+      rtype: "json",
+      vkn,
+    }).toString(),
+  });
+
+  if (!res.ok) throw new Error(`Borç listesi HTTP ${res.status}`);
+  const json = await res.json();
+  const rows: Record<string, string>[] = json?.data ?? json?.liste ?? [];
+
+  return rows.map((row): Omit<Tahakkuk, "id" | "ofisId"> => {
+    const vergiTuruRaw = (row.vergiTuru ?? row.vergikodu ?? "").toUpperCase();
+    const vergiTuru: VergiTahakkukTuru = VERGI_TUR_MAP[vergiTuruRaw] ?? "DIGER";
+    const tutar = parseFloat(row.borcTutari ?? row.tutar ?? "0") || 0;
+    const vadeTarihi = row.vade ?? row.sonOdemeTarihi ?? new Date().toISOString().slice(0, 10);
+    const donem = row.donem ?? row.vergiDonemi ?? vadeTarihi.slice(0, 7);
+    return {
+      musteriId: vkn,
+      musteriAdi: row.unvan ?? "",
+      donem,
+      tahakkukTuru: "vergi",
+      vergiTuru,
+      resmiTahakkukFisNo: row.fisNo ?? row.tahakkukNo,
+      kaynakSistem: "gib",
+      otomatikTuretilmis: false,
+      tutar,
+      odenenTutar: parseFloat(row.odenenTutar ?? "0") || 0,
+      vadeTarihi,
+      durum: tutar <= 0 ? "odendi" : "bekliyor",
+      bildirimDurumu: "kapali",
+      panelLinki: "/panel",
+      aciklama: row.aciklama,
+      createdBy: "gib-sync",
+      createdAt: new Date().toISOString(),
+    };
+  });
 }
 
 /** Mükellef durumunu sorgular */

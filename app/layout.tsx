@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     title: "MusavirERP",
     statusBarStyle: "black-translucent",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.ico",

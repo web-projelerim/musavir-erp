@@ -15,7 +15,6 @@ import {
   MOCK_OFISLER,
   MOCK_RAPORLAR,
   MOCK_RESMI_GAZETE_OZETLERI,
-  MOCK_TAHAKKUKLAR,
   MOCK_TAHSILATLAR,
   MOCK_TEBLIGATLAR,
 } from "@/lib/data/mock";
@@ -32,7 +31,6 @@ export async function seedFirebaseMockData() {
     seedCollection(COLLECTIONS.raporlar, MOCK_RAPORLAR),
     seedCollection(COLLECTIONS.bildirimler, MOCK_BILDIRIMLER),
     seedCollection(COLLECTIONS.tahsilatlar, MOCK_TAHSILATLAR),
-    seedCollection(COLLECTIONS.tahakkuklar, MOCK_TAHAKKUKLAR),
     seedCollection(COLLECTIONS.odemeler, MOCK_ODEMELER),
     seedCollection(COLLECTIONS.davetler, MOCK_DAVETLER),
     seedCollection(COLLECTIONS.bankaEkstreleri, MOCK_BANKA_EKSTRELERI),

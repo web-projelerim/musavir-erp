@@ -1,131 +1,87 @@
 "use client";
 
+import { useMemo } from "react";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { mergeDerivedVergiTahakkuklari } from "@/lib/domain/tahakkuk";
 import { useCollectionData } from "@/lib/hooks/useCollectionData";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/context/AuthContext";
-import {
-  MOCK_AUDIT_LOGS,
-  MOCK_BANKA_EKSTRELERI,
-  MOCK_BEYANNAMELER,
-  MOCK_BELGELER,
-  MOCK_BILDIRIMLER,
-  MOCK_DAVETLER,
-  MOCK_GIB_SYNC_LOGS,
-  MOCK_GOREVLER,
-  MOCK_GONDERIMLER,
-  MOCK_KDV2,
-  MOCK_KULLANICILAR,
-  MOCK_LUCA_ENTEGRASYON_AYARLARI,
-  MOCK_MUSTERILER,
-  MOCK_MUKELLEFIYET_PROFILLERI,
-  MOCK_ODEMELER,
-  MOCK_OFISLER,
-  MOCK_RAPORLAR,
-  MOCK_RESMI_GAZETE_OZETLERI,
-  MOCK_TAHAKKUKLAR,
-  MOCK_TAHSILATLAR,
-  MOCK_TEBLIGATLAR,
-  MOCK_WHATSAPP_ENTEGRASYON_AYARLARI,
-  MOCK_YUKUMLULUKLER,
-  MOCK_GIB_ENTEGRASYON_AYARLARI,
-  MOCK_BANKA_ENTEGRASYON_AYARLARI,
-  MOCK_EMAIL_ENTEGRASYON_AYARLARI,
-  MOCK_ENTEGRASYON_LOGLARI,
-  MOCK_NOTLAR,
-} from "@/lib/data/mock";
+import type {
+  AuditLog,
+  BankaEkstresi,
+  BankaEntegrasyonAyari,
+  Beyanname,
+  Belge,
+  Bildirim,
+  Davet,
+  EmailEntegrasyonAyari,
+  EntegrasyonLog,
+  GibEntegrasyonAyari,
+  GibSyncLog,
+  Gorev,
+  GonderimKaydi,
+  KDV2Hesaplama,
+  LucaEntegrasyonAyari,
+  Musteri,
+  MukellefiyetProfili,
+  Not,
+  Odeme,
+  Ofis,
+  Rapor,
+  ResmiGazeteOzeti,
+  Tahakkuk,
+  Tahsilat,
+  Tebligat,
+  User,
+  WhatsAppEntegrasyonAyari,
+  Yukumluluk,
+} from "@/lib/types";
 
 export function useAppData() {
   const { user, loading: authLoading } = useAuth();
-  // Firebase varsa auth çözülene ve kullanıcı girişi onaylanana kadar subscription başlatma
   const enabled = !isFirebaseConfigured || (!authLoading && !!user);
-  // Çok-kiracılı izolasyon: tüm ofis-bazlı sorgular bu filtre ile daraltılır
   const ofisId = user?.ofisId;
 
-  // ofisId filtresi OLMAYAN koleksiyonlar (global veya uid bazlı lookup)
-  const ofisler = useCollectionData(COLLECTIONS.ofisler, MOCK_OFISLER, enabled);
-  // ofisId filtreli — kendi ofisindeki kullanicilar ve davetler gorunsun
-  const kullanicilar = useCollectionData(COLLECTIONS.kullanicilar, MOCK_KULLANICILAR, enabled, ofisId);
-  const davetler = useCollectionData(COLLECTIONS.davetler, MOCK_DAVETLER, enabled, ofisId);
+  const ofisler = useCollectionData<Ofis>(COLLECTIONS.ofisler, [], enabled);
+  const kullanicilar = useCollectionData<User>(COLLECTIONS.kullanicilar, [], enabled, ofisId);
+  const davetler = useCollectionData<Davet>(COLLECTIONS.davetler, [], enabled, ofisId);
+  const musteriler = useCollectionData<Musteri>(COLLECTIONS.musteriler, [], enabled, ofisId);
+  const mukellefiyetProfilleri = useCollectionData<MukellefiyetProfili>(COLLECTIONS.mukellefiyetProfilleri, [], enabled, ofisId);
+  const yukumlulukler = useCollectionData<Yukumluluk>(COLLECTIONS.yukumlulukler, [], enabled, ofisId);
+  const gorevler = useCollectionData<Gorev>(COLLECTIONS.gorevler, [], enabled, ofisId);
+  const tebligatlar = useCollectionData<Tebligat>(COLLECTIONS.tebligatlar, [], enabled, ofisId);
+  const beyannameler = useCollectionData<Beyanname>(COLLECTIONS.beyannameler, [], enabled, ofisId);
+  const raporlar = useCollectionData<Rapor>(COLLECTIONS.raporlar, [], enabled, ofisId);
+  const bildirimler = useCollectionData<Bildirim>(COLLECTIONS.bildirimler, [], enabled, ofisId);
+  const tahsilatlar = useCollectionData<Tahsilat>(COLLECTIONS.tahsilatlar, [], enabled, ofisId);
+  const tahakkuklar = useCollectionData<Tahakkuk>(COLLECTIONS.tahakkuklar, [], enabled, ofisId);
+  const odemeler = useCollectionData<Odeme>(COLLECTIONS.odemeler, [], enabled, ofisId);
+  const bankaEkstreleri = useCollectionData<BankaEkstresi>(COLLECTIONS.bankaEkstreleri, [], enabled, ofisId);
+  const resmiGazeteOzetleri = useCollectionData<ResmiGazeteOzeti>(COLLECTIONS.resmiGazeteOzetleri, [], enabled, ofisId);
+  const gibSyncLogs = useCollectionData<GibSyncLog>(COLLECTIONS.gibSyncLogs, [], enabled, ofisId);
+  const kdv2 = useCollectionData<KDV2Hesaplama>(COLLECTIONS.kdv2, [], enabled, ofisId);
+  const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], enabled, ofisId);
+  const belgeler = useCollectionData<Belge>(COLLECTIONS.belgeler, [], enabled, ofisId);
+  const auditLogs = useCollectionData<AuditLog>(COLLECTIONS.auditLogs, [], enabled, ofisId);
+  const gibEntegrasyonAyarlari = useCollectionData<GibEntegrasyonAyari>(COLLECTIONS.gibEntegrasyonAyarlari, [], enabled, ofisId);
+  const lucaEntegrasyonAyarlari = useCollectionData<LucaEntegrasyonAyari>(COLLECTIONS.lucaEntegrasyonAyarlari, [], enabled, ofisId);
+  const whatsappEntegrasyonAyarlari = useCollectionData<WhatsAppEntegrasyonAyari>(COLLECTIONS.whatsappEntegrasyonAyarlari, [], enabled, ofisId);
+  const bankaEntegrasyonAyarlari = useCollectionData<BankaEntegrasyonAyari>(COLLECTIONS.bankaEntegrasyonAyarlari, [], enabled, ofisId);
+  const emailEntegrasyonAyarlari = useCollectionData<EmailEntegrasyonAyari>(COLLECTIONS.emailEntegrasyonAyarlari, [], enabled, ofisId);
+  const entegrasyonLoglari = useCollectionData<EntegrasyonLog>(COLLECTIONS.entegrasyonLoglari, [], enabled, ofisId);
+  const notlar = useCollectionData<Not>(COLLECTIONS.notlar, [], enabled, ofisId);
 
-  // ofisId filtreli koleksiyonlar — farklı ofisler birbirinin verisini göremez
-  const musteriler = useCollectionData(COLLECTIONS.musteriler, MOCK_MUSTERILER, enabled, ofisId);
-  const mukellefiyetProfilleri = useCollectionData(
-    COLLECTIONS.mukellefiyetProfilleri,
-    MOCK_MUKELLEFIYET_PROFILLERI,
-    enabled,
-    ofisId
-  );
-  const yukumlulukler = useCollectionData(COLLECTIONS.yukumlulukler, MOCK_YUKUMLULUKLER, enabled, ofisId);
-  const gorevler = useCollectionData(COLLECTIONS.gorevler, MOCK_GOREVLER, enabled, ofisId);
-  const tebligatlar = useCollectionData(COLLECTIONS.tebligatlar, MOCK_TEBLIGATLAR, enabled, ofisId);
-  const beyannameler = useCollectionData(COLLECTIONS.beyannameler, MOCK_BEYANNAMELER, enabled, ofisId);
-  const raporlar = useCollectionData(COLLECTIONS.raporlar, MOCK_RAPORLAR, enabled, ofisId);
-  const bildirimler = useCollectionData(COLLECTIONS.bildirimler, MOCK_BILDIRIMLER, enabled, ofisId);
-  const tahsilatlar = useCollectionData(COLLECTIONS.tahsilatlar, MOCK_TAHSILATLAR, enabled, ofisId);
-  const tahakkuklar = useCollectionData(COLLECTIONS.tahakkuklar, MOCK_TAHAKKUKLAR, enabled, ofisId);
-  const odemeler = useCollectionData(COLLECTIONS.odemeler, MOCK_ODEMELER, enabled, ofisId);
-  const bankaEkstreleri = useCollectionData(COLLECTIONS.bankaEkstreleri, MOCK_BANKA_EKSTRELERI, enabled, ofisId);
-  const resmiGazeteOzetleri = useCollectionData(
-    COLLECTIONS.resmiGazeteOzetleri,
-    MOCK_RESMI_GAZETE_OZETLERI,
-    enabled,
-    ofisId
-  );
-  const gibSyncLogs = useCollectionData(COLLECTIONS.gibSyncLogs, MOCK_GIB_SYNC_LOGS, enabled, ofisId);
-  const kdv2 = useCollectionData(COLLECTIONS.kdv2, MOCK_KDV2, enabled, ofisId);
-  const gonderimler = useCollectionData(COLLECTIONS.gonderimler, MOCK_GONDERIMLER, enabled, ofisId);
-  const belgeler = useCollectionData(COLLECTIONS.belgeler, MOCK_BELGELER, enabled, ofisId);
-  const auditLogs = useCollectionData(COLLECTIONS.auditLogs, MOCK_AUDIT_LOGS, enabled, ofisId);
-  const gibEntegrasyonAyarlari = useCollectionData(
-    COLLECTIONS.gibEntegrasyonAyarlari,
-    MOCK_GIB_ENTEGRASYON_AYARLARI,
-    enabled,
-    ofisId
-  );
-  const lucaEntegrasyonAyarlari = useCollectionData(
-    COLLECTIONS.lucaEntegrasyonAyarlari,
-    MOCK_LUCA_ENTEGRASYON_AYARLARI,
-    enabled,
-    ofisId
-  );
-  const whatsappEntegrasyonAyarlari = useCollectionData(
-    COLLECTIONS.whatsappEntegrasyonAyarlari,
-    MOCK_WHATSAPP_ENTEGRASYON_AYARLARI,
-    enabled,
-    ofisId
-  );
-  const bankaEntegrasyonAyarlari = useCollectionData(
-    COLLECTIONS.bankaEntegrasyonAyarlari,
-    MOCK_BANKA_ENTEGRASYON_AYARLARI,
-    enabled,
-    ofisId
-  );
-  const emailEntegrasyonAyarlari = useCollectionData(
-    COLLECTIONS.emailEntegrasyonAyarlari,
-    MOCK_EMAIL_ENTEGRASYON_AYARLARI,
-    enabled,
-    ofisId
-  );
-  const entegrasyonLoglari = useCollectionData(
-    COLLECTIONS.entegrasyonLoglari,
-    MOCK_ENTEGRASYON_LOGLARI,
-    enabled,
-    ofisId
-  );
-  const notlar = useCollectionData(COLLECTIONS.notlar, MOCK_NOTLAR, enabled, ofisId);
   const normalizedBeyannameler = beyannameler.data;
-  const normalizedTahakkuklar = mergeDerivedVergiTahakkuklari(tahakkuklar.data, normalizedBeyannameler);
+  const normalizedTahakkuklar = useMemo(
+    () => mergeDerivedVergiTahakkuklari(tahakkuklar.data, normalizedBeyannameler),
+    [tahakkuklar.data, normalizedBeyannameler]
+  );
 
   return {
     ofisler: ofisler.data,
     musteriler: musteriler.data,
-    mukellefiyetProfilleri:
-      mukellefiyetProfilleri.data.length > 0
-        ? mukellefiyetProfilleri.data
-        : MOCK_MUKELLEFIYET_PROFILLERI,
-    yukumlulukler: yukumlulukler.data.length > 0 ? yukumlulukler.data : MOCK_YUKUMLULUKLER,
+    mukellefiyetProfilleri: mukellefiyetProfilleri.data,
+    yukumlulukler: yukumlulukler.data,
     gorevler: gorevler.data,
     tebligatlar: tebligatlar.data,
     beyannameler: normalizedBeyannameler,

@@ -23,14 +23,14 @@ import { isMusavir } from "@/lib/utils/permissions";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   createAuditLog,
-  createBeyanname,
   createEntegrasyonLog,
   createGibSyncLog,
-  createTebligat,
   updateDavet,
   updateGonderimKaydi,
+  upsertBeyannameFromGib,
   upsertGibEntegrasyonAyari,
   upsertLucaEntegrasyonAyari,
+  upsertTebligatFromGib,
   upsertWhatsAppEntegrasyonAyari,
 } from "@/lib/firebase/repositories";
 import { seedFirebaseMockData } from "@/lib/firebase/seed";
@@ -165,6 +165,7 @@ export default function AyarlarPage() {
   const [lucaSecret, setLucaSecret] = useState("");
   const [localGibLogs, setLocalGibLogs] = useState<GibSyncLog[]>([]);
   const [localIntegrationLogs, setLocalIntegrationLogs] = useState<EntegrasyonLog[]>([]);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const sortedAuditLogs = useMemo(
     () => [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
@@ -301,6 +302,8 @@ export default function AyarlarPage() {
       ivdSifreSet: gibDraftSafe.ivdSifreSet || Boolean(gibSecrets.ivdSifre) || Boolean(newEncrypted.ivdSifre),
       ebeyannameParolaSet: gibDraftSafe.ebeyannameParolaSet || Boolean(gibSecrets.ebeyannameParola) || Boolean(newEncrypted.ebeyannameParola),
       ebeyannameSifreSet: gibDraftSafe.ebeyannameSifreSet || Boolean(gibSecrets.ebeyannameSifre) || Boolean(newEncrypted.ebeyannameSifre),
+      // Şifreli IVD parolasını Firestore'a yaz — cron job okuyabilsin
+      encryptedIvdSifre: newEncrypted.ivdSifre || gibDraftSafe.encryptedIvdSifre,
       durum: "eksik",
       credentialUyarisi: undefined,
       updatedBy: user?.id ?? "musavir",
@@ -405,69 +408,72 @@ export default function AyarlarPage() {
   const handleManualGibSync = async (syncTipi: GibSyncLog["syncTipi"]) => {
     if (!gibDraftSafe) return;
 
-    const encSifre: string | undefined = encryptedGibSecrets["ivdSifre"];
-
-    const canSync = gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && (encSifre || gibDraftSafe.ivdSifreSet);
-
+    setSyncLoading(true);
     const baslamaTarihi = new Date().toISOString();
     let syncDurum: "basarili" | "basarisiz" = "basarili";
     let islenenKayitSayisi = 0;
     let sonHata: string | undefined;
 
-    if (canSync && encSifre) {
-      try {
-        // Aktif müşterileri tek tek senkronize et (her müşteri için musteriVkn gönder)
-        const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
-        const targets = aktifMusteriler.length > 0
-          ? aktifMusteriler
-          : [{ id: "", firmaAdi: gibDraftSafe.vknTckn, vknTckn: gibDraftSafe.vknTckn }];
+    // GİB kredansiyeli olan aktif müşterileri bul
+    const hedefler = musteriler.filter(
+      (m) => m.durum === "aktif" && m.vknTckn && m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
+    );
 
-        for (const musteri of targets) {
-          const res = await fetch("/api/gib/sync", {
-            method: "POST",
-            headers: await authHeaders(),
-            body: JSON.stringify({
-              ofisId: gibDraftSafe.ofisId,
-              syncTipi,
-              ivdKullaniciKodu: gibDraftSafe.ivdKullaniciKodu,
-              vknTckn: gibDraftSafe.vknTckn,
-              encryptedIvdSifre: encSifre,
-              musteriVkn: musteri.vknTckn,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? "GİB bağlantı hatası");
+    if (hedefler.length === 0) {
+      toast.warning("GİB kredansiyeli bulunan müşteri yok", "Müşteri Excel importu sırasında GİB bilgilerini eşleştirin");
+      setSyncLoading(false);
+      return;
+    }
 
-          const tebligatlar: unknown[] = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
-            ...t,
-            musteriId: musteri.id || (t.musteriId as string) || "",
-            musteriAdi: (t.musteriAdi as string) || musteri.firmaAdi || "",
-          }));
-          const beyannameler: unknown[] = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
-            ...b,
-            musteriId: musteri.id || (b.musteriId as string) || "",
-            musteriAdi: (b.musteriAdi as string) || musteri.firmaAdi || "",
-          }));
-          islenenKayitSayisi += tebligatlar.length + beyannameler.length;
-
-          if (isFirebaseConfigured) {
-            await Promise.all([
-              ...tebligatlar.map((t) => createTebligat(t as Parameters<typeof createTebligat>[0])),
-              ...beyannameler.map((b) => createBeyanname(b as Parameters<typeof createBeyanname>[0])),
-            ]);
-          }
+    try {
+      for (const musteri of hedefler) {
+        const res = await fetch("/api/gib/sync", {
+          method: "POST",
+          headers: await authHeaders(),
+          body: JSON.stringify({
+            ofisId: gibDraftSafe.ofisId,
+            syncTipi,
+            ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
+            vknTckn: musteri.vknTckn,
+            encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
+            musteriVkn: musteri.vknTckn,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          // Tek müşteri hatası tüm sync'i durdurmaz — logla devam et
+          console.warn(`[GIB Sync] ${musteri.firmaAdi}:`, data.error);
+          continue;
         }
-      } catch (err) {
-        syncDurum = "basarisiz";
-        sonHata = err instanceof Error ? err.message : "Bilinmeyen hata";
-        toast.error("GİB senkronizasyon hatası", sonHata);
+
+        const ofisId = gibDraftSafe.ofisId;
+        const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
+          ...(t as object),
+          ofisId,
+          musteriId: musteri.id,
+          musteriAdi: musteri.firmaAdi,
+        }));
+        const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
+          ...(b as object),
+          ofisId,
+          musteriId: musteri.id,
+          musteriAdi: musteri.firmaAdi,
+        }));
+        islenenKayitSayisi += tebligatlar.length + beyannameler.length;
+
+        if (isFirebaseConfigured) {
+          type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
+          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
+          await Promise.all([
+            ...(tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)),
+            ...(beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)),
+          ]);
+        }
       }
-    } else {
-      // Demo ya da şifre henüz kaydedilmemiş
-      islenenKayitSayisi = syncTipi === "tebligat" ? 3 : syncTipi === "beyanname" ? 2 : 4;
-      if (!canSync) {
-        toast.info("Demo modu", "Gerçek GİB verisi için IVD kimlik bilgilerini kaydedin");
-      }
+    } catch (err) {
+      syncDurum = "basarisiz";
+      sonHata = err instanceof Error ? err.message : "Bilinmeyen hata";
+      toast.error("GİB senkronizasyon hatası", sonHata);
     }
 
     const entry: GibSyncLog = {
@@ -526,6 +532,8 @@ export default function AyarlarPage() {
     } catch (error) {
       console.error(error);
       toast.error("GİB senkron kaydı yazılamadı");
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -671,153 +679,142 @@ export default function AyarlarPage() {
 
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
+      const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
+      const hazir = Boolean(gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && encSifre);
+      const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
+
       return (
-        <div className="space-y-4">
-          <Card>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-800">GIB Baglanti Merkezi</h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Manuel senkron acik. Secret alanlari client yerine server-side secret manager ile saklanacak.
-                </p>
+        <>
+          <div className="space-y-4">
+            <Card>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">GİB İnteraktif Vergi Dairesi (IVD)</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Tebligat, beyanname ve borç verilerini GİB IVD sisteminden çeker. Şifre AES-256-GCM ile şifrelenerek saklanır.
+                  </p>
+                </div>
+                <Badge variant={entegrasyonVariant(gibDraftSafe.durum)}>{durumLabel(gibDraftSafe.durum)}</Badge>
               </div>
-              <Badge variant={entegrasyonVariant(gibDraftSafe.durum)}>{durumLabel(gibDraftSafe.durum)}</Badge>
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Select
-                label="Entegrasyon Modu"
-                value={gibDraftSafe.entegrasyonModu}
-                onChange={(event) =>
-                  setGibDraft((prev) => (prev ? { ...prev, entegrasyonModu: event.target.value as GibEntegrasyonAyari["entegrasyonModu"] } : prev))
-                }
-                options={[
-                  { value: "manuel", label: "Manuel" },
-                  { value: "ivd", label: "IVD" },
-                  { value: "ebeyanname", label: "e-Beyanname" },
-                  { value: "resmi_api", label: "Resmi API" },
-                ]}
-              />
-              <Input
-                label="VKN / TCKN"
-                value={gibDraftSafe.vknTckn ?? ""}
-                onChange={(event) => setGibDraft((prev) => (prev ? { ...prev, vknTckn: event.target.value } : prev))}
-                placeholder="1234567890"
-              />
-              <Input
-                label="IVD Kullanici Kodu"
-                value={gibDraftSafe.ivdKullaniciKodu ?? ""}
-                onChange={(event) => setGibDraft((prev) => (prev ? { ...prev, ivdKullaniciKodu: event.target.value } : prev))}
-                placeholder="AKDENIZ123"
-              />
-              <Input
-                label="IVD Sifre"
-                type="password"
-                value={gibSecrets.ivdSifre}
-                onChange={(event) => setGibSecrets((prev) => ({ ...prev, ivdSifre: event.target.value }))}
-                placeholder={gibDraftSafe.ivdSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
-                hint={gibDraftSafe.ivdSifreSet ? "Şifre bir kez tanımlı görünüyor" : "Bu alan kalıcı olarak istemcide saklanmaz"}
-              />
-              <Input
-                label="e-Beyanname Kullanici Kodu"
-                value={gibDraftSafe.ebeyannameKullaniciKodu ?? ""}
-                onChange={(event) =>
-                  setGibDraft((prev) => (prev ? { ...prev, ebeyannameKullaniciKodu: event.target.value } : prev))
-                }
-                placeholder="MUSAVIR001"
-              />
-              <Input
-                label="e-Beyanname Parola"
-                type="password"
-                value={gibSecrets.ebeyannameParola}
-                onChange={(event) => setGibSecrets((prev) => ({ ...prev, ebeyannameParola: event.target.value }))}
-                placeholder={gibDraftSafe.ebeyannameParolaSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
-              />
-              <Input
-                label="e-Beyanname Sifre"
-                type="password"
-                value={gibSecrets.ebeyannameSifre}
-                onChange={(event) => setGibSecrets((prev) => ({ ...prev, ebeyannameSifre: event.target.value }))}
-                placeholder={gibDraftSafe.ebeyannameSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
-              />
-              <Input
-                label="Gunluk Senkron Saati"
-                type="time"
-                value={gibDraftSafe.syncSaati ?? "09:30"}
-                onChange={(event) => setGibDraft((prev) => (prev ? { ...prev, syncSaati: event.target.value } : prev))}
-              />
-            </div>
+              {/* Kimlik bilgileri */}
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Input
+                  label="VKN / TCKN"
+                  value={gibDraftSafe.vknTckn ?? ""}
+                  onChange={(e) => setGibDraft((prev) => prev ? { ...prev, vknTckn: e.target.value } : prev)}
+                  placeholder="Müşavir ofisinin VKN veya TCKN"
+                />
+                <Input
+                  label="IVD Kullanıcı Kodu"
+                  value={gibDraftSafe.ivdKullaniciKodu ?? ""}
+                  onChange={(e) => setGibDraft((prev) => prev ? { ...prev, ivdKullaniciKodu: e.target.value } : prev)}
+                  placeholder="GİB kullanıcı adınız"
+                />
+                <Input
+                  label="IVD Şifre"
+                  type="password"
+                  value={gibSecrets.ivdSifre}
+                  onChange={(e) => setGibSecrets((prev) => ({ ...prev, ivdSifre: e.target.value }))}
+                  placeholder={encSifre ? "Değiştirmek için yeniden girin" : "GİB şifreniz"}
+                  hint={encSifre ? "✓ Şifre kayıtlı — sunucuda şifreli saklanıyor" : "Kaydedilmeden önce AES-256-GCM ile şifrelenir"}
+                />
+                <Input
+                  label="Günlük Senkron Saati"
+                  type="time"
+                  value={gibDraftSafe.syncSaati ?? "09:30"}
+                  onChange={(e) => setGibDraft((prev) => prev ? { ...prev, syncSaati: e.target.value } : prev)}
+                />
+              </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                ["eTebligatAktif", "e-Tebligat aktif"],
-                ["beyanGonderimYetkisi", "Beyan gonderim yetkisi"],
-                ["borcSorguYetkisi", "Borc/tahakkuk sorgu yetkisi"],
-                ["tebligatGoruntulemeYetkisi", "Tebligat goruntuleme"],
-                ["pdfIndirmeYetkisi", "PDF indirme"],
-                ["manuelSenkronAktif", "Manuel senkron aktif"],
-                ["otomatikTebligatSync", "Otomatik tebligat sync"],
-                ["otomatikBeyanSync", "Otomatik beyan sync"],
-                ["otomatikBorcSync", "Otomatik borc sync"],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(gibDraftSafe[key as keyof GibEntegrasyonAyari])}
-                    onChange={(event) =>
-                      setGibDraft((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              [key]: event.target.checked,
-                            }
-                          : prev
-                      )
-                    }
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600"
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
+              {/* Kaydet + Test */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={handleSaveGib}>Kaydet</Button>
+                <Button variant="outline" onClick={handleGibTest}>Bağlantıyı Test Et</Button>
+              </div>
+            </Card>
 
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-              <strong>Guvenlik notu:</strong> Secret alanlari bu asamada sadece gecici taslak olarak tutulur.
-              Kalici saklama icin bir sonraki backend fazinda server-side secret manager baglanacak. Firestore'a
-              sifrelerin duz yazilmasini bilerek acmiyoruz.
-            </div>
+            {/* Manuel Senkron */}
+            <Card>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Manuel Senkron</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {aktifMusteriler.length > 0
+                      ? `${aktifMusteriler.length} aktif müşteri için veri çekilecek`
+                      : "Müşteri bulunamadı — ofis VKN için sorgu yapılır"}
+                  </p>
+                </div>
+                {!hazir && (
+                  <Badge variant="warning">Kimlik bilgileri eksik</Badge>
+                )}
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button onClick={handleSaveGib}>Metadata Kaydet</Button>
-              <Button variant="outline" onClick={handleGibTest}>Baglantiyi Test Et</Button>
-              <Button variant="outline" onClick={() => handleManualGibSync("tebligat")}>Tebligat Sync</Button>
-              <Button variant="outline" onClick={() => handleManualGibSync("beyanname")}>Beyan Sync</Button>
-              <Button variant="outline" onClick={() => handleManualGibSync("borc")}>Borc Sync</Button>
-            </div>
-          </Card>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {(
+                  [
+                    { tipi: "tebligat" as const, label: "Tebligatlar", aciklama: "e-Tebligat listesi" },
+                    { tipi: "beyanname" as const, label: "Beyannameler", aciklama: "Verilen beyannameler" },
+                    { tipi: "tahakkuk" as const, label: "Borç / Tahakkuk", aciklama: "Ödeme gereken vergi borçları" },
+                    { tipi: "tumu" as const, label: "Tümünü Çek", aciklama: "Tek seferde hepsini" },
+                  ] as const
+                ).map(({ tipi, label, aciklama }) => (
+                  <button
+                    key={tipi}
+                    disabled={!hazir || syncLoading}
+                    onClick={() => openGibOnay(tipi as GibSyncLog["syncTipi"])}
+                    className={`flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors ${
+                      hazir && !syncLoading
+                        ? "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50"
+                        : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold text-slate-800">{label}</span>
+                    <span className="text-xs text-slate-500">{aciklama}</span>
+                  </button>
+                ))}
+              </div>
+            </Card>
 
-          <Card>
-            <h3 className="text-sm font-semibold text-slate-800">GIB Sync Gecmisi</h3>
-            <div className="mt-3 space-y-2">
+            {/* Sync Geçmişi */}
+            <Card>
+              <h3 className="text-sm font-semibold text-slate-800 mb-3">Senkron Geçmişi</h3>
               {localGibLogs.length === 0 ? (
-                <p className="text-xs text-slate-500">Henüz sync kaydi yok.</p>
+                <p className="text-xs text-slate-500">Henüz senkron kaydı yok.</p>
               ) : (
-                localGibLogs.slice(0, 6).map((log) => (
-                  <div key={log.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
-                    <div>
-                      <p className="text-xs font-medium text-slate-800">{log.syncTipi}</p>
-                      <p className="text-xs text-slate-500">{formatTarih(log.baslamaTarihi)}</p>
+                <div className="space-y-2">
+                  {localGibLogs.slice(0, 8).map((log) => (
+                    <div key={log.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
+                      <div>
+                        <p className="text-xs font-medium text-slate-800 capitalize">{log.syncTipi}</p>
+                        <p className="text-xs text-slate-500">{formatTarih(log.baslamaTarihi)}</p>
+                        {log.hataMesaji && (
+                          <p className="text-xs text-red-500 mt-0.5 truncate max-w-xs">{log.hataMesaji}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={syncVariant(log.durum)}>{log.durum}</Badge>
+                        <span className="text-xs text-slate-500">{log.islenenKayitSayisi} kayıt</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={syncVariant(log.durum)}>{log.durum}</Badge>
-                      <span className="text-xs text-slate-500">{log.islenenKayitSayisi} kayit</span>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
+
+          <GibOnayModal
+            open={gibOnayAcik}
+            onClose={() => setGibOnayAcik(false)}
+            baslik="GİB Senkronizasyonu"
+            syncTipi={pendingSyncTipi}
+            musteriSayisi={aktifMusteriler.length}
+            onConfirm={async () => {
+              setGibOnayAcik(false);
+              await handleManualGibSync(pendingSyncTipi);
+            }}
+          />
+        </>
       );
     }
 

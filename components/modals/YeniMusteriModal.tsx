@@ -16,20 +16,26 @@ interface Props {
   musteri?: Musteri;
 }
 
+const EMPTY_FORM = {
+  firmaAdi: "",
+  vknTckn: "",
+  vergiDairesi: "",
+  kurulusTarihi: "",
+  yetkiliAd: "",
+  telefon: "",
+  email: "",
+  adres: "",
+  aciklama: "",
+  sorumluPersonel: "Selin Kaya",
+  kdvMukellef: "evet",
+  muhtasarMukellef: "evet",
+  varsayilanHizmetUcreti: "",
+};
+
 export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({
-    firmaAdi: "",
-    vknTckn: "",
-    yetkiliAd: "",
-    telefon: "",
-    email: "",
-    adres: "",
-    sorumluPersonel: "Selin Kaya",
-    kdvMukellef: "evet",
-    muhtasarMukellef: "evet",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const isEdit = Boolean(musteri);
 
@@ -40,26 +46,20 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
       setForm({
         firmaAdi: musteri.firmaAdi,
         vknTckn: musteri.vknTckn,
+        vergiDairesi: musteri.vergiDairesi ?? "",
+        kurulusTarihi: musteri.kurulusTarihi ?? "",
         yetkiliAd: musteri.yetkiliAd,
         telefon: musteri.telefon,
         email: musteri.email,
         adres: musteri.adres,
+        aciklama: musteri.aciklama ?? "",
         sorumluPersonel: musteri.sorumluPersonel,
         kdvMukellef: musteri.kdvMukellef ? "evet" : "hayir",
         muhtasarMukellef: musteri.muhtasarMukellef ? "evet" : "hayir",
+        varsayilanHizmetUcreti: musteri.varsayilanHizmetUcreti?.toString() ?? "",
       });
     } else {
-      setForm({
-        firmaAdi: "",
-        vknTckn: "",
-        yetkiliAd: "",
-        telefon: "",
-        email: "",
-        adres: "",
-        sorumluPersonel: "Selin Kaya",
-        kdvMukellef: "evet",
-        muhtasarMukellef: "evet",
-      });
+      setForm(EMPTY_FORM);
     }
   }, [musteri, open]);
 
@@ -69,24 +69,32 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
       toast.error("Firma adı ve VKN zorunludur");
       return;
     }
-    if (form.vknTckn.length < 10) {
+    if (form.vknTckn.replace(/\D/g, "").length < 10) {
       toast.error("VKN/TCKN 10 veya 11 haneli olmalıdır");
       return;
     }
     setLoading(true);
 
     try {
+      const ucret = form.varsayilanHizmetUcreti
+        ? Number(form.varsayilanHizmetUcreti.replace(",", "."))
+        : undefined;
+
       if (isFirebaseConfigured) {
         const payload = {
           firmaAdi: form.firmaAdi,
-          vknTckn: form.vknTckn,
+          vknTckn: form.vknTckn.replace(/\D/g, ""),
+          vergiDairesi: form.vergiDairesi || undefined,
+          kurulusTarihi: form.kurulusTarihi || undefined,
           yetkiliAd: form.yetkiliAd,
           telefon: form.telefon,
           email: form.email,
           adres: form.adres,
+          aciklama: form.aciklama || undefined,
           sorumluPersonel: form.sorumluPersonel,
           kdvMukellef: form.kdvMukellef === "evet",
           muhtasarMukellef: form.muhtasarMukellef === "evet",
+          varsayilanHizmetUcreti: Number.isFinite(ucret) ? ucret : undefined,
         };
 
         if (musteri) {
@@ -114,7 +122,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
 
   const f = (field: keyof typeof form) => ({
     value: form[field],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm({ ...form, [field]: e.target.value }),
   });
 
@@ -122,6 +130,8 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
     <Modal open={open} onClose={onClose} title={isEdit ? "Müşteri Bilgilerini Düzenle" : "Yeni Müşteri Ekle"} size="lg">
       <form onSubmit={handleSubmit}>
         <div className="space-y-4">
+
+          {/* Firma bilgileri */}
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Input label="Firma Adı *" placeholder="Örn: Akdeniz Tekstil A.Ş." {...f("firmaAdi")} required />
@@ -133,12 +143,22 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
               {...f("vknTckn")}
               required
             />
+            <Input label="Vergi Dairesi" placeholder="Örn: Bağcılar" {...f("vergiDairesi")} />
             <Input label="Yetkili Kişi" placeholder="Ad Soyad" {...f("yetkiliAd")} />
+            <Input label="Kuruluş Tarihi" type="date" {...f("kurulusTarihi")} />
+          </div>
+
+          {/* İletişim */}
+          <div className="grid grid-cols-2 gap-4">
             <Input label="Telefon" type="tel" placeholder="0532 000 0000" {...f("telefon")} />
             <Input label="E-posta" type="email" placeholder="info@firma.com" {...f("email")} />
             <div className="col-span-2">
               <Input label="Adres" placeholder="İl, İlçe" {...f("adres")} />
             </div>
+          </div>
+
+          {/* Sorumluluk ve ücret */}
+          <div className="grid grid-cols-2 gap-4">
             <Select
               label="Sorumlu Personel"
               {...f("sorumluPersonel")}
@@ -147,24 +167,42 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri }: Props) {
                 { value: "Murat Çelik", label: "Murat Çelik" },
               ]}
             />
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                label="KDV Mükellefi"
-                {...f("kdvMukellef")}
-                options={[
-                  { value: "evet", label: "Evet" },
-                  { value: "hayir", label: "Hayır" },
-                ]}
-              />
-              <Select
-                label="Muhtasar Mükellefi"
-                {...f("muhtasarMukellef")}
-                options={[
-                  { value: "evet", label: "Evet" },
-                  { value: "hayir", label: "Hayır" },
-                ]}
-              />
-            </div>
+            <Input
+              label="Aylık Hizmet Ücreti (₺)"
+              placeholder="Örn: 3500"
+              {...f("varsayilanHizmetUcreti")}
+            />
+          </div>
+
+          {/* Mükellef durumu */}
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="KDV Mükellefi"
+              {...f("kdvMukellef")}
+              options={[
+                { value: "evet", label: "Evet" },
+                { value: "hayir", label: "Hayır" },
+              ]}
+            />
+            <Select
+              label="Muhtasar Mükellefi"
+              {...f("muhtasarMukellef")}
+              options={[
+                { value: "evet", label: "Evet" },
+                { value: "hayir", label: "Hayır" },
+              ]}
+            />
+          </div>
+
+          {/* Açıklama */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label>
+            <textarea
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+              rows={3}
+              placeholder="Müşteri hakkında notlar..."
+              {...f("aciklama")}
+            />
           </div>
         </div>
 

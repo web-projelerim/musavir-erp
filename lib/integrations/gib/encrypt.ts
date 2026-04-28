@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
+import "server-only";
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 
 const ALG = "aes-256-gcm";
 const IV_LEN = 12;

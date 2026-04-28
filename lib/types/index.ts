@@ -49,6 +49,8 @@ export interface GibEntegrasyonAyari {
   vknTckn?: string;
   ivdKullaniciKodu?: string;
   ivdSifreSet: boolean;
+  /** AES-256-GCM ile şifrelenmiş IVD parolası — cron job tarafından okunur */
+  encryptedIvdSifre?: string;
   ebeyannameKullaniciKodu?: string;
   ebeyannameParolaSet: boolean;
   ebeyannameSifreSet: boolean;
@@ -203,6 +205,11 @@ export interface Musteri {
   etiketler?: string[];
   aktifHizmetler?: string[];
   varsayilanHizmetUcreti?: number;
+  vergiDairesi?: string;
+  kurulusTarihi?: string;
+  aciklama?: string;
+  gibIvdKullaniciAdi?: string;
+  gibEncryptedIvdSifre?: string;
 }
 
 export type TahsilatDurum = "odendi" | "bekliyor" | "gecikti" | "kismi";

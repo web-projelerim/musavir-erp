@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   subscribeCollection,
   type CollectionName,
@@ -9,19 +9,18 @@ import {
 
 export function useCollectionData<T extends { id: string }>(
   collectionName: CollectionName,
-  fallback: T[],
+  _fallback?: T[],
   enabled = true,
   ofisId?: string
 ) {
-  const fallbackRef = useRef(fallback);
-  const [data, setData] = useState<T[]>(fallback);
+  const [data, setData] = useState<T[]>([]);
   const [source, setSource] = useState<DataSource>("mock");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
-      setData(fallbackRef.current);
+      setData([]);
       setSource("mock");
       setError(null);
       setLoading(false);
@@ -29,9 +28,9 @@ export function useCollectionData<T extends { id: string }>(
     }
 
     setLoading(true);
-    const unsubscribe = subscribeCollection(
+    const unsubscribe = subscribeCollection<T>(
       collectionName,
-      fallbackRef.current,
+      [],
       (nextData, meta) => {
         setData(nextData);
         setSource(meta.source);

@@ -95,8 +95,9 @@ export default function DashboardPage() {
 
     setGazeteYukleniyor(true);
     fetch("/api/resmi-gazete/ozetle", { method: "POST" })
-      .then((r) => r.json())
-      .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> }) => {
+      .then((r) => (r.ok ? r.json() : r.json().then((d) => { if (!d?.ok) return null; return d; })))
+      .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> } | null) => {
+        if (!data) return;
         if (data.ok && Array.isArray(data.maddeler) && data.maddeler.length > 0) {
           const items: ResmiGazeteOzeti[] = data.maddeler.map((m, i) => ({
             id: `gazete-dynamic-${bugun}-${i}`,

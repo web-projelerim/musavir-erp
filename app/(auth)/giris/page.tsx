@@ -8,15 +8,15 @@ import { useToast } from "@/lib/context/ToastContext";
 
 export default function GirisPage() {
   const router = useRouter();
-  const { user, loading: authLoading, signIn, signUp, resetPassword, isFirebaseReady } = useAuth();
+  const { user, loading: authLoading, signIn, signInDemo, signUp, resetPassword, isFirebaseReady } = useAuth();
   const toast = useToast();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ad, setAd] = useState("");
   const [soyad, setSoyad] = useState("");
-  const [email, setEmail] = useState("ali@musavir.com");
-  const [password, setPassword] = useState("sifre123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -345,8 +345,8 @@ export default function GirisPage() {
             </button>
           </div>
 
-          {/* Demo hesaplar */}
-          {authMode === "login" && (
+          {/* Demo hesaplar — yalnızca Firebase yapılandırılmadığında göster */}
+          {authMode === "login" && !isFirebaseReady && (
           <div className="mt-8 border border-slate-700/50 rounded-xl p-4">
             <p className="text-xs text-slate-500 font-medium mb-3 uppercase tracking-wide">Demo Hesaplar</p>
             <div className="space-y-2">
@@ -354,13 +354,23 @@ export default function GirisPage() {
                 { rol: "Mali Müşavir", email: "ali@musavir.com" },
                 { rol: "Personel", email: "selin@musavir.com" },
                 { rol: "Mükellef", email: "ahmet@akdeniz.com" },
-              ].map(({ rol, email }) => (
-                <div key={email} className="flex items-center justify-between text-xs">
+              ].map(({ rol, email: demoEmail }) => (
+                <div key={demoEmail} className="flex items-center justify-between text-xs">
                   <span className="text-slate-400">{rol}</span>
-                  <span className="text-slate-300 font-mono">{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const u = signInDemo(demoEmail);
+                      router.replace(u.rol === "mukellef" ? "/panel" : "/dashboard");
+                    }}
+                    className="text-blue-400 hover:text-blue-300 font-mono hover:underline transition-colors"
+                  >
+                    {demoEmail}
+                  </button>
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-[11px] text-slate-600">Tıklayarak doğrudan giriş yapın</p>
           </div>
           )}
         </div>

@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  RotateCcw,
+  Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -27,6 +29,7 @@ import {
 } from "@/components/ui/Table";
 import { Input, Select } from "@/components/ui/Input";
 import { YeniBeyanameModal } from "@/components/modals/YeniBeyanameModal";
+import { UcOnayModal, type UcOnayAdim } from "@/components/modals/UcOnayModal";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
@@ -74,12 +77,72 @@ export default function BeyannamellerPage() {
   const [filterDurum, setFilterDurum] = useState("tumu");
   const [filterSorumlu, setFilterSorumlu] = useState("tumu");
   const [workflowLoading, setWorkflowLoading] = useState<string | null>(null);
+  const [onayBekleyen, setOnayBekleyen] = useState<Beyanname | null>(null);
+  const [onayTip, setOnayTip] = useState<"gonder" | "duzelt" | null>(null);
 
   useEffect(() => {
     setBeyanlar(loadedBeyanlar);
   }, [loadedBeyanlar]);
 
   if (loading) return <PageLoading />;
+
+  const gonderAdimlar: [UcOnayAdim, UcOnayAdim, UcOnayAdim] = [
+    {
+      ikon: Shield,
+      renk: "blue",
+      baslik: "Beyanname gönderilmek üzere",
+      aciklama: onayBekleyen
+        ? `${onayBekleyen.musteriAdi} — ${onayBekleyen.tur} ${onayBekleyen.donem} beyannamesi GİB'e gönderildi olarak işaretlenecek. IVD kimlik bilgileriniz kullanılarak kayıt yapılacak.`
+        : "",
+      onayMetni: "Anladım, devam et",
+    },
+    {
+      ikon: AlertTriangle,
+      renk: "amber",
+      baslik: "Bu işlem geri alınamaz",
+      aciklama:
+        "Beyanname 'Gönderildi' olarak işaretlendikten sonra otomatik tahakkuk oluşturulacak. Hatalı gönderim durumunda 'Düzeltme Gerekli' akışını kullanmanız gerekecek.",
+      onayMetni: "Riskleri anladım, onayla",
+    },
+    {
+      ikon: CheckCircle2,
+      renk: "green",
+      baslik: "Son onay",
+      aciklama: onayBekleyen
+        ? `${onayBekleyen.musteriAdi} — ${onayBekleyen.tur} ${onayBekleyen.donem} beyannamesini GİB'e gönderildi olarak kesinleştiriyorsunuz.`
+        : "",
+      onayMetni: "Evet, gönder",
+    },
+  ];
+
+  const duzeltAdimlar: [UcOnayAdim, UcOnayAdim, UcOnayAdim] = [
+    {
+      ikon: RotateCcw,
+      renk: "amber",
+      baslik: "Düzeltme süreci başlatılıyor",
+      aciklama: onayBekleyen
+        ? `${onayBekleyen.musteriAdi} — ${onayBekleyen.tur} ${onayBekleyen.donem} beyannamesi "Düzeltme Gerekli" durumuna alınacak. Beyanname yeniden hazırlanması gerekecek.`
+        : "",
+      onayMetni: "Devam et",
+    },
+    {
+      ikon: AlertTriangle,
+      renk: "red",
+      baslik: "Müşteri bilgilendirilmeli",
+      aciklama:
+        "Düzeltme beyannamesi gönderilmeden önce müşteri ile iletişime geçilmesi ve eksik/hatalı evrakların temin edilmesi gerekmektedir.",
+      onayMetni: "Anladım",
+    },
+    {
+      ikon: CheckCircle2,
+      renk: "green",
+      baslik: "Son onay",
+      aciklama: onayBekleyen
+        ? `${onayBekleyen.musteriAdi} — ${onayBekleyen.tur} ${onayBekleyen.donem} beyannamesini düzeltme sürecine almak istediğinizi onaylayın.`
+        : "",
+      onayMetni: "Evet, düzeltmeye al",
+    },
+  ];
 
   /* ── filtre ── */
   const sorumlular = Array.from(new Set(beyanlar.map((b) => b.sorumlu).filter(Boolean)));
@@ -107,8 +170,8 @@ export default function BeyannamellerPage() {
     { title: "Gecikti", value: gecikti, subtitle: "Acil müdahale", icon: <AlertTriangle className="w-5 h-5 text-red-500" />, variant: gecikti > 0 ? "danger" as const : "default" as const },
   ];
 
-  /* ── workflow ileri al ── */
-  const handleWorkflowIleri = async (beyanname: Beyanname) => {
+  /* ── workflow adımını uygula (onay sonrası çağrılır) ── */
+  const applyWorkflowIleri = async (beyanname: Beyanname) => {
     const next = nextWorkflowStep(beyanname.yasamDongusuDurum);
     if (!next) return;
     setWorkflowLoading(beyanname.id);
@@ -129,18 +192,28 @@ export default function BeyannamellerPage() {
         before: { yasamDongusuDurum: beyanname.yasamDongusuDurum },
         after: { yasamDongusuDurum: next },
       });
-      toast.success(
-        `${beyanWorkflowLabel(next)}`,
-        `${beyanname.musteriAdi} — ${beyanname.tur}`
-      );
+      toast.success(`${beyanWorkflowLabel(next)}`, `${beyanname.musteriAdi} — ${beyanname.tur}`);
     } catch (err) {
       toast.error("Durum güncellenemedi", err instanceof Error ? err.message : undefined);
+      throw err;
     } finally {
       setWorkflowLoading(null);
     }
   };
 
-  const handleGeriAl = async (beyanname: Beyanname) => {
+  /* ── gönderim gerektiren adımlar için 3 onay, diğerleri direkt ── */
+  const handleWorkflowIleri = (beyanname: Beyanname) => {
+    const next = nextWorkflowStep(beyanname.yasamDongusuDurum);
+    if (!next) return;
+    if (next === "gonderildi") {
+      setOnayBekleyen(beyanname);
+      setOnayTip("gonder");
+    } else {
+      applyWorkflowIleri(beyanname);
+    }
+  };
+
+  const applyGeriAl = async (beyanname: Beyanname) => {
     if (isFirebaseConfigured) {
       await updateBeyannameWorkflow(beyanname.id, "duzeltme_gerekli");
     }
@@ -152,6 +225,11 @@ export default function BeyannamellerPage() {
       )
     );
     toast.warning("Düzeltme gerekli", beyanname.musteriAdi);
+  };
+
+  const handleGeriAl = (beyanname: Beyanname) => {
+    setOnayBekleyen(beyanname);
+    setOnayTip("duzelt");
   };
 
   return (
@@ -390,6 +468,34 @@ export default function BeyannamellerPage() {
         musteriler={musteriler.filter((m) => m.durum === "aktif")}
         onCreated={(created) => setBeyanlar((prev) => [created, ...prev])}
       />
+
+      {onayBekleyen && onayTip === "gonder" && (
+        <UcOnayModal
+          open={true}
+          baslik="Beyanname Gönderimi — 3 Onay Gerekli"
+          adimlar={gonderAdimlar}
+          onClose={() => { setOnayBekleyen(null); setOnayTip(null); }}
+          onConfirm={async () => {
+            await applyWorkflowIleri(onayBekleyen);
+            setOnayBekleyen(null);
+            setOnayTip(null);
+          }}
+        />
+      )}
+
+      {onayBekleyen && onayTip === "duzelt" && (
+        <UcOnayModal
+          open={true}
+          baslik="Düzeltme Süreci — 3 Onay Gerekli"
+          adimlar={duzeltAdimlar}
+          onClose={() => { setOnayBekleyen(null); setOnayTip(null); }}
+          onConfirm={async () => {
+            await applyGeriAl(onayBekleyen);
+            setOnayBekleyen(null);
+            setOnayTip(null);
+          }}
+        />
+      )}
     </div>
   );
 }

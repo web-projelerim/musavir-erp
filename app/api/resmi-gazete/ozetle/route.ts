@@ -148,15 +148,12 @@ export async function POST(req: NextRequest) {
   const geminiApiKey = process.env.GEMINI_API_KEY;
 
   if (!geminiApiKey) {
-    // STUB — MVP dışı: GEMINI_API_KEY env yoksa simülasyon modu
-    return NextResponse.json(
-      {
-        ok: false,
-        stub: true,
-        mesaj: "GEMINI_API_KEY env değişkeni tanımlanmamış. Resmi Gazete AI özeti pasif.",
-      },
-      { status: 501 }
-    );
+    // STUB — MVP dışı: GEMINI_API_KEY env yoksa simülasyon modu (200 döner, ok:false)
+    return NextResponse.json({
+      ok: false,
+      stub: true,
+      mesaj: "GEMINI_API_KEY env değişkeni tanımlanmamış. Resmi Gazete AI özeti pasif.",
+    });
   }
 
   try {

@@ -63,9 +63,16 @@ function requireDb() {
 }
 
 function withoutUndefined<T extends object>(data: T): DocumentData {
-  return Object.fromEntries(
-    Object.entries(data).filter(([, value]) => value !== undefined)
-  ) as DocumentData;
+  const result: DocumentData = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue;
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      result[key] = withoutUndefined(value as object);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
 }
 
 export function subscribeCollection<T extends { id: string }>(

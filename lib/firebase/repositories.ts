@@ -55,8 +55,13 @@ export async function createMusteri(input: {
   kdvMukellef: boolean;
   muhtasarMukellef: boolean;
   varsayilanHizmetUcreti?: number;
+  vergiDairesi?: string;
+  kurulusTarihi?: string;
+  aciklama?: string;
   importBatchId?: string;
   kaynak?: Musteri["kaynak"];
+  gibIvdKullaniciAdi?: string;
+  gibEncryptedIvdSifre?: string;
 }) {
   const musteri: Musteri = {
     id: createId("m"),
@@ -78,8 +83,13 @@ export async function createMusteri(input: {
     muhtasarMukellef: input.muhtasarMukellef,
     gecikmisPesinat: false,
     varsayilanHizmetUcreti: input.varsayilanHizmetUcreti,
+    vergiDairesi: input.vergiDairesi,
+    kurulusTarihi: input.kurulusTarihi,
+    aciklama: input.aciklama,
     importBatchId: input.importBatchId,
     kaynak: input.kaynak ?? "manuel",
+    gibIvdKullaniciAdi: input.gibIvdKullaniciAdi,
+    gibEncryptedIvdSifre: input.gibEncryptedIvdSifre,
   };
 
   await upsertDocument(COLLECTIONS.musteriler, musteri);
@@ -411,6 +421,36 @@ export async function createBeyanname(input: Omit<Beyanname, "id">) {
   };
   await upsertDocument(COLLECTIONS.beyannameler, beyanname);
   return beyanname;
+}
+
+/** GİB sync için idempotent upsert — aynı (musteriId+tur+donem) ikinci kez sync edilirse duplicate oluşmaz */
+export async function upsertBeyannameFromGib(input: Omit<Beyanname, "id"> & { ofisId: string }) {
+  const stableId = `bey-gib-${input.musteriId}-${input.tur}-${input.donem}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-");
+  const beyanname: Beyanname = { id: stableId, ...input };
+  await upsertDocument(COLLECTIONS.beyannameler, beyanname);
+  return beyanname;
+}
+
+/** GİB sync için idempotent upsert — aynı (musteriId+donem+vergiTuru+fisNo|vadeTarihi) ikinci kez sync edilirse duplicate oluşmaz */
+export async function upsertTahakkukFromGib(input: Omit<Tahakkuk, "id"> & { ofisId: string }) {
+  const discriminator = input.resmiTahakkukFisNo ?? input.vadeTarihi;
+  const key = `${input.musteriId}-${input.donem}-${input.vergiTuru ?? "diger"}-${discriminator}`;
+  const stableId = `tk-gib-${key}`.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const tahakkuk: Tahakkuk = { id: stableId, ...input };
+  await upsertDocument(COLLECTIONS.tahakkuklar, tahakkuk);
+  return tahakkuk;
+}
+
+/** GİB sync için idempotent upsert — aynı (musteriId+tarih+baslik) ikinci kez sync edilirse duplicate oluşmaz */
+export async function upsertTebligatFromGib(input: Omit<Tebligat, "id"> & { ofisId: string }) {
+  const stableId = `teb-gib-${input.musteriId}-${input.tarih.slice(0, 10)}-${input.baslik.slice(0, 30)}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-");
+  const tebligat: Tebligat = { id: stableId, ...input };
+  await upsertDocument(COLLECTIONS.tebligatlar, tebligat);
+  return tebligat;
 }
 
 export async function createBelge(input: Omit<Belge, "id" | "createdAt">) {

@@ -33,7 +33,98 @@ function get(row: Record<string, unknown>, aliases: string[]) {
   return found?.[1];
 }
 
+function normalizeDateStr(raw: string): string {
+  const dmy = raw.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return new Date().toISOString().slice(0, 10);
+}
+
+function parsePdfLines(lines: string[]): RawBankaSatiri[] {
+  const results: RawBankaSatiri[] = [];
+  // Tarih: GG.AA.YYYY, GG/AA/YYYY veya YYYY-AA-GG
+  const dateRe = /(\d{2}[./]\d{2}[./]\d{4}|\d{4}-\d{2}-\d{2})/;
+  // Tutar: Türk formatı 1.234,56 veya 1234,56 — virgüllü ondalık zorunlu
+  const amountRe = /\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/g;
+
+  for (const line of lines) {
+    const dateMatch = line.match(dateRe);
+    if (!dateMatch) continue;
+
+    // Tüm olası tutarları bul, en büyüğünü al (genellikle işlem tutarı)
+    const amountMatches = Array.from(line.matchAll(amountRe));
+    const amounts = amountMatches.map((m) => numberFrom(m[1]));
+    if (amounts.length === 0) continue;
+    const tutar = Math.max(...amounts);
+    if (tutar <= 0) continue;
+
+    // Açıklama: tarih ve tüm tutar eşleşmeleri çıkarıldıktan sonra kalan
+    let aciklama = line.replace(dateRe, "");
+    for (const m of amountMatches) {
+      aciklama = aciklama.replace(m[0], "");
+    }
+    aciklama = aciklama.replace(/\s+/g, " ").trim();
+
+    results.push({
+      id: `pdf-${results.length + 1}`,
+      tarih: normalizeDateStr(dateMatch[1]),
+      aciklama,
+      tutar,
+    });
+  }
+  return results;
+}
+
+async function parseBankaPdfFile(file: File): Promise<RawBankaSatiri[]> {
+  const pdfjsLib = await import("pdfjs-dist");
+  // Worker'ı /public klasöründen yerel olarak sun (CDN bağımlılığı yok)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+
+  const allLines: string[] = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+
+    // Her PDF metin öğesinin y-koordinatına göre gruplandır → görsel satırları yeniden oluştur
+    type PdfTextItem = { str: string; transform: number[] };
+    const yMap = new Map<number, { x: number; str: string }[]>();
+
+    for (const item of textContent.items) {
+      if (!("str" in item)) continue;
+      const { str, transform } = item as PdfTextItem;
+      if (!str.trim()) continue;
+      // transform[5] = y, transform[4] = x (PDF koordinat sistemi)
+      const y = Math.round(transform[5]);
+      const x = transform[4];
+      if (!yMap.has(y)) yMap.set(y, []);
+      yMap.get(y)!.push({ x, str });
+    }
+
+    // PDF'de y=0 sayfanın altı, büyük y yukarı → azalan sırayla sırala
+    const sortedYs = Array.from(yMap.keys()).sort((a, b) => b - a);
+    for (const y of sortedYs) {
+      const line = yMap
+        .get(y)!
+        .sort((a, b) => a.x - b.x)
+        .map((i) => i.str)
+        .join(" ")
+        .trim();
+      if (line) allLines.push(line);
+    }
+  }
+
+  return parsePdfLines(allLines);
+}
+
 export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri[]> {
+  if (file.name.toLowerCase().endsWith(".pdf")) {
+    return parseBankaPdfFile(file);
+  }
+
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -72,6 +163,12 @@ function scoreMusteri(raw: RawBankaSatiri, musteri: Musteri) {
 
   const firmaWords = firma.split(" ").filter((word) => word.length > 2);
   score += firmaWords.filter((word) => haystack.includes(word)).length * 8;
+
+  if (musteri.bankaGonderenAdlari) {
+    for (const ad of musteri.bankaGonderenAdlari) {
+      if (haystack.includes(normalize(ad))) score += 60;
+    }
+  }
 
   return Math.min(score, 100);
 }
@@ -112,14 +209,8 @@ function scoreTahakkukKalemi(raw: RawBankaSatiri, tahakkuk: Tahakkuk) {
 }
 
 function scoreTahakkuk(raw: RawBankaSatiri, tahakkuk: Tahakkuk) {
-  const kalan = Math.max(0, tahakkuk.tutar - (tahakkuk.odenenTutar ?? 0));
-  let score = scoreTahakkukTipUyumu(raw, tahakkuk) + scoreTahakkukKalemi(raw, tahakkuk);
-
-  if (raw.tutar === tahakkuk.tutar || raw.tutar === kalan) score += 25;
-  else if (raw.tutar > 0 && Math.abs(raw.tutar - kalan) <= 5) score += 18;
-  else if (raw.tutar > 0 && raw.tutar < kalan) score += 10;
-
-  return score;
+  // Tutar eşleştirme kriteri olarak kullanılmaz — sadece isim/tip/kalem bazlı eşleşme
+  return scoreTahakkukTipUyumu(raw, tahakkuk) + scoreTahakkukKalemi(raw, tahakkuk);
 }
 
 export function matchBankaSatirlari(

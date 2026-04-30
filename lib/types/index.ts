@@ -13,6 +13,8 @@ export interface User {
   musteriId?: string;
   davetId?: string;
   aktif: boolean;
+  /** SMMM / YMM ruhsat numarası — yalnızca musavir rolünde anlamlı */
+  ruhsatNo?: string;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -190,7 +192,8 @@ export interface Musteri {
   durum: MusteriDurum;
   riskSeviyesi: RiskSeviyesi;
   riskSkoru: number;
-  sorumluPersonel: string;
+  sorumluPersonel: string;        // Görüntüleme adı — eski kayıtlar için string kalıyor
+  sorumluPersonelId?: string;     // User.id referansı — yeni kayıtlarda zorunlu
   yaklasanBeyanname?: string;
   sonTebligat?: string;
   gorevDurumu: string;
@@ -210,6 +213,29 @@ export interface Musteri {
   aciklama?: string;
   gibIvdKullaniciAdi?: string;
   gibEncryptedIvdSifre?: string;
+  bankaGonderenAdlari?: string[];
+  // Genişletilmiş mükellef alanları
+  sahissaVergiNo?: string;
+  eposta1?: string; eposta1Ad?: string;
+  eposta2?: string; eposta2Ad?: string;
+  eposta3?: string; eposta3Ad?: string;
+  gsm1?: string; gsm1Ad?: string;
+  gsm2?: string; gsm2Ad?: string;
+  gsm3?: string; gsm3Ad?: string;
+  vergiTurleri?: Record<string, string>;
+  gruplar?: string[];
+  eDefter?: string;
+  eDefterGecis?: string;
+  naceKodu?: string;
+  mudurGorevBitisTarihi?: string;
+  maliMuhurler?: { sn: string; bitisTarihi: string }[];
+  panelGirisAktif?: boolean;
+  ikiAdimliDogrulama?: boolean;
+  ikiAdimliYontem?: string;
+  dogumTarihi?: string;
+  acilisTarihi?: string;
+  kapanisTarihi?: string;
+  girisMailGonder?: boolean;
 }
 
 export type TahsilatDurum = "odendi" | "bekliyor" | "gecikti" | "kismi";
@@ -688,6 +714,16 @@ export interface Not {
   createdBy: string;
   createdByName: string;
   createdAt: string;
+  /** Ofisin dışında da görebilecek e-posta adresleri (paylaşım listesi) */
+  paylasilanEmails?: string[];
+  /** Bu notu onaylayan kişiler */
+  tikleyenler?: NotTikleyen[];
+}
+
+export interface NotTikleyen {
+  email: string;
+  ad: string;
+  tarih: string;
 }
 
 // ─── Filtre ve Sayfalama ─────────────────────────────────────

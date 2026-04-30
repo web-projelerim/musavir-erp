@@ -56,7 +56,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
             tahakkukId: undefined,
             tahakkukTuru: undefined,
             eslesenTahakkukEtiketi: undefined,
-            uyarilar: ["Manuel olarak eslesmedi isaretlendi"],
+            uyarilar: ["Manuel olarak eşleşmedi işaretlendi"],
           };
         }
 
@@ -65,8 +65,8 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
           durum: next,
           uyarilar:
             next === "eslesti"
-              ? ["Manuel onay ile eslesti"]
-              : ["Manuel inceleme sonrasi onay bekliyor"],
+              ? ["Manuel onay ile eşleşti"]
+              : ["Manuel inceleme sonrası onay bekliyor"],
         };
       })
     );
@@ -88,7 +88,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
               odemeSinifi: tahakkuk.tahakkukTuru,
               eslesenTahakkukEtiketi: tahakkukKalemLabel(tahakkuk),
               durum: "onay_bekliyor",
-              uyarilar: ["Tahakkuk manuel secildi, onay bekliyor"],
+              uyarilar: ["Tahakkuk manuel seçildi, onay bekliyor"],
             }
           : row
       )
@@ -100,11 +100,13 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
     setLoading(true);
     try {
       const rawRows = await parseBankaEkstresiFile(file);
-      setRows(matchBankaSatirlari(rawRows, musteriler, tahakkuklar));
+      // Yalnızca vergi tahakkuklarıyla eşleştir — hizmet tahakkukları müşteriler sayfasındadır
+      const vergiTahakkuklar = tahakkuklar.filter((t) => t.tahakkukTuru === "vergi");
+      setRows(matchBankaSatirlari(rawRows, musteriler, vergiTahakkuklar));
       setFileName(file.name);
     } catch (error) {
       console.error(error);
-      toast.error("Banka ekstresi okunamadi");
+      toast.error("Banka ekstresi okunamadı");
     } finally {
       setLoading(false);
     }
@@ -161,10 +163,10 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
         entityType: "banka_ekstresi",
         entityId: fileName || `ekstre-${Date.now()}`,
         entityLabel: fileName,
-        summary: `${matched.length} banka hareketi otomatik eslesti, ${unmatched.length} eslesmedi`,
+        summary: `${matched.length} banka hareketi otomatik eşleşti, ${unmatched.length} eşleşmedi`,
         after: { matched: matched.length, pending: pending.length, unmatched: unmatched.length },
       });
-      toast.success("Banka ekstresi islendi", `${matched.length} otomatik eslesme kaydedildi`);
+      toast.success("Banka ekstresi işlendi", `${matched.length} otomatik eşleşme kaydedildi`);
       setRows([]);
       setFileName("");
       onClose();
@@ -177,27 +179,27 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Banka Ekstresi Yukle" size="xl">
+    <Modal open={open} onClose={onClose} title="Banka Ekstresi Yükle" size="xl">
       <div className="space-y-4">
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center hover:border-blue-300 hover:bg-blue-50/40">
           <Upload className="mb-2 h-6 w-6 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">{fileName || "Banka ekstresi secin"}</span>
-          <span className="mt-1 text-xs text-slate-500">Alanlar: tarih, aciklama, tutar, gonderen, IBAN, dekont no</span>
-          <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} />
+          <span className="text-sm font-medium text-slate-700">{fileName || "Banka ekstresi seçin"}</span>
+          <span className="mt-1 text-xs text-slate-500">xlsx, xls, csv veya PDF · Alanlar: tarih, açıklama, tutar, gönderen, IBAN, dekont no</span>
+          <input type="file" accept=".xlsx,.xls,.csv,.pdf" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} />
         </label>
 
         {rows.length > 0 && (
           <>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="success">{matched.length} eslesen</Badge>
+              <Badge variant="success">{matched.length} eşleşen</Badge>
               <Badge variant="warning">{pending.length} onay bekleyen</Badge>
-              <Badge variant="danger">{unmatched.length} eslesmeyen</Badge>
-              <Badge variant="info">{hizmetRows} hizmet odemesi sinyali</Badge>
-              <Badge variant="warning">{vergiRows} vergi odemesi sinyali</Badge>
+              <Badge variant="danger">{unmatched.length} eşleşmeyen</Badge>
+              <Badge variant="info">{hizmetRows} hizmet ödemesi sinyali</Badge>
+              <Badge variant="warning">{vergiRows} vergi ödemesi sinyali</Badge>
             </div>
             {unmatched.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                Bankada gorunen ancak musterilerle eslesmeyen hareketler var. Kayit sonrasi bu satirlar uyarida kalir.
+                Bankada görünen ancak müşterilerle eşleşmeyen hareketler var. Kayıt sonrası bu satırlar uyarıda kalır.
               </div>
             )}
             <div className="max-h-80 overflow-auto rounded-xl border border-slate-200">
@@ -205,10 +207,10 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
                 <TableHead>
                   <tr>
                     <TableHeadCell>Tarih</TableHeadCell>
-                    <TableHeadCell>Aciklama</TableHeadCell>
+                    <TableHeadCell>Açıklama</TableHeadCell>
                     <TableHeadCell>Tutar</TableHeadCell>
-                    <TableHeadCell>Sinif</TableHeadCell>
-                    <TableHeadCell>Eslesme</TableHeadCell>
+                    <TableHeadCell>Sınıf</TableHeadCell>
+                    <TableHeadCell>Eşleşme</TableHeadCell>
                     <TableHeadCell>Skor</TableHeadCell>
                     <TableHeadCell>Manuel</TableHeadCell>
                   </tr>
@@ -235,7 +237,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
                         <TableCell>
                           <div>
                             <Badge variant={row.durum === "eslesti" ? "success" : row.durum === "onay_bekliyor" ? "warning" : "danger"}>
-                              {row.durum === "eslesti" ? row.musteriAdi : row.durum === "onay_bekliyor" ? row.musteriAdi : "Eslesmedi"}
+                              {row.durum === "eslesti" ? row.musteriAdi : row.durum === "onay_bekliyor" ? row.musteriAdi : "Eşleşmedi"}
                             </Badge>
                             {row.eslesenTahakkukEtiketi && (
                               <p className="mt-1 text-xs text-slate-500">{row.eslesenTahakkukEtiketi}</p>
@@ -251,7 +253,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
                               onChange={(event) => handleSelectTahakkuk(row.id, event.target.value)}
                               className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none"
                             >
-                              <option value="">Tahakkuk sec</option>
+                              <option value="">Tahakkuk seç</option>
                               {tahakkuklar
                                 .filter((item) => item.durum !== "iptal")
                                 .map((item) => (
@@ -301,9 +303,9 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
         )}
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>Iptal</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
           <Button type="button" loading={loading} disabled={rows.length === 0} onClick={handleSave}>
-            Eslesmeleri Kaydet
+            Eşleşmeleri Kaydet
           </Button>
         </div>
       </div>

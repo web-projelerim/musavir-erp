@@ -52,6 +52,7 @@ export async function createMusteri(input: {
   email: string;
   adres: string;
   sorumluPersonel: string;
+  sorumluPersonelId?: string;
   kdvMukellef: boolean;
   muhtasarMukellef: boolean;
   varsayilanHizmetUcreti?: number;
@@ -62,7 +63,7 @@ export async function createMusteri(input: {
   kaynak?: Musteri["kaynak"];
   gibIvdKullaniciAdi?: string;
   gibEncryptedIvdSifre?: string;
-}) {
+} & Partial<Musteri>) {
   const musteri: Musteri = {
     id: createId("m"),
     ofisId: input.ofisId ?? "ofis-default",
@@ -76,6 +77,7 @@ export async function createMusteri(input: {
     riskSeviyesi: "dusuk",
     riskSkoru: 0,
     sorumluPersonel: input.sorumluPersonel,
+    sorumluPersonelId: input.sorumluPersonelId,
     gorevDurumu: "Temiz",
     tahsilatDurumu: "bekliyor" as TahsilatDurum,
     sonGuncelleme: new Date().toISOString(),
@@ -90,6 +92,28 @@ export async function createMusteri(input: {
     kaynak: input.kaynak ?? "manuel",
     gibIvdKullaniciAdi: input.gibIvdKullaniciAdi,
     gibEncryptedIvdSifre: input.gibEncryptedIvdSifre,
+    // Genişletilmiş alanlar
+    sahissaVergiNo: input.sahissaVergiNo,
+    eposta1: input.eposta1, eposta1Ad: input.eposta1Ad,
+    eposta2: input.eposta2, eposta2Ad: input.eposta2Ad,
+    eposta3: input.eposta3, eposta3Ad: input.eposta3Ad,
+    gsm1: input.gsm1, gsm1Ad: input.gsm1Ad,
+    gsm2: input.gsm2, gsm2Ad: input.gsm2Ad,
+    gsm3: input.gsm3, gsm3Ad: input.gsm3Ad,
+    vergiTurleri: input.vergiTurleri,
+    gruplar: input.gruplar,
+    eDefter: input.eDefter,
+    eDefterGecis: input.eDefterGecis,
+    naceKodu: input.naceKodu,
+    mudurGorevBitisTarihi: input.mudurGorevBitisTarihi,
+    maliMuhurler: input.maliMuhurler,
+    panelGirisAktif: input.panelGirisAktif,
+    ikiAdimliDogrulama: input.ikiAdimliDogrulama,
+    ikiAdimliYontem: input.ikiAdimliYontem,
+    dogumTarihi: input.dogumTarihi,
+    acilisTarihi: input.acilisTarihi,
+    kapanisTarihi: input.kapanisTarihi,
+    girisMailGonder: input.girisMailGonder,
   };
 
   await upsertDocument(COLLECTIONS.musteriler, musteri);

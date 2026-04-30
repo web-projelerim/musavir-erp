@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -62,7 +63,7 @@ function requireDb() {
   return firestoreDb;
 }
 
-function withoutUndefined<T extends object>(data: T): DocumentData {
+export function withoutUndefined<T extends object>(data: T): DocumentData {
   const result: DocumentData = {};
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined) continue;
@@ -147,4 +148,50 @@ export async function countCollection(collectionName: CollectionName) {
   const db = requireDb();
   const snapshot = await getDocs(collection(db, collectionName));
   return snapshot.size;
+}
+
+/**
+ * Bir nota tikleyen ekler (arrayUnion ile idempotent).
+ * Aynı email zaten tiklemişse Firestore yine de düzgün davranır
+ * (ancak array-contains duplicate objeler ekleyebilir — tarih değişirse yeni eleman).
+ */
+export async function tikleNot(
+  notId: string,
+  tikleyen: { email: string; ad: string; tarih: string }
+): Promise<void> {
+  if (!firestoreDb) return;
+  await updateDoc(doc(firestoreDb, COLLECTIONS.notlar, notId), {
+    tikleyenler: arrayUnion(tikleyen),
+  });
+}
+
+/**
+ * `paylasilanEmails` array-contains sorgusyla notları dinler.
+ * Kullanıcının e-postası bir notun paylasilanEmails listesindeyse o notu alır.
+ */
+export function subscribeNotlarByEmail<T extends { id: string }>(
+  email: string,
+  onData: (data: T[], meta: SubscribeMeta) => void
+): Unsubscribe {
+  if (!firestoreDb || !email) {
+    onData([], { source: "mock" });
+    return () => undefined;
+  }
+
+  const ref = query(
+    collection(firestoreDb, COLLECTIONS.notlar),
+    where("paylasilanEmails", "array-contains", email)
+  );
+
+  return onSnapshot(
+    ref,
+    (snapshot) => {
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as T[];
+      onData(data, { source: "firebase" });
+    },
+    (error: FirestoreError) => {
+      console.error("[Firestore] notlar (email) okunamadı", error);
+      onData([], { source: "mock", error: error.message });
+    }
+  );
 }

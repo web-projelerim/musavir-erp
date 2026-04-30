@@ -312,10 +312,15 @@ service cloud.firestore {
     // ─── Hızlı notlar ────────────────────────────────────────────────────────
 
     match /notlar/{notId} {
-      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
+      allow read:   if (isStaff() && sameOffice(resource.data.ofisId))
+                    || (isSignedIn() && request.auth.token.email in resource.data.paylasilanEmails);
       allow create: if isStaff() && writingToOwnOffice();
       allow delete: if isStaff() && sameOffice(resource.data.ofisId);
-      allow update: if false;
+      // Tikleme: sadece tikleyenler alanı güncellenebilir — okuma yetkisi olan herkes tıklayabilir
+      allow update: if isSignedIn()
+                    && ((isStaff() && sameOffice(resource.data.ofisId))
+                        || request.auth.token.email in resource.data.paylasilanEmails)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["tikleyenler"]);
     }
 
   }

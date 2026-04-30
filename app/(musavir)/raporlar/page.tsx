@@ -27,6 +27,7 @@ import { hasPermission } from "@/lib/utils/permissions";
 import { getOfisId } from "@/lib/domain/office";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import {
   createGonderimKaydi,
   createRapor,
@@ -185,7 +186,7 @@ export default function RaporlarPage() {
         yeniRapor.id = created.id;
       } catch (error) {
         console.error(error);
-        toast.error("Rapor kaydı oluşturulamadı");
+        toast.error("Rapor kaydı oluşturulamadı", parseFirestoreError(error));
         return;
       }
     } else {
@@ -200,7 +201,7 @@ export default function RaporlarPage() {
         })
         .catch((error) => {
           console.error(error);
-          toast.error("Rapor PDF'i oluşturulamadı");
+          toast.error("Rapor PDF'i oluşturulamadı", parseFirestoreError(error));
           if (isFirebaseConfigured) {
             updateRaporDurum(yeniRapor.id, "basarisiz").catch(console.error);
           } else {
@@ -243,7 +244,7 @@ export default function RaporlarPage() {
         await Promise.all(ids.map((id) => markRaporGonderildi(id, kanal)));
       } catch (error) {
         console.error(error);
-        toast.error("Rapor gönderim durumu güncellenemedi");
+        toast.error("Rapor gönderim durumu güncellenemedi", parseFirestoreError(error));
       }
       return;
     }
@@ -279,7 +280,7 @@ export default function RaporlarPage() {
         });
       } catch (error) {
         console.error(error);
-        toast.error("E-posta gönderim kaydı oluşturulamadı");
+        toast.error("E-posta gönderim kaydı oluşturulamadı", parseFirestoreError(error));
       }
     }
 

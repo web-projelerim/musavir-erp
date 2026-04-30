@@ -51,7 +51,15 @@ import { PageLoading } from "@/components/ui/PageLoading";
 import { MiniTakvim } from "@/components/ui/MiniTakvim";
 import type { TakvimOlay } from "@/components/ui/MiniTakvim";
 import { formatTarih } from "@/lib/utils/format";
+import { authHeaders } from "@/lib/firebase/client";
 import Link from "next/link";
+
+const ONCELIK_LABEL: Record<string, string> = {
+  dusuk: "Düşük",
+  normal: "Normal",
+  yuksek: "Yüksek",
+  kritik: "Kritik",
+};
 
 const RISK_RENKLER = {
   dusuk: { name: "Düşük", color: "#10b981" },
@@ -94,7 +102,10 @@ export default function DashboardPage() {
     } catch {}
 
     setGazeteYukleniyor(true);
-    fetch("/api/resmi-gazete/ozetle", { method: "POST" })
+    void (async () => {
+      const headers = await authHeaders();
+      return fetch("/api/resmi-gazete/ozetle", { method: "POST", headers });
+    })()
       .then((r) => (r.ok ? r.json() : r.json().then((d) => { if (!d?.ok) return null; return d; })))
       .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> } | null) => {
         if (!data) return;
@@ -217,7 +228,7 @@ export default function DashboardPage() {
     for (const b of beyannameler.filter((b) => b.durum === "bekliyor" || b.durum === "gecikti")) {
       olaylar.push({
         tarih: b.sonTarih,
-        renk: b.durum === "gecikti" ? "red" : "red",
+        renk: b.durum === "gecikti" ? "red" : "amber",
         etiket: `${b.musteriAdi} — ${b.tur} beyanname`,
         href: "/beyannameler",
         tur: "beyanname",
@@ -389,8 +400,8 @@ export default function DashboardPage() {
                   outerRadius={68}
                   paddingAngle={3}
                 >
-                  {riskDagilim.map((d, i) => (
-                    <Cell key={i} fill={d.color} />
+                  {riskDagilim.map((d) => (
+                    <Cell key={d.name} fill={d.color} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }} />
@@ -518,7 +529,7 @@ export default function DashboardPage() {
                         g.oncelik === "yuksek" ? "warning" : "neutral"
                       }
                     >
-                      {g.oncelik}
+                      {ONCELIK_LABEL[g.oncelik] ?? g.oncelik}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1 mt-1.5">
@@ -556,14 +567,14 @@ export default function DashboardPage() {
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-card">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h3 className="text-sm font-semibold text-slate-800">GIB Sync Durumu</h3>
+              <h3 className="text-sm font-semibold text-slate-800">GİB Sync Durumu</h3>
               <Link href="/ayarlar" className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
                 Ayarlar <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             <div className="divide-y divide-slate-50">
               {gibSyncLogs.length === 0 ? (
-                <div className="px-5 py-4 text-xs text-slate-400">Henüz sync kaydi yok</div>
+                <div className="px-5 py-4 text-xs text-slate-400">Henüz sync kaydı yok</div>
               ) : (
                 gibSyncLogs.slice(0, 3).map((log) => (
                   <div key={log.id} className="px-5 py-3">
@@ -589,7 +600,7 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold text-slate-800">Yaklaşan Beyannameler</h3>
             <p className="text-xs text-slate-500 mt-0.5">Son tarihe göre sıralı</p>
           </div>
-          <Link href="/tebligatlar" className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+          <Link href="/beyannameler" className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
             Tümü <ArrowRight className="w-3 h-3" />
           </Link>
         </div>

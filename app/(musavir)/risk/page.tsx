@@ -24,23 +24,23 @@ export default function RiskPage() {
     {
       title: "Kritik Risk",
       value: sayac("kritik"),
-      subtitle: "Acil mudahale",
+      subtitle: "Acil müdahale",
       variant: "danger" as const,
       icon: <AlertTriangle className="w-5 h-5 text-red-500" />,
     },
     {
-      title: "Yuksek Risk",
+      title: "Yüksek Risk",
       value: sayac("yuksek"),
-      subtitle: "Yakin takip",
+      subtitle: "Yakın takip",
       variant: "warning" as const,
     },
     {
       title: "Orta Risk",
       value: sayac("orta"),
-      subtitle: "Duzenli kontrol",
+      subtitle: "Düzenli kontrol",
     },
     {
-      title: "Dusuk Risk",
+      title: "Düşük Risk",
       value: sayac("dusuk"),
       subtitle: "Normal durum",
       variant: "success" as const,
@@ -53,7 +53,7 @@ export default function RiskPage() {
     <div>
       <PageHeader
         title="Risk Merkezi"
-        subtitle="Musteri bazli risk skorlar ve uyari sinyalleri"
+        subtitle="Müşteri bazlı risk skorları ve uyarı sinyalleri"
       />
 
       <StatsDrawer
@@ -66,11 +66,11 @@ export default function RiskPage() {
         <div className="flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-blue-800">Risk Skoru Nasil Hesaplanir?</p>
+            <p className="text-sm font-semibold text-blue-800">Risk Skoru Nasıl Hesaplanır?</p>
             <p className="text-xs text-blue-600 mt-1">
-              Risk skoru; islenmemis tebligat, gecikmis beyanname, gecikmis tahsilat,
-              gecikmeli pesinat vergisi, gecikmis gorev ve kritik gorev sinyallerinden
-              kural bazli hesaplanir. Skor 0-100 araliginda tek domain servisinden gelir.
+              Risk skoru; işlenmemiş tebligat, gecikmiş beyanname, gecikmiş tahsilat,
+              gecikmeli peşinat vergisi, gecikmiş görev ve kritik görev sinyallerinden
+              kural bazlı hesaplanır. Skor 0-100 aralığında tek domain servisinden gelir.
             </p>
           </div>
         </div>
@@ -78,8 +78,8 @@ export default function RiskPage() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="text-sm font-semibold text-slate-800">Risk Siralamasi</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Tum musteriler hesaplanan risk skoruna gore sirali</p>
+          <h3 className="text-sm font-semibold text-slate-800">Risk Sıralaması</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Tüm müşteriler hesaplanan risk skoruna göre sıralı</p>
         </div>
         <MobileList empty={riskListesi.length === 0}>
           {riskListesi.map((risk, idx) => {
@@ -142,7 +142,7 @@ export default function RiskPage() {
         <Table className="hidden md:block">
           <TableHead>
             <tr>
-              <TableHeadCell>Sira</TableHeadCell>
+              <TableHeadCell>Sıra</TableHeadCell>
               <TableHeadCell>Firma</TableHeadCell>
               <TableHeadCell>Risk Skoru</TableHeadCell>
               <TableHeadCell>Seviye</TableHeadCell>

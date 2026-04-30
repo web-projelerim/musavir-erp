@@ -25,6 +25,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/firebase/verifyToken";
 
 interface EmailBody {
   to: string;
@@ -34,6 +35,10 @@ interface EmailBody {
 }
 
 export async function POST(req: NextRequest) {
+  if (!await requireAuth(req)) {
+    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  }
+
   const smtpHost = process.env.SMTP_HOST;
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;

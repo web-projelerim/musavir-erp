@@ -91,7 +91,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
       if (musteriRows.length > 0) buildPreview(musteriRows, gibRows);
     } catch (error) {
       console.error(error);
-      toast.error("Excel okunamadi", "Dosya formatini ve basliklari kontrol edin");
+      toast.error("Excel okunamadı", "Dosya formatını ve başlıkları kontrol edin");
     } finally {
       setLoading(false);
     }
@@ -167,16 +167,16 @@ export function MusteriImportModal({ open, onClose }: Props) {
         entityType: "musteri",
         entityId: importBatchId,
         entityLabel: fileNames.join(", "),
-        summary: `${rows.length} musteri Excel importu ile islendi`,
+        summary: `${rows.length} müşteri Excel importu ile işlendi`,
         after: { importBatchId, total: rows.length, invalid: invalidRows.length },
       });
 
-      toast.success("Import tamamlandi", `${rows.length} kayit islendi`);
+      toast.success("Import tamamlandı", `${rows.length} kayıt işlendi`);
       resetState();
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Import tamamlanamadi", "Firebase yetkilerini veya dosya verisini kontrol edin");
+      toast.error("Import tamamlanamadı", "Firebase yetkilerini veya dosya verisini kontrol edin");
     } finally {
       setLoading(false);
     }
@@ -222,7 +222,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
 
   const decisionBadge = (row: MusteriImportPreview) => {
     if (row.decision === "create") return <Badge variant="success">Yeni</Badge>;
-    if (row.decision === "update") return <Badge variant="warning">Guncelle</Badge>;
+    if (row.decision === "update") return <Badge variant="warning">Güncelle</Badge>;
     if (row.decision === "eksik") return <Badge variant="warning">Eksik bilgi</Badge>;
     return <Badge variant="danger">Hatali</Badge>;
   };
@@ -238,14 +238,14 @@ export function MusteriImportModal({ open, onClose }: Props) {
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
             <div>
-              <p className="text-sm font-semibold text-slate-800">Musteri Excel Importu</p>
+              <p className="text-sm font-semibold text-slate-800">Müşteri Excel İçe Aktarma</p>
               <p className="text-xs text-slate-500">
                 Luca&apos;dan aldığınız müşteri excellerini yükleyebilirsiniz. Birden fazla excel yüklerseniz veriler eşleştirilecektir.
               </p>
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={downloadMusteriImportTemplate}>
-            Sablon
+            Şablon
           </Button>
         </div>
 
@@ -325,10 +325,10 @@ export function MusteriImportModal({ open, onClose }: Props) {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
               <div>
                 <p className="text-sm font-semibold text-blue-900">
-                  {updateRows.length} musteri sistemde zaten mevcut
+                  {updateRows.length} müşteri sistemde zaten mevcut
                 </p>
                 <p className="text-xs text-blue-700 mt-0.5">
-                  Bu musterilerin bilgileri guncellensin mi?
+                  Bu müşterilerin bilgileri güncellensin mi?
                 </p>
               </div>
             </div>
@@ -348,7 +348,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
               </Button>
               <Button type="button" size="sm" loading={loading}
                 onClick={() => doImport(eksikOnaylandi, true)}>
-                Evet, guncelle de ({importableRows.length})
+                Evet, güncelle de ({importableRows.length})
               </Button>
             </div>
           </div>
@@ -359,13 +359,13 @@ export function MusteriImportModal({ open, onClose }: Props) {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               {createRows.length > 0 && <Badge variant="success">{createRows.length} yeni</Badge>}
-              {updateRows.length > 0 && <Badge variant="warning">{updateRows.length} guncellenecek</Badge>}
+              {updateRows.length > 0 && <Badge variant="warning">{updateRows.length} güncellenecek</Badge>}
               {eksikRows.length > 0 && <Badge variant="warning">{eksikRows.length} eksik bilgi</Badge>}
-              {invalidRows.length > 0 && <Badge variant="danger">{invalidRows.length} hatali</Badge>}
-              {gibEslesenSayisi > 0 && <Badge variant="info">{gibEslesenSayisi} GIB eslesti</Badge>}
+              {invalidRows.length > 0 && <Badge variant="danger">{invalidRows.length} hatalı</Badge>}
+              {gibEslesenSayisi > 0 && <Badge variant="info">{gibEslesenSayisi} GİB eşleşti</Badge>}
               {invalidRows.length > 0 && (
                 <Button type="button" size="sm" variant="ghost" onClick={() => downloadImportErrors(preview)}>
-                  Hatalari indir
+                  Hataları indir
                 </Button>
               )}
             </div>
@@ -394,7 +394,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
                           <div className="flex flex-col gap-1 items-start">
                             {decisionBadge(row)}
                             {gibEslesenSayisi > 0 && row.gibEslesti && (
-                              <Badge variant="info">GIB</Badge>
+                              <Badge variant="info">GİB</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -415,7 +415,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
         {/* Alt Butonlar */}
         {!showingPanel && (
           <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-            <Button type="button" variant="secondary" onClick={() => { resetState(); onClose(); }}>Iptal</Button>
+            <Button type="button" variant="secondary" onClick={() => { resetState(); onClose(); }}>İptal</Button>
             <Button
               type="button"
               loading={loading}

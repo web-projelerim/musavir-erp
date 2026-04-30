@@ -15,6 +15,7 @@ import {
   Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/context/ToastContext";
@@ -95,7 +96,7 @@ export function GorevDetayDrawer({
       toast.success("Durum güncellendi", `Görev durumu "${yeniDurum}" olarak değiştirildi`);
     } catch (error) {
       console.error(error);
-      toast.error("Durum kaydedilemedi");
+      toast.error("Durum kaydedilemedi", parseFirestoreError(error));
     } finally {
       setSaving(false);
     }
@@ -115,7 +116,7 @@ export function GorevDetayDrawer({
     } catch (error) {
       console.error(error);
       setNotlar(eskiNotlar);
-      toast.error("Not kaydedilemedi");
+      toast.error("Not kaydedilemedi", parseFirestoreError(error));
     }
   };
 
@@ -138,7 +139,7 @@ export function GorevDetayDrawer({
       toast.success("Görev güncellendi");
     } catch (error) {
       console.error(error);
-      toast.error("Görev kaydedilemedi");
+      toast.error("Görev kaydedilemedi", parseFirestoreError(error));
     } finally {
       setSaving(false);
     }
@@ -154,7 +155,7 @@ export function GorevDetayDrawer({
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Görev silinemedi");
+      toast.error("Görev silinemedi", parseFirestoreError(error));
     } finally {
       setSaving(false);
     }

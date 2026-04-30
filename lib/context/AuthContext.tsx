@@ -19,6 +19,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { firebaseAuth, firestoreDb, isFirebaseConfigured } from "@/lib/firebase/client";
+import { withoutUndefined } from "@/lib/firebase/firestore";
 import type { KullaniciYetki, Ofis, User, UserRole } from "@/lib/types";
 
 interface AuthContextValue {
@@ -215,9 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           gibDurum: "pasif",
           createdAt,
         };
-        await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), ofisDoc);
+        await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
       }
 
+      // Firestore undefined değer kabul etmez — sadece tanımlı alanları yaz
       const appUser: User = {
         id: credential.user.uid,
         ofisId: resolvedOfisId,
@@ -225,14 +227,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         soyad,
         email,
         rol,
-        yetkiler,
-        musteriId,
-        davetId,
         aktif: true,
         createdAt,
+        ...(yetkiler?.length ? { yetkiler } : {}),
+        ...(musteriId ? { musteriId } : {}),
+        ...(davetId ? { davetId } : {}),
       };
 
-      await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), appUser);
+      await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), withoutUndefined(appUser));
       setUser(appUser);
       return appUser;
     }
@@ -244,11 +246,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       soyad,
       email,
       rol,
-      yetkiler,
-      musteriId,
-      davetId,
       aktif: true,
       createdAt,
+      ...(yetkiler?.length ? { yetkiler } : {}),
+      ...(musteriId ? { musteriId } : {}),
+      ...(davetId ? { davetId } : {}),
     };
     window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
     setUser(demoUser);

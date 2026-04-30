@@ -45,7 +45,7 @@ export default function TahakkuklarPage() {
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBankaModal, setShowBankaModal] = useState(false);
   const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tahakkuklar);
-  const [filterTur, setFilterTur] = useState<"tumu" | "hizmet" | "vergi">("tumu");
+  const [filterTur, setFilterTur] = useState<"tumu" | "vergi">("tumu");
   const [filterDurum, setFilterDurum] = useState<"tumu" | "bekliyor" | "kismi" | "odendi" | "gecikti">("tumu");
   const [filterKaynak, setFilterKaynak] = useState<"tumu" | "manuel" | "otomatik">("tumu");
 
@@ -62,17 +62,16 @@ export default function TahakkuklarPage() {
     [localTahakkuklar]
   );
 
-  const total = normalized.reduce((sum, item) => sum + item.tutar, 0);
-  const hizmetKayitlari = normalized.filter((item) => item.tahakkukTuru === "hizmet");
-  const vergiKayitlari = normalized.filter((item) => item.tahakkukTuru === "vergi");
-  const hizmetToplam = hizmetKayitlari.reduce((sum, item) => sum + item.tutar, 0);
+  // Hizmet tahakkukları bu sayfada gösterilmez — sadece vergi tahakkukları
+  const vergiNormalized = normalized.filter((item) => item.tahakkukTuru === "vergi");
+  const vergiKayitlari = vergiNormalized;
   const vergiToplam = vergiKayitlari.reduce((sum, item) => sum + item.tutar, 0);
-  const totalPaid = normalized.reduce((sum, item) => sum + (item.odenenTutar ?? 0), 0);
-  const pending = normalized.filter((item) => item.durum === "bekliyor" || item.durum === "kismi").length;
+  const totalPaid = vergiNormalized.reduce((sum, item) => sum + (item.odenenTutar ?? 0), 0);
+  const pending = vergiNormalized.filter((item) => item.durum === "bekliyor" || item.durum === "kismi").length;
   const plannedWhatsApp = gonderimler.filter(
     (item) => item.sablonId === "tahakkuk" && item.durum === "bekliyor"
   ).length;
-  const filtered = normalized.filter((item) => {
+  const filtered = vergiNormalized.filter((item) => {
     if (filterTur !== "tumu" && item.tahakkukTuru !== filterTur) return false;
     if (filterDurum !== "tumu" && item.durum !== filterDurum) return false;
     if (filterKaynak === "otomatik" && !item.otomatikTuretilmis) return false;
@@ -100,8 +99,8 @@ export default function TahakkuklarPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tahakkuk ve Ödemeler"
-        subtitle="Ofis hizmet tahakkuklarını ve resmi vergi tahakkuklarını ayrı anlamda izleyin"
+        title="Vergi Tahakkukları"
+        subtitle="Resmi vergi tahakkuklarını izleyin. Hizmet tahakkukları müşteriler sayfasından yönetilir."
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => handleLucaExport(filtered)}>
@@ -121,10 +120,9 @@ export default function TahakkuklarPage() {
         }
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-        <MetricCard title="Hizmet Tahakkuku" value={formatPara(hizmetToplam)} subtitle={`${hizmetKayitlari.length} kayıt`} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <MetricCard title="Vergi Tahakkuku" value={formatPara(vergiToplam)} subtitle={`${vergiKayitlari.length} resmi kayıt`} variant="warning" />
-        <MetricCard title="Tahsil Edilen" value={formatPara(totalPaid)} subtitle={`Toplam ${formatPara(total)} içinden`} variant="success" />
+        <MetricCard title="Tahsil Edilen" value={formatPara(totalPaid)} subtitle={`Toplam ${formatPara(vergiToplam)} içinden`} variant="success" />
         <MetricCard title="Bekleyen" value={pending} subtitle="Ödeme veya kısmi ödeme bekliyor" variant={pending > 0 ? "warning" : "default"} />
         <MetricCard title="Planlı WhatsApp" value={plannedWhatsApp} subtitle="Hizmet tahakkuku bildirimi" variant={plannedWhatsApp > 0 ? "warning" : "default"} />
       </div>
@@ -134,7 +132,7 @@ export default function TahakkuklarPage() {
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Tahakkuk Listesi</h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              Hizmet tahakkuku ile vergi tahakkuku aynı ekranda, ama farklı kategori ve kalem mantığı ile izlenir.
+              Beyannamelerden türetilen ve manuel oluşturulan vergi tahakkukları burada listelenir.
             </p>
           </div>
           <Badge variant={bankaEkstreleri.length > 0 ? "info" : "neutral"}>
@@ -148,8 +146,7 @@ export default function TahakkuklarPage() {
             onChange={(event) => setFilterTur(event.target.value as typeof filterTur)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tüm kategoriler</option>
-            <option value="hizmet">Hizmet tahakkuku</option>
+            <option value="tumu">Tüm vergi kategorileri</option>
             <option value="vergi">Vergi tahakkuku</option>
           </select>
           <select
@@ -307,6 +304,7 @@ export default function TahakkuklarPage() {
       <TahakkukModal
         open={showTahakkukModal}
         onClose={() => setShowTahakkukModal(false)}
+        defaultTahakkukTuru="vergi"
         onSaved={(item) => setLocalTahakkuklar((prev) => [item, ...prev])}
       />
       <BankaEkstresiModal

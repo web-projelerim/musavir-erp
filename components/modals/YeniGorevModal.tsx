@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -8,6 +8,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGorev } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
@@ -27,13 +28,15 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
   const logAudit = useAuditLog();
   const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split("T")[0];
-  const { musteriler } = useAppData();
+  const { musteriler, kullanicilar } = useAppData();
+
+  const currentUserFullName = user ? `${user.ad} ${user.soyad}`.trim() : "";
 
   const [form, setForm] = useState({
     baslik: "",
     aciklama: "",
     musteriId: musteriId ?? "",
-    atananKisi: "Selin Kaya",
+    atananKisi: currentUserFullName,
     terminTarihi: today,
     oncelik: "normal",
     tip: "beyanname",
@@ -51,6 +54,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
       const seciliMusteri = musteriler.find((m) => m.id === form.musteriId);
       let createdGorev: Gorev;
 
+      const atayanKisi = currentUserFullName || "Sistem";
       if (isFirebaseConfigured) {
         createdGorev = await createGorev({
           ofisId: getOfisId(user?.ofisId),
@@ -59,7 +63,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           musteriId: form.musteriId,
           musteriAdi: seciliMusteri?.firmaAdi ?? "Genel",
           atananKisi: form.atananKisi,
-          atayanKisi: "Ali Müşavir",
+          atayanKisi,
           terminTarihi: form.terminTarihi,
           oncelik: form.oncelik as GorevOncelik,
           tip: form.tip as GorevTip,
@@ -74,7 +78,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           musteriId: form.musteriId,
           musteriAdi: seciliMusteri?.firmaAdi ?? "Genel",
           atananKisi: form.atananKisi,
-          atayanKisi: "Ali Müşavir",
+          atayanKisi,
           terminTarihi: form.terminTarihi,
           oncelik: form.oncelik as GorevOncelik,
           durum: "beklemede",
@@ -101,7 +105,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Görev kaydedilemedi", "Firebase bağlantısı veya yetkileri kontrol edin");
+      toast.error("Görev kaydedilemedi", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }
@@ -117,6 +121,20 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
     { value: "", label: "— Müşteri seçin (isteğe bağlı) —" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
+
+  // Gerçek kullanıcılardan atanan kişi listesi (musavir + personel)
+  const atananOptions = useMemo(() => {
+    const ofisKullanicilari = kullanicilar
+      .filter((u) => u.rol === "musavir" || u.rol === "personel")
+      .map((u) => ({ value: `${u.ad} ${u.soyad}`.trim(), label: `${u.ad} ${u.soyad}`.trim() }));
+    // Mevcut kullanıcı listede yoksa ekle (demo mod için)
+    if (currentUserFullName && !ofisKullanicilari.some((o) => o.value === currentUserFullName)) {
+      ofisKullanicilari.unshift({ value: currentUserFullName, label: currentUserFullName });
+    }
+    return ofisKullanicilari.length > 0
+      ? ofisKullanicilari
+      : [{ value: currentUserFullName || "Sistem", label: currentUserFullName || "Sistem" }];
+  }, [kullanicilar, currentUserFullName]);
 
   return (
     <Modal open={open} onClose={onClose} title="Yeni Görev Oluştur" size="md">
@@ -167,11 +185,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           <Select
             label="Atanan Kişi"
             {...f("atananKisi")}
-            options={[
-              { value: "Selin Kaya", label: "Selin Kaya" },
-              { value: "Murat Çelik", label: "Murat Çelik" },
-              { value: "Ali Müşavir", label: "Ali Müşavir" },
-            ]}
+            options={atananOptions}
           />
         </div>
 

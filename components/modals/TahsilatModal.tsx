@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createTahsilat, updateTahsilat } from "@/lib/firebase/repositories";
 import type { Tahsilat, TahsilatDurum } from "@/lib/types";
@@ -140,7 +141,7 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Tahsilat kaydedilemedi");
+      toast.error("Tahsilat kaydedilemedi", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }

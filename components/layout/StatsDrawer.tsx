@@ -53,7 +53,7 @@ export function StatsDrawer({
           aria-label="İstatistikleri aç"
           aria-expanded={false}
           onClick={() => setIsOpen(true)}
-          className="fixed right-6 top-20 z-40 flex items-center justify-center rounded-b-xl border-x border-b border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-md transition-colors hover:bg-blue-50 hover:text-blue-600"
+          className="fixed right-0 top-32 z-40 flex items-center justify-center rounded-l-xl border-y border-l border-slate-200 bg-white px-2 py-3 text-slate-500 shadow-md transition-colors hover:bg-blue-50 hover:text-blue-600"
         >
           <ChevronRight className="h-4 w-4 flex-shrink-0" />
         </button>

@@ -8,7 +8,8 @@ import { Input, Select } from "@/components/ui/Input";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
+import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { createDavet } from "@/lib/firebase/repositories";
 import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry } from "@/lib/domain/davet";
 import { getOfisId } from "@/lib/domain/office";
@@ -88,7 +89,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
         try {
           const emailRes = await fetch("/api/email/send", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: await authHeaders(),
             body: JSON.stringify({
               to: email,
               subject: "MusavirERP Davet Linkiniz",
@@ -116,7 +117,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       }
     } catch (error) {
       console.error(error);
-      toast.error("Davet oluşturulamadı");
+      toast.error("Davet oluşturulamadı", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }
@@ -128,8 +129,14 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
     toast.success("Davet linki kopyalandı");
   };
 
+  const modalBaslik = fixedMukellef
+    ? "Mükellef Daveti"
+    : role === "musavir"
+    ? "Mali Müşavir Daveti"
+    : "Personel Daveti";
+
   return (
-    <Modal open={open} onClose={onClose} title={fixedMukellef ? "Mükellef Daveti" : "Personel Daveti"} size="md">
+    <Modal open={open} onClose={onClose} title={modalBaslik} size="md">
       <form onSubmit={handleCreate} className="space-y-4">
         <Input
           label="E-posta"

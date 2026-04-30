@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Pencil, X, Trash2, ChevronDown, Users, PencilOff } from "lucide-react";
+import { Pencil, X, Trash2, ChevronDown, Users, PencilOff, Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { subscribeNotlarByEmail, tikleNot } from "@/lib/firebase/firestore";
 import { createNot, deleteNot } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
 import type { Not, NotRenk } from "@/lib/types";
+
+/** Her zaman bu e-postalar yeni notları görebilir */
+const PAYLASIM_EMAILS = ["aslanaysenur063@gmail.com"];
 
 const RENKLER: { value: NotRenk; bg: string; border: string; dot: string; label: string }[] = [
   { value: "sari",  bg: "bg-yellow-50",  border: "border-yellow-300", dot: "bg-yellow-400", label: "Sarı"   },
@@ -70,11 +74,22 @@ export function NotesFab() {
   const [filtre, setFiltre] = useState<NotRenk | "hepsi">("hepsi");
   const [kayit, setKayit] = useState(false);
   const [localNotlar, setLocalNotlar] = useState<Not[]>([]);
+  const [paylasilanNotlar, setPaylasilanNotlar] = useState<Not[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Ofis notlarını localNotlar'a aktar
   useEffect(() => {
     setLocalNotlar(notlar);
   }, [notlar]);
+
+  // Email bazlı paylaşılan notları ayrı abone ile al (farklı ofis notları da dahil)
+  useEffect(() => {
+    if (!user?.email || !isFirebaseConfigured) return;
+    const unsub = subscribeNotlarByEmail<Not>(user.email, (data) => {
+      setPaylasilanNotlar(data);
+    });
+    return unsub;
+  }, [user?.email]);
 
   useEffect(() => {
     if (yazmaAcik) {
@@ -118,6 +133,7 @@ export function NotesFab() {
           renk: yeni.renk,
           createdBy: yeni.createdBy,
           createdByName: yeni.createdByName,
+          paylasilanEmails: PAYLASIM_EMAILS,
         });
       } else {
         setLocalNotlar((prev) => [yeni, ...prev]);
@@ -144,7 +160,12 @@ export function NotesFab() {
     }
   };
 
-  const sortedNotlar = [...localNotlar]
+  // Ofis notları + paylaşılan notları birleştir (duplicate'i id'ye göre kaldır)
+  const tumNotlar = [...localNotlar, ...paylasilanNotlar].filter(
+    (not, index, self) => self.findIndex((n) => n.id === not.id) === index
+  );
+
+  const sortedNotlar = [...tumNotlar]
     .filter((n) => filtre === "hepsi" || n.renk === filtre)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -159,9 +180,9 @@ export function NotesFab() {
             <div className="flex items-center gap-2">
               <Pencil className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-semibold text-slate-800">Ofis Notları</span>
-              {localNotlar.length > 0 && (
+              {tumNotlar.length > 0 && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                  {localNotlar.length}
+                  {tumNotlar.length}
                 </span>
               )}
               <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 ml-1">
@@ -237,6 +258,23 @@ export function NotesFab() {
                 {sortedNotlar.map((not) => {
                   const stil = renkStyle(not.renk);
                   const kendi = not.createdBy === (user?.id ?? "demo");
+                  const tikleyenler = not.tikleyenler ?? [];
+                  const benimTikim = tikleyenler.some((t) => t.email === user?.email);
+
+                  const handleTikle = async () => {
+                    if (!user?.email || !isFirebaseConfigured) return;
+                    if (benimTikim) return; // zaten tiklenmiş
+                    try {
+                      await tikleNot(not.id, {
+                        email: user.email,
+                        ad: `${user.ad} ${user.soyad}`.trim(),
+                        tarih: new Date().toISOString(),
+                      });
+                    } catch {
+                      toast.error("Onay kaydedilemedi");
+                    }
+                  };
+
                   return (
                     <div
                       key={not.id}
@@ -246,6 +284,7 @@ export function NotesFab() {
                         stil.border
                       )}
                     >
+                      {/* Sil butonu — sadece kendi notunda hover'da görünür */}
                       <button
                         type="button"
                         onClick={() => handleSil(not.id)}
@@ -256,17 +295,54 @@ export function NotesFab() {
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+
+                      {/* Not içeriği — tiklenseydi üstü çizili DEĞİL */}
                       <p className="pr-6 text-sm text-slate-800 whitespace-pre-wrap break-words leading-relaxed">
                         {not.icerik}
                       </p>
-                      <div className="mt-2.5 flex items-center gap-1.5">
-                        <AdAvatar ad={not.createdByName} kendi={kendi} />
-                        <span className="text-[10px] text-slate-500 font-medium truncate">
-                          {kendi ? "Siz" : not.createdByName}
-                        </span>
-                        <span className="text-[10px] text-slate-400">·</span>
-                        <span className="text-[10px] text-slate-400">{formatZaman(not.createdAt)}</span>
+
+                      {/* Alt kısım: yazar + zaman + tik butonu */}
+                      <div className="mt-2.5 flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <AdAvatar ad={not.createdByName} kendi={kendi} />
+                          <span className="text-[10px] text-slate-500 font-medium truncate">
+                            {kendi ? "Siz" : not.createdByName}
+                          </span>
+                          <span className="text-[10px] text-slate-400">·</span>
+                          <span className="text-[10px] text-slate-400">{formatZaman(not.createdAt)}</span>
+                        </div>
+
+                        {/* Tik butonu */}
+                        <button
+                          type="button"
+                          onClick={handleTikle}
+                          disabled={benimTikim}
+                          title={benimTikim ? "Onayladınız" : "Onayladım"}
+                          className={cn(
+                            "flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
+                            benimTikim
+                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              : "border-slate-300 text-slate-300 hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-50"
+                          )}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
                       </div>
+
+                      {/* Tikleyenler listesi — sadece tikleme varsa göster */}
+                      {tikleyenler.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {tikleyenler.map((t) => (
+                            <span
+                              key={t.email}
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700"
+                            >
+                              <Check className="h-2.5 w-2.5" />
+                              {t.ad}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -394,22 +470,22 @@ export function NotesFab() {
         ) : (
           <Pencil className="h-5 w-5" />
         )}
-        {localNotlar.length > 0 && !panelAcik && !yazmaAcik && (
+        {tumNotlar.length > 0 && !panelAcik && !yazmaAcik && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-            {localNotlar.length > 9 ? "9+" : localNotlar.length}
+            {tumNotlar.length > 9 ? "9+" : tumNotlar.length}
           </span>
         )}
       </button>
 
       {/* Panel açma butonu */}
-      {!panelAcik && !yazmaAcik && localNotlar.length > 0 && (
+      {!panelAcik && !yazmaAcik && tumNotlar.length > 0 && (
         <button
           type="button"
           onClick={() => setPanelAcik(true)}
           className="fixed bottom-6 right-20 z-50 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-md hover:bg-amber-50 hover:text-amber-700 transition-colors"
         >
           <Pencil className="h-3 w-3" />
-          {localNotlar.length} not
+          {tumNotlar.length} not
         </button>
       )}
     </>

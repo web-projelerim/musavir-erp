@@ -9,9 +9,7 @@ import {
   CreditCard,
   AlertCircle,
   CheckCircle2,
-  Clock,
   Download,
-  MessageSquare,
   Upload,
   LogOut,
 } from "lucide-react";
@@ -161,28 +159,27 @@ export default function MukellefPanelPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-slate-500">Mali Müşaviriniz</p>
-              <p className="text-sm font-semibold text-slate-800">Ali Müşavir</p>
-              <p className="text-xs text-slate-500">ali@musavir.com</p>
+              <p className="text-sm font-semibold text-slate-800">{musteri.sorumluPersonel || "Mali Müşaviriniz"}</p>
             </div>
           </div>
         </div>
 
-        {/* Uyarı kutusu */}
-        {(tebligatlar.some((t) => t.durum === "yeni") || beyanlar.some((b) => b.durum === "bekliyor")) && (
+        {/* Uyarı kutusu — sadece gecikmiş tahakkuk/tahsilat ödemeleri */}
+        {(tahakkuklar.some((t) => t.durum === "gecikti") || tahsilatlar.some((t) => t.durum === "gecikti")) && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-amber-800">Dikkat Gerektiren Durumlar</p>
+                <p className="text-sm font-semibold text-amber-800">Gecikmiş Ödeme Var</p>
                 <ul className="mt-1 space-y-1">
-                  {tebligatlar.filter((t) => t.durum === "yeni").map((t) => (
+                  {tahakkuklar.filter((t) => t.durum === "gecikti").map((t) => (
                     <li key={t.id} className="text-xs text-amber-700">
-                      • {t.baslik} — {formatTarih(t.tarih)}
+                      • {tahakkukKalemLabel(t)} — {formatPara(t.tutar)} — Vade: {formatTarih(t.vadeTarihi)}
                     </li>
                   ))}
-                  {beyanlar.filter((b) => b.durum === "bekliyor").map((b) => (
-                    <li key={b.id} className="text-xs text-amber-700">
-                      • {b.tur} beyannamesi — Son tarih: {formatTarih(b.sonTarih)}
+                  {tahsilatlar.filter((t) => t.durum === "gecikti").map((t) => (
+                    <li key={t.id} className="text-xs text-amber-700">
+                      • {t.donem} — {formatPara(t.tutar)} — Vade: {formatTarih(t.vadeTarihi)}
                     </li>
                   ))}
                 </ul>
@@ -194,16 +191,16 @@ export default function MukellefPanelPage() {
         {/* Metrikler */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <MetricCard
-            title="Bekleyen Beyan"
-            value={beyanlar.filter((b) => b.durum === "bekliyor").length}
-            subtitle="Yaklaşan son tarih"
-            variant={beyanlar.some((b) => b.durum === "bekliyor") ? "warning" : "default"}
+            title="Gecikmiş Ödeme"
+            value={tahakkuklar.filter((t) => t.durum === "gecikti").length + tahsilatlar.filter((t) => t.durum === "gecikti").length}
+            subtitle="Ödeme yapılmayı bekliyor"
+            variant={tahakkuklar.some((t) => t.durum === "gecikti") || tahsilatlar.some((t) => t.durum === "gecikti") ? "danger" : "default"}
           />
           <MetricCard
-            title="Yeni Tebligat"
-            value={tebligatlar.filter((t) => t.durum === "yeni").length}
-            subtitle="İşlem bekliyor"
-            variant={tebligatlar.some((t) => t.durum === "yeni") ? "danger" : "default"}
+            title="Bekleyen Tahakkuk"
+            value={tahakkuklar.filter((t) => t.durum === "bekliyor").length}
+            subtitle="Yaklaşan vade"
+            variant={tahakkuklar.some((t) => t.durum === "bekliyor") ? "warning" : "default"}
           />
           <MetricCard
             title="Gönderilen Rapor"
@@ -355,8 +352,8 @@ export default function MukellefPanelPage() {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                <Upload className="w-4 h-4 text-slate-500" />
-                Belgelerim
+                <FileText className="w-4 h-4 text-slate-500" />
+                Müşavirinizden Belgeler
               </h3>
               <Button
                 size="sm"
@@ -364,20 +361,29 @@ export default function MukellefPanelPage() {
                 icon={<Upload className="w-3.5 h-3.5" />}
                 onClick={() => setShowBelgeModal(true)}
               >
-                Yükle
+                Belge Yükle
               </Button>
             </div>
             {belgeler.length === 0 ? (
-              <p className="text-xs text-slate-400">Paylaşılan veya yüklenen belge yok</p>
+              <p className="text-xs text-slate-400">Müşaviriniz henüz belge paylaşmadı</p>
             ) : (
               <div className="space-y-2.5">
                 {belgeler.map((belge) => (
                   <div key={belge.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl">
                     <div className="min-w-0 mr-3">
                       <p className="text-xs font-semibold text-slate-800 truncate">{belge.dosyaAdi}</p>
-                      <p className="text-xs text-slate-500">
-                        {belge.kategori} · {formatDosyaBoyutu(belge.boyut)} · {formatTarih(belge.createdAt)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                          belge.kategori === "beyanname"
+                            ? "bg-blue-100 text-blue-700"
+                            : belge.kategori === "tebligat"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}>
+                          {belge.kategori === "beyanname" ? "Beyanname" : belge.kategori === "tebligat" ? "Tebligat" : belge.kategori}
+                        </span>
+                        <span className="text-xs text-slate-400">{formatDosyaBoyutu(belge.boyut)} · {formatTarih(belge.createdAt)}</span>
+                      </div>
                     </div>
                     <a
                       href={belge.url}
@@ -430,40 +436,6 @@ export default function MukellefPanelPage() {
           </Card>
         </div>
 
-        {/* Müşavirden mesaj */}
-        <div className="mt-6">
-          <Card>
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="w-4 h-4 text-slate-500" />
-              <h3 className="text-sm font-semibold text-slate-800">Müşavirden Duyurular</h3>
-            </div>
-            <div className="space-y-3">
-              {[
-                {
-                  tarih: "2024-07-14",
-                  mesaj: "Temmuz 2024 KDV beyannamesi için gerekli belgeleri lütfen 20 Temmuz'a kadar sisteme yükleyin.",
-                },
-                {
-                  tarih: "2024-07-10",
-                  mesaj: "E-tebligat gelen kutunuzu düzenli olarak kontrol etmenizi hatırlatırız.",
-                },
-              ].map((d, i) => (
-                <div key={i} className="flex gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">AM</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold text-slate-800">Ali Müşavir</span>
-                      <span className="text-xs text-slate-400">{formatTarih(d.tarih)}</span>
-                    </div>
-                    <p className="text-xs text-slate-700">{d.mesaj}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
       </main>
       <BelgeUploadModal
         open={showBelgeModal}

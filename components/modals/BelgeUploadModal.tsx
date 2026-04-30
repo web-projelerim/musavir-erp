@@ -9,6 +9,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAuth } from "@/lib/context/AuthContext";
+import { parseStorageError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createBelge } from "@/lib/firebase/repositories";
 import { uploadBelgeFile } from "@/lib/firebase/storage";
@@ -94,6 +95,7 @@ export function BelgeUploadModal({
       }
 
       const payload: Omit<Belge, "id" | "createdAt"> = {
+        ofisId: user?.ofisId ?? selectedMusteri.ofisId,
         musteriId: selectedMusteri.id,
         musteriAdi: selectedMusteri.firmaAdi,
         dosyaAdi: file.name,
@@ -134,7 +136,7 @@ export function BelgeUploadModal({
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Belge yüklenemedi", "Firebase Storage ve Firestore yetkilerini kontrol edin");
+      toast.error("Belge yüklenemedi", parseStorageError(error));
     } finally {
       setLoading(false);
     }

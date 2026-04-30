@@ -90,8 +90,8 @@ export function hesaplaMusteriRisk({
   if (tebligatPuani > 0) {
     sinyaller.push({
       tip: "islenmemis_tebligat",
-      label: "Islenmemis tebligat",
-      aciklama: `${islenmemisTebligat.length} tebligat islem bekliyor`,
+      label: "İşlenmemiş tebligat",
+      aciklama: `${islenmemisTebligat.length} tebligat işlem bekliyor`,
       puan: tebligatPuani,
       renk: "text-red-600 bg-red-50",
       adet: islenmemisTebligat.length,
@@ -103,8 +103,8 @@ export function hesaplaMusteriRisk({
   if (beyanPuani > 0) {
     sinyaller.push({
       tip: "gecikmis_beyanname",
-      label: "Gecikmis beyanname",
-      aciklama: `${gecikmisBeyannameler.length} beyanname gecikmis durumda`,
+      label: "Gecikmiş beyanname",
+      aciklama: `${gecikmisBeyannameler.length} beyanname gecikmiş durumda`,
       puan: beyanPuani,
       renk: "text-red-600 bg-red-50",
       adet: gecikmisBeyannameler.length,
@@ -122,10 +122,10 @@ export function hesaplaMusteriRisk({
   if (tahsilatPuani > 0) {
     sinyaller.push({
       tip: "gecikmis_tahsilat",
-      label: "Gecikmis tahsilat",
+      label: "Gecikmiş tahsilat",
       aciklama: gecikmisTahsilatlar.length > 0
-        ? `${gecikmisTahsilatlar.length} tahsilat vadesini asti`
-        : "Musteri kartinda tahsilat gecikmis gorunuyor",
+        ? `${gecikmisTahsilatlar.length} tahsilat vadesini aştı`
+        : "Müşteri kartında tahsilat gecikmiş görünüyor",
       puan: tahsilatPuani,
       renk: "text-amber-600 bg-amber-50",
       adet: gecikmisTahsilatlar.length || undefined,
@@ -135,8 +135,8 @@ export function hesaplaMusteriRisk({
   if (musteri.gecikmisPesinat) {
     sinyaller.push({
       tip: "gecikmis_pesinat",
-      label: "Gecikmeli pesinat vergisi",
-      aciklama: "Pesin vergi odemesi gecikmis",
+      label: "Gecikmeli peşinat vergisi",
+      aciklama: "Peşin vergi ödemesi gecikmiş",
       puan: 20,
       renk: "text-amber-600 bg-amber-50",
     });
@@ -149,8 +149,8 @@ export function hesaplaMusteriRisk({
   if (gorevPuani > 0) {
     sinyaller.push({
       tip: "gecikmis_gorev",
-      label: "Gecikmis gorev",
-      aciklama: `${gecikmisGorevler.length} gorevin termini gecmis`,
+      label: "Gecikmiş görev",
+      aciklama: `${gecikmisGorevler.length} görevin termini geçmiş`,
       puan: gorevPuani,
       renk: "text-orange-600 bg-orange-50",
       adet: gecikmisGorevler.length,
@@ -163,8 +163,8 @@ export function hesaplaMusteriRisk({
   if (kritikGorevler.length > 0) {
     sinyaller.push({
       tip: "kritik_gorev",
-      label: "Kritik gorev",
-      aciklama: `${kritikGorevler.length} kritik gorev acik`,
+      label: "Kritik görev",
+      aciklama: `${kritikGorevler.length} kritik görev açık`,
       puan: sinyalPuani(10, kritikGorevler.length, 5, 20),
       renk: "text-orange-600 bg-orange-50",
       adet: kritikGorevler.length,
@@ -176,7 +176,7 @@ export function hesaplaMusteriRisk({
     sinyaller.push({
       tip: "kdv2_kontrol",
       label: "KDV2 kontrol",
-      aciklama: `${kdv2Kontrol.length} KDV2 kaydinda uyumsuzluk notu var`,
+      aciklama: `${kdv2Kontrol.length} KDV2 kaydında uyumsuzluk notu var`,
       puan: sinyalPuani(15, kdv2Kontrol.length, 5, 25),
       renk: "text-purple-600 bg-purple-50",
       adet: kdv2Kontrol.length,

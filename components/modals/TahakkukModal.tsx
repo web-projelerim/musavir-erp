@@ -8,6 +8,7 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGonderimKaydi, createTahakkuk } from "@/lib/firebase/repositories";
 import { buildTahakkukPanelLink, buildTahakkukWhatsAppMessage } from "@/lib/domain/tahakkuk";
@@ -18,12 +19,14 @@ interface Props {
   open: boolean;
   onClose: () => void;
   musteriId?: string;
+  /** Varsayılan ve tek izin verilen tür. Belirtilmezse her iki tür seçilebilir. */
+  defaultTahakkukTuru?: TahakkukTuru;
   onSaved?: (tahakkuk: Tahakkuk) => void;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
+export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, onSaved }: Props) {
   const { musteriler } = useAppData();
   const { user } = useAuth();
   const toast = useToast();
@@ -33,10 +36,11 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }, []);
+  const initialTur = defaultTahakkukTuru ?? "hizmet";
   const [form, setForm] = useState({
     musteriId: defaultMusteri?.id ?? "",
     donem: defaultDonem,
-    tahakkukTuru: "hizmet" as TahakkukTuru,
+    tahakkukTuru: initialTur as TahakkukTuru,
     hizmetTuru: "mali_musavirlik" as HizmetTuru,
     vergiTuru: "KDV" as VergiTahakkukTuru,
     resmiTahakkukFisNo: "",
@@ -125,7 +129,7 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error("Tahakkuk kaydedilemedi");
+      toast.error("Tahakkuk kaydedilemedi", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }
@@ -148,6 +152,7 @@ export function TahakkukModal({ open, onClose, musteriId, onSaved }: Props) {
         <Select
           label="Tahakkuk Tipi"
           value={form.tahakkukTuru}
+          disabled={Boolean(defaultTahakkukTuru)}
           onChange={(event) =>
             setForm((prev) => ({
               ...prev,

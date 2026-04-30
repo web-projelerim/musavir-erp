@@ -13,6 +13,7 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import {
   createKDV2Hesaplama,
   deleteKDV2Hesaplama,
@@ -143,7 +144,7 @@ export default function KDV2Page() {
       resetForm();
     } catch (error) {
       console.error(error);
-      toast.error("KDV2 kaydı kaydedilemedi", "Firebase bağlantısı veya yetkileri kontrol edin");
+      toast.error("KDV2 kaydı kaydedilemedi", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }
@@ -169,7 +170,7 @@ export default function KDV2Page() {
     } catch (error) {
       console.error(error);
       setKayitlar((prev) => [kayit, ...prev]);
-      toast.error("KDV2 kaydı silinemedi", "Firebase yetkilerini kontrol edin");
+      toast.error("KDV2 kaydı silinemedi", parseFirestoreError(error));
     }
   };
 

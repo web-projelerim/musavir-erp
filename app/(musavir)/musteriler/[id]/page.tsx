@@ -24,6 +24,7 @@ import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import {
   archiveMusteri,
   deleteBelge,
@@ -60,6 +61,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const [seciliTahsilat, setSeciliTahsilat] = useState<Tahsilat | null>(null);
   const {
     musteriler,
+    kullanicilar,
     gorevler: tumGorevler,
     tebligatlar: tumTebligatlar,
     beyannameler: tumBeyanlar,
@@ -164,7 +166,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       toast.success(successMessage);
     } catch (error) {
       console.error(error);
-      toast.error("İşlem kaydedilemedi", "Firestore yetkilerini kontrol edin");
+      toast.error("İşlem kaydedilemedi", parseFirestoreError(error));
     }
   };
 
@@ -178,7 +180,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           entityType: "beyanname",
           entityId: id,
           entityLabel: beyan ? `${beyan.tur} - ${beyan.donem}` : undefined,
-          summary: `Beyanname durumu ${durum} olarak guncellendi`,
+          summary: `Beyanname durumu ${durum} olarak güncellendi`,
           before: beyan ? { durum: beyan.durum } : undefined,
           after: { durum },
         });
@@ -207,7 +209,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           entityType: "tahsilat",
           entityId: id,
           entityLabel: hedef ? `${hedef.musteriAdi} - ${hedef.donem}` : undefined,
-          summary: `Tahsilat durumu ${durum} olarak guncellendi`,
+          summary: `Tahsilat durumu ${durum} olarak güncellendi`,
           before: hedef ? { durum: hedef.durum, odenenTutar: hedef.odenenTutar } : undefined,
           after: patch as Record<string, unknown>,
         });
@@ -255,7 +257,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       entityType: "gorev",
       entityId: id,
       entityLabel: gorev?.baslik,
-      summary: `Gorev durumu ${durum} olarak guncellendi`,
+      summary: `Görev durumu ${durum} olarak güncellendi`,
       before: gorev ? { durum: gorev.durum } : undefined,
       after: { durum },
     });
@@ -272,7 +274,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       entityType: "gorev",
       entityId: id,
       entityLabel: gorev?.baslik,
-      summary: "Gorev bilgileri guncellendi",
+      summary: "Görev bilgileri güncellendi",
       after: patch as Record<string, unknown>,
     });
   };
@@ -290,7 +292,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       entityType: "gorev",
       entityId: id,
       entityLabel: hedefGorev?.baslik,
-      summary: "Goreve not eklendi",
+      summary: "Göreve not eklendi",
       after: { notSayisi: notlar.length },
     });
   };
@@ -307,7 +309,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       entityType: "gorev",
       entityId: id,
       entityLabel: gorev?.baslik,
-      summary: "Gorev silindi",
+      summary: "Görev silindi",
       before: gorev as unknown as Record<string, unknown>,
     });
   };
@@ -352,7 +354,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       toast.success("Belge silindi");
     } catch (error) {
       console.error(error);
-      toast.error("Belge silinemedi");
+      toast.error("Belge silinemedi", parseFirestoreError(error));
     }
   };
 
@@ -384,7 +386,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             icon={<UserPlus className="w-3.5 h-3.5" />}
             onClick={() => setShowDavetModal(true)}
           >
-            {aktifDavet ? "Daveti Goster" : "Portal Daveti"}
+            {aktifDavet ? "Daveti Göster" : "Portal Daveti"}
           </Button>
           <Button
             variant="outline"
@@ -544,7 +546,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                           <p className="text-xs font-semibold text-slate-800">{tahakkuk.donem}</p>
                           <p className="text-xs text-slate-500">{tahakkukKalemLabel(tahakkuk)}</p>
                           {tahakkuk.otomatikTuretilmis && (
-                            <p className="text-[11px] text-blue-500">Beyannameden otomatik turetildi</p>
+                            <p className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</p>
                           )}
                         </div>
                         <TahsilatBadge
@@ -561,7 +563,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs">
                         <span className="text-slate-500">Tutar: {formatPara(tahakkuk.tutar)}</span>
-                        <span className="text-slate-500">Odenen: {formatPara(tahakkuk.odenenTutar ?? 0)}</span>
+                        <span className="text-slate-500">Ödenen: {formatPara(tahakkuk.odenenTutar ?? 0)}</span>
                       </div>
                     </div>
                   ))}
@@ -569,7 +571,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               )}
               {odemeler.length > 0 && (
                 <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3">
-                  <p className="text-xs font-semibold text-emerald-800">Son banka eslesmesi</p>
+                  <p className="text-xs font-semibold text-emerald-800">Son banka eşleşmesi</p>
                   <p className="mt-1 text-xs text-emerald-700">
                     {formatPara(odemeler[0].tutar)} · {formatTarih(odemeler[0].odemeTarihi)} · {odemeler[0].durum}
                   </p>
@@ -635,7 +637,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
 
             <Card>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-800">Zaman Cizelgesi</h3>
+                <h3 className="text-sm font-semibold text-slate-800">Zaman Çizelgesi</h3>
                 {aktifDavet && <Badge variant="info">Portal daveti bekliyor</Badge>}
               </div>
               {musteriAudit.length === 0 ? (
@@ -706,7 +708,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               icon={<Plus className="w-3.5 h-3.5" />}
               onClick={() => setShowBelgeModal(true)}
             >
-              Belge Yukle
+              Belge Yükle
             </Button>
           </div>
           <Table>
@@ -715,15 +717,15 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                 <TableHeadCell>Dosya</TableHeadCell>
                 <TableHeadCell>Kategori</TableHeadCell>
                 <TableHeadCell>Boyut</TableHeadCell>
-                <TableHeadCell>Yukleyen</TableHeadCell>
+                <TableHeadCell>Yükleyen</TableHeadCell>
                 <TableHeadCell>Tarih</TableHeadCell>
-                <TableHeadCell>Gorunurluk</TableHeadCell>
-                <TableHeadCell>Islem</TableHeadCell>
+                <TableHeadCell>Görünürlük</TableHeadCell>
+                <TableHeadCell>İşlem</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
               {belgeler.length === 0 ? (
-                <TableEmpty colSpan={7} message="Henuz belge yuklenmedi" />
+                <TableEmpty colSpan={7} message="Henüz belge yüklenmedi" />
               ) : (
                 belgeler.map((belge) => (
                   <TableRow key={belge.id}>
@@ -739,7 +741,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                     <TableCell><span className="text-xs text-slate-600">{formatTarih(belge.createdAt)}</span></TableCell>
                     <TableCell>
                       <Badge variant={belge.gorunurluk === "mukellef" ? "success" : "neutral"}>
-                        {belge.gorunurluk === "mukellef" ? "Mukellef" : "Ofis"}
+                        {belge.gorunurluk === "mukellef" ? "Mükellef" : "Ofis"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -749,7 +751,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          title="Ac"
+                          title="Aç"
                         >
                           <Download className="w-3.5 h-3.5" />
                         </a>
@@ -810,7 +812,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                 <TableHeadCell>Son Tarih</TableHeadCell>
                 <TableHeadCell>Sorumlu</TableHeadCell>
                 <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell>Aciklama</TableHeadCell>
+                <TableHeadCell>Açıklama</TableHeadCell>
               </tr>
             </TableHead>
             <TableBody>
@@ -983,7 +985,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                             setShowTahsilatModal(true);
                           }}
                         >
-                          Odeme Kaydet
+                          Ödeme Kaydet
                         </Button>
                         {t.durum !== "odendi" && (
                           <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "odendi")}>
@@ -1024,7 +1026,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                   <TableHeadCell>Dönem</TableHeadCell>
                   <TableHeadCell>Kalem</TableHeadCell>
                   <TableHeadCell>Tutar</TableHeadCell>
-                  <TableHeadCell>Odenen</TableHeadCell>
+                  <TableHeadCell>Ödenen</TableHeadCell>
                   <TableHeadCell>Vade</TableHeadCell>
                   <TableHeadCell>Durum</TableHeadCell>
                   <TableHeadCell>Bildirim</TableHeadCell>
@@ -1044,7 +1046,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                           </Badge>
                           <span className="text-[11px] text-slate-500">{tahakkukKalemLabel(item)}</span>
                           {item.otomatikTuretilmis && (
-                            <span className="text-[11px] text-blue-500">Beyannameden otomatik turetildi</span>
+                            <span className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</span>
                           )}
                         </div>
                       </TableCell>
@@ -1088,6 +1090,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         open={showMusteriModal}
         onClose={() => setShowMusteriModal(false)}
         musteri={musteri}
+        kullanicilar={kullanicilar}
       />
       <WhatsAppGonderimModal
         open={showWaModal}
@@ -1130,6 +1133,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         open={showTahakkukModal}
         onClose={() => setShowTahakkukModal(false)}
         musteriId={musteri.id}
+        defaultTahakkukTuru="hizmet"
         onSaved={(item) => setLocalTahakkuklar((prev) => [item, ...prev])}
       />
     </div>

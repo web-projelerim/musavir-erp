@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAuth } from "@/lib/context/AuthContext";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createBeyanname } from "@/lib/firebase/repositories";
 import type { Beyanname, BeyannameType, Musteri } from "@/lib/types";
@@ -103,7 +104,7 @@ export function YeniBeyanameModal({ open, onClose, musteriler, onCreated, defaul
       onCreated?.(created);
       onClose();
     } catch (err) {
-      toast.error("Beyanname oluşturulamadı", err instanceof Error ? err.message : undefined);
+      toast.error("Beyanname oluşturulamadı", parseFirestoreError(err));
     } finally {
       setSaving(false);
     }

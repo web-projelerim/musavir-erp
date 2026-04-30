@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -20,20 +20,31 @@ export function AuthGuard({ children, allowedRoles }: Props) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
+  // pathname'i ref'te tut — effect'te redirect URL için kullanılır ama
+  // dependency olarak eklenmez; her path değişiminde auth yeniden çalışmasın.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
   useEffect(() => {
     if (loading) return;
 
     if (!user) {
-      router.replace(`/giris?next=${encodeURIComponent(pathname)}`);
+      router.replace(`/giris?next=${encodeURIComponent(pathnameRef.current)}`);
       return;
     }
 
     if (allowedRoles && !allowedRoles.includes(user.rol)) {
       router.replace(defaultPathForRole(user.rol));
     }
-  }, [allowedRoles, loading, pathname, router, user]);
+  // pathname kasıtlı olarak dependency'de yok — her navigasyonda
+  // auth kontrolü yeniden çalışmamalı; user/loading değişince çalışır.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowedRoles, loading, router, user]);
 
-  if (loading || !user || (allowedRoles && !allowedRoles.includes(user.rol))) {
+  // İlk yükleme: henüz user bilgisi yok → spinner göster.
+  // Token yenileme (loading=true ama user zaten var) → spinner GÖSTERME,
+  // navigasyonu kesme; çocukları render etmeye devam et.
+  if (loading && !user) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex items-center gap-3 text-slate-600">
@@ -47,6 +58,12 @@ export function AuthGuard({ children, allowedRoles }: Props) {
         </div>
       </div>
     );
+  }
+
+  // Auth tamamlandı ama kullanıcı yok ya da yanlış rol → effect redirect eder,
+  // bu süre zarfında boş render döndür (flash önleme).
+  if (!loading && (!user || (allowedRoles && !allowedRoles.includes(user.rol)))) {
+    return null;
   }
 
   return <>{children}</>;

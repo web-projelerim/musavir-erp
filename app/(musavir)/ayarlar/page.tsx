@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Bell, Clock, Copy, Database, Link2, Mail, Plus, Shield, Sliders, Users, X } from "lucide-react";
 import { DavetModal } from "@/components/modals/DavetModal";
-import { GibOnayModal } from "@/components/modals/GibOnayModal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input, Select } from "@/components/ui/Input";
@@ -38,6 +37,7 @@ import { seedFirebaseMockData } from "@/lib/firebase/seed";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
+import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErrors";
 import type {
   AuditAction,
   EntegrasyonDurum,
@@ -50,17 +50,16 @@ import type {
 } from "@/lib/types";
 
 const TABS = [
-  { id: "kullanicilar", label: "Kullanicilar", icon: Users },
+  { id: "kullanicilar", label: "Kullanıcılar", icon: Users },
   { id: "entegrasyon", label: "Entegrasyonlar", icon: Link2 },
-  { id: "gonderimler", label: "Gonderimler", icon: Bell },
-  { id: "guvenlik", label: "Guvenlik", icon: Shield },
+  { id: "gonderimler", label: "Gönderimler", icon: Bell },
+  { id: "guvenlik", label: "Güvenlik", icon: Shield },
   { id: "denetim", label: "Denetim", icon: Activity },
   { id: "sistem", label: "Sistem", icon: Sliders },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 type IntegrationPanel = "gib" | "luca" | "whatsapp" | "banka" | "email";
-type ManualSyncTipi = "tebligat" | "beyanname" | "tahakkuk" | "tumu";
 
 const ROL_LABELS: Record<string, string> = {
   musavir: "Mali Müşavir",
@@ -103,7 +102,7 @@ function entegrasyonVariant(durum: EntegrasyonDurum) {
 
 function durumLabel(durum: EntegrasyonDurum) {
   const map: Record<EntegrasyonDurum, string> = {
-    bagli: "Bagli",
+    bagli: "Bağlı",
     eksik: "Eksik Bilgi",
     hata: "Hata",
     test_edilmedi: "Test Edilmedi",
@@ -168,8 +167,6 @@ export default function AyarlarPage() {
   const [localGibLogs, setLocalGibLogs] = useState<GibSyncLog[]>([]);
   const [localIntegrationLogs, setLocalIntegrationLogs] = useState<EntegrasyonLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [gibOnayAcik, setGibOnayAcik] = useState(false);
-  const [pendingSyncTipi, setPendingSyncTipi] = useState<ManualSyncTipi>("tebligat");
 
   const sortedAuditLogs = useMemo(
     () => [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
@@ -200,42 +197,43 @@ export default function AyarlarPage() {
   }, [entegrasyonLoglari]);
 
   const selectedOfis = ofisler[0];
+  // gibDraft and lucaDraft may be null; all usage below checks for null before reading
   const gibDraftSafe = gibDraft;
   const lucaDraftSafe = lucaDraft;
 
   const integrationCards = [
     {
       id: "gib" as const,
-      title: "GIB",
-      subtitle: "e-Beyanname, IVD, tebligat ve borc/tahakkuk kontrolu",
+      title: "GİB",
+      subtitle: "e-Beyanname, IVD, tebligat ve borç/tahakkuk kontrolü",
       durum: gibDraftSafe?.durum ?? "test_edilmedi",
-      meta: gibDraftSafe?.manuelSenkronAktif ? "Manuel senkron acik" : "Manuel senkron kapali",
+      meta: gibDraftSafe?.manuelSenkronAktif ? "Manuel senkron açık" : "Manuel senkron kapalı",
     },
     {
       id: "luca" as const,
       title: "Luca",
-      subtitle: "Ilk fazda import/export ve firma kod esleme",
+      subtitle: "İlk fazda import/export ve firma kod eşleme",
       durum: lucaDraftSafe?.durum ?? "test_edilmedi",
-      meta: lucaDraftSafe?.entegrasyonModu === "import_export" ? "Import / export" : "Diger mod",
+      meta: lucaDraftSafe?.entegrasyonModu === "import_export" ? "Import / export" : "Diğer mod",
     },
     {
       id: "whatsapp" as const,
       title: "WhatsApp",
-      subtitle: "Tahakkuk, davet ve hatirlatma mesajlari",
+      subtitle: "Tahakkuk, davet ve hatırlatma mesajları",
       durum: whatsappEntegrasyonAyarlari[0]?.durum ?? "test_edilmedi",
-      meta: whatsappEntegrasyonAyarlari[0]?.accessTokenSet ? "Token tanimli" : "Token eksik",
+      meta: whatsappEntegrasyonAyarlari[0]?.accessTokenSet ? "Token tanımlı" : "Token eksik",
     },
     {
       id: "banka" as const,
       title: "Banka",
-      subtitle: "CSV/XLSX import ve esleme kurallari",
+      subtitle: "CSV/XLSX import ve eşleme kuralları",
       durum: bankaEntegrasyonAyarlari[0]?.durum ?? "test_edilmedi",
-      meta: bankaEntegrasyonAyarlari[0]?.manuelOnayZorunlu ? "Manuel onay aktif" : "Otomatik agirlikli",
+      meta: bankaEntegrasyonAyarlari[0]?.manuelOnayZorunlu ? "Manuel onay aktif" : "Otomatik ağırlıklı",
     },
     {
       id: "email" as const,
       title: "E-posta",
-      subtitle: "SMTP ve resmi bildirim kopyalari",
+      subtitle: "SMTP ve resmi bildirim kopyaları",
       durum: emailEntegrasyonAyarlari[0]?.durum ?? "test_edilmedi",
       meta: emailEntegrasyonAyarlari[0]?.smtpSifreSet ? "SMTP hazır" : "SMTP eksik",
     },
@@ -249,14 +247,9 @@ export default function AyarlarPage() {
     setLocalGibLogs((prev) => [entry, ...prev].slice(0, 20));
   };
 
-  const openGibOnay = (tipi: ManualSyncTipi) => {
-    setPendingSyncTipi(tipi);
-    setGibOnayAcik(true);
-  };
-
   const handleSeedFirebase = async () => {
     if (!isFirebaseConfigured) {
-      toast.warning("Firebase yapilandirmasi yok", ".env.local dosyasina Firebase bilgilerini ekleyin");
+      toast.warning("Firebase yapılandırması yok", ".env.local dosyasına Firebase bilgilerini ekleyin");
       return;
     }
 
@@ -264,19 +257,19 @@ export default function AyarlarPage() {
     try {
       await seedFirebaseMockData();
       await createAuditLog({
-        actorId: "demo-musavir",
-        actorName: "Ali Musavir",
+        actorId: user?.id ?? "demo-musavir",
+        actorName: user ? `${user.ad} ${user.soyad}` : "Demo Müşavir",
         actorRole: "musavir",
         action: "seed",
         entityType: "sistem",
         entityId: "firebase-seed",
         entityLabel: "Demo veri",
-        summary: "Demo veri Firestore'a aktarildi",
+        summary: "Demo veri Firestore'a aktarıldı",
       });
-      toast.success("Demo veri Firestore'a aktarildi");
+      toast.success("Demo veri Firestore'a aktarıldı");
     } catch (error) {
       console.error(error);
-      toast.error("Demo veri aktarilamadi", "Firestore yetkilerini ve Firebase ayarlarini kontrol edin");
+      toast.error("Demo veri aktarılamadı", "Firestore yetkilerini ve Firebase ayarlarını kontrol edin");
     } finally {
       setSeeding(false);
     }
@@ -344,14 +337,14 @@ export default function AyarlarPage() {
           islem: "kaydet",
           durum: "basarili",
           detay: "Demo modunda GİB ayarları güncellendi.",
-          createdBy: "demo-musavir",
+          createdBy: user?.id ?? "demo-musavir",
           createdAt: new Date().toISOString(),
         });
       }
       toast.success("GİB ayarları kaydedildi", hasNewSecrets ? "Kimlik bilgileri şifrelenerek saklandı" : "Ayarlar güncellendi");
     } catch (error) {
       console.error(error);
-      toast.error("GİB ayarları kaydedilemedi");
+      toast.error("GİB ayarları kaydedilemedi", parseFirestoreError(error));
     }
   };
 
@@ -370,15 +363,15 @@ export default function AyarlarPage() {
       ...gibDraftSafe,
       durum: success ? "bagli" : "eksik",
       sonTestTarihi: new Date().toISOString(),
-      sonHata: success ? undefined : "Kimlik veya sifre alanlari eksik",
-      updatedBy: "demo-musavir",
+      sonHata: success ? undefined : "Kimlik veya şifre alanları eksik",
+      updatedBy: user?.id ?? "demo-musavir",
       updatedAt: new Date().toISOString(),
     };
     setGibDraft(next);
 
     const logDetail = success
-      ? "GIB baglanti testi metadata seviyesinde basarili gorunuyor."
-      : "GIB baglanti testi icin VKN/TCKN ve sifre set alanlari eksik.";
+      ? "GİB bağlantı testi metadata seviyesinde başarılı görünüyor."
+      : "GİB bağlantı testi için VKN/TCKN ve şifre set alanları eksik.";
 
     try {
       if (isFirebaseConfigured) {
@@ -389,7 +382,7 @@ export default function AyarlarPage() {
           islem: "test",
           durum: success ? "basarili" : "basarisiz",
           detay: logDetail,
-          createdBy: "demo-musavir",
+          createdBy: user?.id ?? "demo-musavir",
         });
       } else {
         addIntegrationLogLocal({
@@ -399,22 +392,22 @@ export default function AyarlarPage() {
           islem: "test",
           durum: success ? "basarili" : "basarisiz",
           detay: logDetail,
-          createdBy: "demo-musavir",
+          createdBy: user?.id ?? "demo-musavir",
           createdAt: new Date().toISOString(),
         });
       }
       if (success) {
-        toast.success("GIB baglanti testi basarili");
+        toast.success("GİB bağlantı testi başarılı");
       } else {
-        toast.warning("GIB testi eksik bilgi nedeniyle gecemedi", "VKN/TCKN, kullanici kodu ve sifre alanlarini kontrol edin");
+        toast.warning("GİB testi eksik bilgi nedeniyle geçemedi", "VKN/TCKN, kullanıcı kodu ve şifre alanlarını kontrol edin");
       }
     } catch (error) {
       console.error(error);
-      toast.error("GIB testi kaydedilemedi");
+      toast.error("GİB testi kaydedilemedi", parseFirestoreError(error));
     }
   };
 
-  const handleManualGibSync = async (syncTipi: ManualSyncTipi) => {
+  const handleManualGibSync = async (syncTipi: GibSyncLog["syncTipi"]) => {
     if (!gibDraftSafe) return;
 
     setSyncLoading(true);
@@ -423,131 +416,136 @@ export default function AyarlarPage() {
     let islenenKayitSayisi = 0;
     let sonHata: string | undefined;
 
+    const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
     const ofisId = gibDraftSafe.ofisId;
-    const aktifVknMusteriler = musteriler.filter(
-      (m) => m.durum === "aktif" && m.vknTckn
-    );
-    const gibCredMusteriler = aktifVknMusteriler.filter(
+
+    const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
+
+    // Tebligat: müşterinin kendi GİB hesabıyla çekilir
+    const tebligatHedefleri = aktifMusteriler.filter(
       (m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
     );
 
-    const hedefBeyanname =
-      syncTipi === "beyanname" || syncTipi === "tahakkuk" || syncTipi === "tumu"
-        ? aktifVknMusteriler
-        : [];
-    const hedefTebligat =
-      syncTipi === "tebligat" || syncTipi === "tumu" ? gibCredMusteriler : [];
+    // Beyanname / tahakkuk: ofis IVD hesabıyla çekilir (.env.local / Ayarlar > GİB)
+    const ofisKimligiHazir = Boolean(gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && encSifre);
 
-    if (hedefBeyanname.length === 0 && hedefTebligat.length === 0) {
-      toast.warning(
-        "Senkronize edilecek müşteri yok",
-        syncTipi === "tebligat"
-          ? "Tebligat için müşteri GİB IVD bilgilerini girin"
-          : "Aktif VKN'li müşteri bulunamadı"
-      );
+    const yapilacakTebligat = syncTipi === "tebligat" || (syncTipi as string) === "tumu";
+    const yapilacakBeyanname = syncTipi === "beyanname" || (syncTipi as string) === "tumu";
+    const yapilacakTahakkuk = (syncTipi as string) === "tahakkuk" || (syncTipi as string) === "tumu";
+
+    // Erken çıkış: gerekli kreden yoksa uyar
+    if (yapilacakTebligat && tebligatHedefleri.length === 0 && !yapilacakBeyanname && !yapilacakTahakkuk) {
+      toast.warning("GİB kredansiyeli bulunan müşteri yok", "Müşteri Excel importu sırasında GİB bilgilerini eşleştirin");
+      setSyncLoading(false);
+      return;
+    }
+    if ((yapilacakBeyanname || yapilacakTahakkuk) && !ofisKimligiHazir && !yapilacakTebligat) {
+      toast.warning("Ofis GİB kimlik bilgileri eksik", "Ayarlar → GİB → IVD Kullanıcı Kodu ve Şifreyi tamamlayın");
       setSyncLoading(false);
       return;
     }
 
     try {
-      // ── Beyanname / Tahakkuk: ofis env credentials ──────────────────────
-      for (const musteri of hedefBeyanname) {
-        const apiSyncTipi =
-          syncTipi === "tumu" ? "tumu" : (syncTipi as "beyanname" | "tahakkuk");
-        const res = await fetch("/api/gib/sync", {
-          method: "POST",
-          headers: await authHeaders(),
-          body: JSON.stringify({
-            ofisId,
-            syncTipi: apiSyncTipi === "tumu" ? "beyanname" : apiSyncTipi,
-            musteriVkn: musteri.vknTckn,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.warn(`[GIB Beyanname Sync] ${musteri.firmaAdi}:`, data.error);
-          continue;
-        }
-
-        const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
-          ...(b as object),
-          ofisId,
-          musteriId: musteri.id,
-          musteriAdi: musteri.firmaAdi,
-        }));
-        islenenKayitSayisi += beyannameler.length;
-
-        if (isFirebaseConfigured) {
-          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
-          await Promise.all(
-            (beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b))
-          );
-        }
-
-        // Tahakkuk ayrı sorgu (tumu modunda da çek)
-        if (syncTipi === "tahakkuk" || syncTipi === "tumu") {
-          const tRes = await fetch("/api/gib/sync", {
+      // ─── Tebligat: müşteri kendi hesabıyla giriş yapar ──────────────────
+      if (yapilacakTebligat && tebligatHedefleri.length > 0) {
+        for (const musteri of tebligatHedefleri) {
+          const res = await fetch("/api/gib/sync", {
             method: "POST",
             headers: await authHeaders(),
             body: JSON.stringify({
               ofisId,
-              syncTipi: "tahakkuk",
+              syncTipi: "tebligat",
+              ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
+              vknTckn: musteri.vknTckn,
+              encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
               musteriVkn: musteri.vknTckn,
             }),
           });
-          const tData = await tRes.json();
-          if (tRes.ok) {
-            islenenKayitSayisi += (tData.tahakkuklar ?? []).length;
+          const data = await res.json();
+          if (!res.ok) {
+            console.warn(`[GIB Tebligat] ${musteri.firmaAdi}:`, data.error);
+            continue;
+          }
+          const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
+            ...(t as object),
+            ofisId,
+            musteriId: musteri.id,
+            musteriAdi: musteri.firmaAdi,
+          }));
+          islenenKayitSayisi += tebligatlar.length;
+          if (isFirebaseConfigured) {
+            type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
+            await Promise.all((tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)));
           }
         }
       }
 
-      // ── Tebligat: mükellef kendi IVD bilgileri ───────────────────────────
-      for (const musteri of hedefTebligat) {
-        const res = await fetch("/api/gib/sync", {
-          method: "POST",
-          headers: await authHeaders(),
-          body: JSON.stringify({
+      // ─── Beyanname: ofis IVD hesabıyla, her müşteri VKN'i ayrı sorgu ────
+      if (yapilacakBeyanname && ofisKimligiHazir) {
+        for (const musteri of aktifMusteriler) {
+          const res = await fetch("/api/gib/sync", {
+            method: "POST",
+            headers: await authHeaders(),
+            body: JSON.stringify({
+              ofisId,
+              syncTipi: "beyanname",
+              ivdKullaniciKodu: gibDraftSafe.ivdKullaniciKodu,
+              vknTckn: gibDraftSafe.vknTckn,
+              encryptedIvdSifre: encSifre,
+              musteriVkn: musteri.vknTckn,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            console.warn(`[GIB Beyanname] ${musteri.firmaAdi}:`, data.error);
+            continue;
+          }
+          const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
+            ...(b as object),
             ofisId,
-            syncTipi: "tebligat",
-            musteriVkn: musteri.vknTckn,
-            ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
-            vknTckn: musteri.vknTckn,
-            encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.warn(`[GIB Tebligat Sync] ${musteri.firmaAdi}:`, data.error);
-          continue;
+            musteriId: musteri.id,
+            musteriAdi: musteri.firmaAdi,
+          }));
+          islenenKayitSayisi += beyannameler.length;
+          if (isFirebaseConfigured) {
+            type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
+            await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
+          }
         }
+      }
 
-        const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
-          ...(t as object),
-          ofisId,
-          musteriId: musteri.id,
-          musteriAdi: musteri.firmaAdi,
-        }));
-        islenenKayitSayisi += tebligatlar.length;
-
-        if (isFirebaseConfigured) {
-          type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
-          await Promise.all(
-            (tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t))
-          );
+      // ─── Tahakkuk/Borç: ofis IVD hesabıyla ──────────────────────────────
+      if (yapilacakTahakkuk && ofisKimligiHazir) {
+        for (const musteri of aktifMusteriler) {
+          const res = await fetch("/api/gib/sync", {
+            method: "POST",
+            headers: await authHeaders(),
+            body: JSON.stringify({
+              ofisId,
+              syncTipi: "borc",
+              ivdKullaniciKodu: gibDraftSafe.ivdKullaniciKodu,
+              vknTckn: gibDraftSafe.vknTckn,
+              encryptedIvdSifre: encSifre,
+              musteriVkn: musteri.vknTckn,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            console.warn(`[GIB Borç] ${musteri.firmaAdi}:`, data.error);
+          }
+          // Borç listesi şimdilik sayımda yer almıyor; ilerleyen fazda upsertBorcFromGib eklenecek
         }
       }
     } catch (err) {
       syncDurum = "basarisiz";
       sonHata = err instanceof Error ? err.message : "Bilinmeyen hata";
-      toast.error("GİB senkronizasyon hatası", sonHata);
+      toast.error("GİB senkronizasyon hatası", parseGibSyncError(err));
     }
 
-    const logSyncTipi = syncTipi === "tahakkuk" ? "borc" : syncTipi === "tumu" ? "tebligat" : syncTipi;
     const entry: GibSyncLog = {
       id: `gib-local-${Date.now()}`,
       ofisId: gibDraftSafe.ofisId,
-      syncTipi: logSyncTipi as GibSyncLog["syncTipi"],
+      syncTipi,
       durum: syncDurum,
       baslamaTarihi,
       bitisTarihi: new Date().toISOString(),
@@ -590,7 +588,7 @@ export default function AyarlarPage() {
           islem: "manuel_sync",
           durum: syncDurum,
           detay: `${syncTipi} senkronu ${syncDurum === "basarili" ? "tamamlandı" : "başarısız"}`,
-          createdBy: "demo-musavir",
+          createdBy: user?.id ?? "demo-musavir",
           createdAt: new Date().toISOString(),
         });
       }
@@ -599,7 +597,7 @@ export default function AyarlarPage() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("GİB senkron kaydı yazılamadı");
+      toast.warning("Senkron tamamlandı", "İşlem logu kaydedilemedi, ancak veriler güncellendi.");
     } finally {
       setSyncLoading(false);
     }
@@ -611,9 +609,9 @@ export default function AyarlarPage() {
     const next: LucaEntegrasyonAyari = {
       ...lucaDraftSafe,
       adminSifreSet: lucaDraftSafe.adminSifreSet || Boolean(lucaSecret),
-      durum: lucaDraftSafe.uyeNo && lucaDraftSafe.adminKullaniciAdi ? "eksik" : "eksik",
+      durum: (lucaDraftSafe.uyeNo && lucaDraftSafe.adminKullaniciAdi ? "test_edilmedi" : "eksik") as LucaEntegrasyonAyari["durum"],
       updatedAt: new Date().toISOString(),
-      updatedBy: "demo-musavir",
+      updatedBy: user?.id ?? "demo-musavir",
     };
 
     setLucaDraft(next);
@@ -627,8 +625,8 @@ export default function AyarlarPage() {
           entegrasyon: "luca",
           islem: "kaydet",
           durum: "basarili",
-          detay: "Luca import/export metadata ayarlari guncellendi.",
-          createdBy: "demo-musavir",
+          detay: "Luca import/export metadata ayarları güncellendi.",
+          createdBy: user?.id ?? "demo-musavir",
         });
       } else {
         addIntegrationLogLocal({
@@ -637,15 +635,15 @@ export default function AyarlarPage() {
           entegrasyon: "luca",
           islem: "kaydet",
           durum: "basarili",
-          detay: "Demo modunda Luca import/export ayarlari guncellendi.",
-          createdBy: "demo-musavir",
+          detay: "Demo modunda Luca import/export ayarları güncellendi.",
+          createdBy: user?.id ?? "demo-musavir",
           createdAt: new Date().toISOString(),
         });
       }
-      toast.success("Luca ayarlari guncellendi");
+      toast.success("Luca ayarları güncellendi");
     } catch (error) {
       console.error(error);
-      toast.error("Luca ayarlari kaydedilemedi");
+      toast.error("Luca ayarları kaydedilemedi", parseFirestoreError(error));
     }
   };
 
@@ -697,10 +695,10 @@ export default function AyarlarPage() {
       if (basarili) {
         toast.success("Mesaj yeniden gönderildi", musteri.firmaAdi);
       } else {
-        toast.error("Gönderim başarısız", data.results?.[0]?.hataMesaji ?? "Bilinmeyen hata");
+        toast.error("Mesaj gönderilemedi", "Tekrar deneyin veya alıcının numarasını kontrol edin.");
       }
     } catch (err) {
-      toast.error("Retry hatası", err instanceof Error ? err.message : undefined);
+      toast.error("Mesaj tekrar gönderilemedi", parseFirestoreError(err));
     } finally {
       setRetryingId(null);
     }
@@ -739,7 +737,7 @@ export default function AyarlarPage() {
       }
       toast.success("WhatsApp ayarları kaydedildi", "WHATSAPP_ACCESS_TOKEN'ı .env.local dosyasına ekleyin");
     } catch (err) {
-      toast.error("WhatsApp ayarları kaydedilemedi", err instanceof Error ? err.message : undefined);
+      toast.error("WhatsApp ayarları kaydedilemedi", parseFirestoreError(err));
     } finally {
       setWaSaving(false);
     }
@@ -748,12 +746,8 @@ export default function AyarlarPage() {
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
       const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
-      const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
-      const hazirTebligat = aktifMusteriler.some(
-        (m) => m.vknTckn && m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
-      );
-      const hazirBeyanname = aktifMusteriler.some((m) => m.vknTckn);
       const hazir = Boolean(gibDraftSafe.ivdKullaniciKodu && gibDraftSafe.vknTckn && encSifre);
+      const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
 
       return (
         <>
@@ -812,12 +806,14 @@ export default function AyarlarPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800">Manuel Senkron</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Beyanname: {hazirBeyanname ? `${aktifMusteriler.filter((m) => m.vknTckn).length} müşteri` : "VKN'li müşteri yok"} —
-                    Tebligat: {hazirTebligat ? `${aktifMusteriler.filter((m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre).length} mükellef` : "IVD bilgisi yok"}
+                    Tebligat: müşteri GİB hesabı · Beyanname &amp; borç: ofis IVD hesabı
+                    {aktifMusteriler.length > 0
+                      ? ` · ${aktifMusteriler.length} aktif müşteri`
+                      : " · Aktif müşteri yok"}
                   </p>
                 </div>
-                {!hazirBeyanname && !hazirTebligat && (
-                  <Badge variant="warning">Müşteri bulunamadı</Badge>
+                {!hazir && (
+                  <Badge variant="warning">Kimlik bilgileri eksik</Badge>
                 )}
               </div>
 
@@ -827,41 +823,42 @@ export default function AyarlarPage() {
                     {
                       tipi: "tebligat" as const,
                       label: "Tebligatlar",
-                      aciklama: "Mükellef IVD bilgileriyle",
-                      aktif: hazirTebligat,
+                      aciklama: "e-Tebligat listesi",
+                      kimlik: "Müşteri hesabı",
                     },
                     {
                       tipi: "beyanname" as const,
                       label: "Beyannameler",
-                      aciklama: "Ofis GİB API koduyla",
-                      aktif: hazirBeyanname,
+                      aciklama: "Verilen beyannameler",
+                      kimlik: "Ofis hesabı",
                     },
                     {
                       tipi: "tahakkuk" as const,
                       label: "Borç / Tahakkuk",
-                      aciklama: "Ofis GİB API koduyla",
-                      aktif: hazirBeyanname,
+                      aciklama: "Ödeme gereken vergi borçları",
+                      kimlik: "Ofis hesabı",
                     },
                     {
                       tipi: "tumu" as const,
                       label: "Tümünü Çek",
-                      aciklama: "Beyanname + tebligat",
-                      aktif: hazirTebligat || hazirBeyanname,
+                      aciklama: "Tebligat + beyanname + borç",
+                      kimlik: "Her ikisi",
                     },
                   ] as const
-                ).map(({ tipi, label, aciklama, aktif }) => (
+                ).map(({ tipi, label, aciklama, kimlik }) => (
                   <button
                     key={tipi}
-                    disabled={!aktif || syncLoading}
-                    onClick={() => openGibOnay(tipi)}
+                    disabled={!hazir || syncLoading}
+                    onClick={() => handleManualGibSync(tipi as GibSyncLog["syncTipi"])}
                     className={`flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors ${
-                      aktif && !syncLoading
+                      hazir && !syncLoading
                         ? "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50"
                         : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
                     <span className="text-sm font-semibold text-slate-800">{label}</span>
                     <span className="text-xs text-slate-500">{aciklama}</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">{kimlik}</span>
                   </button>
                 ))}
               </div>
@@ -894,17 +891,6 @@ export default function AyarlarPage() {
             </Card>
           </div>
 
-          <GibOnayModal
-            open={gibOnayAcik}
-            onClose={() => setGibOnayAcik(false)}
-            baslik="GİB Senkronizasyonu"
-            syncTipi={pendingSyncTipi}
-            musteriSayisi={aktifMusteriler.length}
-            onConfirm={async () => {
-              setGibOnayAcik(false);
-              await handleManualGibSync(pendingSyncTipi);
-            }}
-          />
         </>
       );
     }
@@ -917,7 +903,7 @@ export default function AyarlarPage() {
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">Luca Import / Export Merkezi</h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  Ilk fazda online baglanti yerine kontrollu import/export ve firma kod esleme kullanilacak.
+                  İlk fazda online bağlantı yerine kontrollü import/export ve firma kod eşleme kullanılacak.
                 </p>
               </div>
               <Badge variant={entegrasyonVariant(lucaDraftSafe.durum)}>{durumLabel(lucaDraftSafe.durum)}</Badge>
@@ -925,52 +911,52 @@ export default function AyarlarPage() {
 
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Select
-                label="Calisma Modu"
+                label="Çalışma Modu"
                 value={lucaDraftSafe.entegrasyonModu}
                 onChange={(event) =>
                   setLucaDraft((prev) => (prev ? { ...prev, entegrasyonModu: event.target.value as LucaEntegrasyonAyari["entegrasyonModu"] } : prev))
                 }
                 options={[
                   { value: "import_export", label: "Import / Export" },
-                  { value: "yardimli_senkron", label: "Yardimli Senkron" },
-                  { value: "dogrudan_baglanti", label: "Dogrudan Baglanti" },
+                  { value: "yardimli_senkron", label: "Yardımlı Senkron" },
+                  { value: "dogrudan_baglanti", label: "Doğrudan Bağlantı" },
                 ]}
               />
               <Input
-                label="Uye No / Kurum Kodu"
+                label="Üye No / Kurum Kodu"
                 value={lucaDraftSafe.uyeNo ?? ""}
                 onChange={(event) => setLucaDraft((prev) => (prev ? { ...prev, uyeNo: event.target.value } : prev))}
               />
               <Input
-                label="Admin Kullanici Adi"
+                label="Admin Kullanıcı Adı"
                 value={lucaDraftSafe.adminKullaniciAdi ?? ""}
                 onChange={(event) => setLucaDraft((prev) => (prev ? { ...prev, adminKullaniciAdi: event.target.value } : prev))}
               />
               <Input
-                label="Admin Sifre"
+                label="Admin Şifre"
                 type="password"
                 value={lucaSecret}
                 onChange={(event) => setLucaSecret(event.target.value)}
                 placeholder={lucaDraftSafe.adminSifreSet ? "Güncellemek için yeniden girin" : "Geçici secret taslağı"}
               />
               <Input
-                label="Firma Kod Esleme Kurali"
+                label="Firma Kod Eşleme Kuralı"
                 value={lucaDraftSafe.firmaKodEslemeKurali ?? ""}
                 onChange={(event) =>
                   setLucaDraft((prev) => (prev ? { ...prev, firmaKodEslemeKurali: event.target.value } : prev))
                 }
-                hint="Ornek: vkn_tckn, firma_adi, luca_firma_kodu"
+                hint="Örnek: vkn_tckn, firma_adi, luca_firma_kodu"
               />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               {[
-                ["musteriImportAktif", "Musteri import aktif"],
+                ["musteriImportAktif", "Müşteri import aktif"],
                 ["beyanImportAktif", "Beyan import aktif"],
                 ["tahakkukImportAktif", "Tahakkuk import aktif"],
-                ["disaAktarimAktif", "Disa aktarim aktif"],
+                ["disaAktarimAktif", "Dışa aktarım aktif"],
               ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <label key={key} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={Boolean(lucaDraftSafe[key as keyof LucaEntegrasyonAyari])}
@@ -992,14 +978,14 @@ export default function AyarlarPage() {
             </div>
 
             <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-              Luca icin ilk faz karari: online credential ile derin baglanti yerine once import/export akisi.
-              Boylece firma karti, beyan ve tahakkuk verilerini kontrollu sekilde sisteme alabilecegiz.
+              Luca için ilk faz kararı: online credential ile derin bağlantı yerine önce import/export akışı.
+              Böylece firma kartı, beyan ve tahakkuk verilerini kontrollü şekilde sisteme alabileceğiz.
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button onClick={handleSaveLuca}>Luca Ayarlarini Kaydet</Button>
-              <Button variant="outline">Import Sablonu Olustur</Button>
-              <Button variant="outline">Disa Aktarim Kurallari</Button>
+              <Button onClick={handleSaveLuca}>Luca Ayarlarını Kaydet</Button>
+              <Button variant="outline">Import Şablonu Oluştur</Button>
+              <Button variant="outline">Dışa Aktarım Kuralları</Button>
             </div>
           </Card>
         </div>
@@ -1063,8 +1049,8 @@ export default function AyarlarPage() {
       const config = bankaEntegrasyonAyarlari[0];
       return (
         <Card>
-          <h3 className="text-sm font-semibold text-slate-800">Banka Esleme Kurallari</h3>
-          <p className="mt-1 text-xs text-slate-500">CSV/XLSX import aktif. Anahtar kelimeler ve alias listeleri ile esleme guclendiriliyor.</p>
+          <h3 className="text-sm font-semibold text-slate-800">Banka Eşleme Kuralları</h3>
+          <p className="mt-1 text-xs text-slate-500">CSV/XLSX import aktif. Anahtar kelimeler ve alias listeleri ile eşleme güçlendiriliyor.</p>
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 p-4">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vergi anahtar kelimeleri</p>
@@ -1082,11 +1068,11 @@ export default function AyarlarPage() {
     const emailConfig = emailEntegrasyonAyarlari[0];
     return (
       <Card>
-        <h3 className="text-sm font-semibold text-slate-800">E-posta Altyapisi</h3>
-        <p className="mt-1 text-xs text-slate-500">SMTP secret alanlari sonraki backend fazinda server-side secret store ile tamamlanacak.</p>
+        <h3 className="text-sm font-semibold text-slate-800">E-posta Altyapısı</h3>
+        <p className="mt-1 text-xs text-slate-500">SMTP secret alanları sonraki backend fazında server-side secret store ile tamamlanacak.</p>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Input label="Gonderici Adi" value={emailConfig?.gondericiAdi ?? ""} disabled />
-          <Input label="Gonderici Email" value={emailConfig?.gondericiEmail ?? ""} disabled />
+          <Input label="Gönderici Adı" value={emailConfig?.gondericiAdi ?? ""} disabled />
+          <Input label="Gönderici E-posta" value={emailConfig?.gondericiEmail ?? ""} disabled />
         </div>
       </Card>
     );
@@ -1105,7 +1091,7 @@ export default function AyarlarPage() {
 
   return (
     <div>
-      <PageHeader title="Ayarlar" subtitle="Sistem, entegrasyon ve operasyon ayarlari" />
+      <PageHeader title="Ayarlar" subtitle="Sistem, entegrasyon ve operasyon ayarları" />
 
       <div className="flex gap-6">
         <nav className="w-52 flex-shrink-0">
@@ -1132,20 +1118,20 @@ export default function AyarlarPage() {
               <Card>
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-800">Kullanicilar</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">Kullanıcılar</h3>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {kullanicilar.filter((u) => u.aktif).length} aktif ·{" "}
                       {kullanicilar.filter((u) => u.rol === "personel").length} personel ·{" "}
-                      {kullanicilar.filter((u) => u.rol === "mukellef").length} mukellef
+                      {kullanicilar.filter((u) => u.rol === "mukellef").length} mükellef
                     </p>
                   </div>
                   <Button size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setShowInviteModal(true)}>
-                    Personel Davet Et
+                    Ekip Üyesi Davet Et
                   </Button>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {kullanicilar.length === 0 ? (
-                    <p className="py-6 text-center text-xs text-slate-500">Henuz kullanici yok</p>
+                    <p className="py-6 text-center text-xs text-slate-500">Henüz kullanıcı yok</p>
                   ) : (
                     kullanicilar.map((u) => {
                       const bagli = u.rol === "mukellef" ? musteriler.find((m) => m.id === u.musteriId) : null;
@@ -1159,7 +1145,11 @@ export default function AyarlarPage() {
                             </div>
                             <div>
                               <p className="text-sm font-medium text-slate-800">{`${u.ad} ${u.soyad}`}</p>
-                              <p className="text-xs text-slate-500">{u.email}{bagli ? ` · ${bagli.firmaAdi}` : ""}</p>
+                              <p className="text-xs text-slate-500">
+                                {u.email}
+                                {bagli ? ` · ${bagli.firmaAdi}` : ""}
+                                {u.rol === "musavir" && u.ruhsatNo ? ` · Ruhsat: ${u.ruhsatNo}` : ""}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1205,9 +1195,9 @@ export default function AyarlarPage() {
                                 <p className="text-xs text-slate-500">
                                   {ROL_LABELS[davet.rol]}{davet.musteriAdi ? ` · ${davet.musteriAdi}` : ""} ·{" "}
                                   {expired ? (
-                                    <span className="text-red-500">Suresi doldu</span>
+                                    <span className="text-red-500">Süresi doldu</span>
                                   ) : (
-                                    <span>{formatTarih(davet.expiresAt)} tarihine kadar gecerli</span>
+                                    <span>{formatTarih(davet.expiresAt)} tarihine kadar geçerli</span>
                                   )}
                                 </p>
                               </div>
@@ -1218,7 +1208,7 @@ export default function AyarlarPage() {
                                 title="Linki kopyala"
                                 onClick={async () => {
                                   await navigator.clipboard.writeText(davet.davetLinki);
-                                  toast.success("Davet linki kopyalandi");
+                                  toast.success("Davet linki kopyalandı");
                                 }}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
                               >
@@ -1250,7 +1240,7 @@ export default function AyarlarPage() {
               {/* Gecmis davetler */}
               {davetler.filter((d) => d.durum !== "bekliyor").length > 0 && (
                 <Card>
-                  <h3 className="mb-3 text-sm font-semibold text-slate-800">Davet Gecmisi</h3>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-800">Davet Geçmişi</h3>
                   <div className="divide-y divide-slate-100">
                     {davetler
                       .filter((d) => d.durum !== "bekliyor")
@@ -1268,7 +1258,7 @@ export default function AyarlarPage() {
                               davet.durum === "iptal" ? "danger" : "neutral"
                             }
                           >
-                            {davet.durum === "kullanildi" ? "Kullanildi" : davet.durum === "iptal" ? "Iptal" : "Suresi Doldu"}
+                            {davet.durum === "kullanildi" ? "Kullanıldı" : davet.durum === "iptal" ? "İptal" : "Süresi Doldu"}
                           </Badge>
                         </div>
                       ))}
@@ -1306,12 +1296,12 @@ export default function AyarlarPage() {
               {renderIntegrationPanel()}
 
               <Card>
-                <h3 className="text-sm font-semibold text-slate-800">Entegrasyon Loglari</h3>
+                <h3 className="text-sm font-semibold text-slate-800">Entegrasyon Logları</h3>
                 <Table className="mt-3">
                   <TableHead>
                     <tr>
                       <TableHeadCell>Kaynak</TableHeadCell>
-                      <TableHeadCell>Islem</TableHeadCell>
+                      <TableHeadCell>İşlem</TableHeadCell>
                       <TableHeadCell>Durum</TableHeadCell>
                       <TableHeadCell>Detay</TableHeadCell>
                       <TableHeadCell>Tarih</TableHeadCell>
@@ -1319,7 +1309,7 @@ export default function AyarlarPage() {
                   </TableHead>
                   <TableBody>
                     {localIntegrationLogs.length === 0 ? (
-                      <TableEmpty colSpan={5} message="Entegrasyon logu bulunamadi" />
+                      <TableEmpty colSpan={5} message="Entegrasyon logu bulunamadı" />
                     ) : (
                       localIntegrationLogs.slice(0, 10).map((log) => (
                         <TableRow key={log.id}>
@@ -1340,11 +1330,11 @@ export default function AyarlarPage() {
           {activeTab === "guvenlik" && (
             <div className="space-y-4">
               <Card>
-                <h3 className="text-sm font-semibold text-slate-800">Credential Guvenlik Yaklasimi</h3>
+                <h3 className="text-sm font-semibold text-slate-800">Credential Güvenlik Yaklaşımı</h3>
                 <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <p>1. Secret alanlari istemciden Firestore'a duz metin olarak yazilmaz.</p>
-                  <p>2. GIB, Luca, WhatsApp ve SMTP sifreleri bir sonraki backend fazinda server-side secret manager ile tutulur.</p>
-                  <p>3. Bugun ekledigimiz ekranlar bilgi toplama ve operasyon akisini netlestirme amacli metadata katmanidir.</p>
+                  <p>1. Secret alanları istemciden Firestore'a düz metin olarak yazılmaz.</p>
+                  <p>2. GİB, Luca, WhatsApp ve SMTP şifreleri bir sonraki backend fazında server-side secret manager ile tutulur.</p>
+                  <p>3. Eklenen ekranlar bilgi toplama ve operasyon akışını netleştirme amaçlı metadata katmanıdır.</p>
                 </div>
               </Card>
             </div>
@@ -1459,16 +1449,16 @@ export default function AyarlarPage() {
             <Card>
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">Denetim Kaydi</h3>
-                  <p className="mt-0.5 text-xs text-slate-500">Son 50 islem kaydi</p>
+                  <h3 className="text-sm font-semibold text-slate-800">Denetim Kaydı</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Son 50 işlem kaydı</p>
                 </div>
-                <Badge variant="neutral">{sortedAuditLogs.length} kayit</Badge>
+                <Badge variant="neutral">{sortedAuditLogs.length} kayıt</Badge>
               </div>
               <Table>
                 <TableHead>
                   <tr>
                     <TableHeadCell>Tarih</TableHeadCell>
-                    <TableHeadCell>Kullanici</TableHeadCell>
+                    <TableHeadCell>Kullanıcı</TableHeadCell>
                     <TableHeadCell>Aksiyon</TableHeadCell>
                     <TableHeadCell>Kaynak</TableHeadCell>
                     <TableHeadCell>Özet</TableHeadCell>
@@ -1476,7 +1466,7 @@ export default function AyarlarPage() {
                 </TableHead>
                 <TableBody>
                   {sortedAuditLogs.length === 0 ? (
-                    <TableEmpty colSpan={5} message="Denetim kaydi bulunamadi" />
+                    <TableEmpty colSpan={5} message="Denetim kaydı bulunamadı" />
                   ) : (
                     sortedAuditLogs.map((log) => (
                       <TableRow key={log.id}>
@@ -1508,8 +1498,8 @@ export default function AyarlarPage() {
               <Card>
                 <h3 className="text-sm font-semibold text-slate-800">Ofis Tercihleri</h3>
                 <div className="mt-4 grid max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
-                  <Input label="Ofis Unvani" defaultValue={selectedOfis?.unvan ?? "Musavir Ofisi"} />
-                  <Input label="Vergi Dairesi" defaultValue={selectedOfis?.vergiDairesi ?? "Bagcilar VD"} />
+                  <Input label="Ofis Ünvanı" defaultValue={selectedOfis?.unvan ?? "Müşavir Ofisi"} />
+                  <Input label="Vergi Dairesi" defaultValue={selectedOfis?.vergiDairesi ?? "Bağcılar VD"} />
                   <Input label="Telefon" defaultValue={selectedOfis?.telefon ?? ""} />
                   <Input label="E-posta" defaultValue={selectedOfis?.email ?? ""} />
                 </div>

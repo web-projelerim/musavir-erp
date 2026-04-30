@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus } from "lucide-react";
+import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
+import { parseFirebaseAuthError, parseFirebaseResetError, parseFirebaseSignUpError } from "@/lib/utils/firebaseErrors";
 
 export default function GirisPage() {
   const router = useRouter();
@@ -34,19 +35,31 @@ export default function GirisPage() {
     try {
       if (authMode === "register") {
         if (!ad.trim() || !soyad.trim()) {
-          setError("Ad ve soyad alanlarını doldurun.");
+          setError("Ad ve soyad alanlarını doldurunuz.");
+          setLoading(false);
           return;
         }
-
+        if (!email.trim()) {
+          setError("E-posta adresi girilmedi.");
+          setLoading(false);
+          return;
+        }
         if (password.length < 6) {
-          setError("Şifre en az 6 karakter olmalı.");
+          setError("Şifre en az 6 karakter olmalıdır.");
+          setLoading(false);
           return;
         }
-
         if (password !== confirmPassword) {
-          setError("Şifreler eşleşmiyor.");
+          setError("Girdiğiniz şifreler eşleşmiyor. Lütfen tekrar kontrol edin.");
+          setLoading(false);
           return;
         }
+      }
+
+      if (!email.trim()) {
+        setError("E-posta adresi girilmedi.");
+        setLoading(false);
+        return;
       }
 
       const appUser =
@@ -61,13 +74,13 @@ export default function GirisPage() {
       router.replace(appUser.rol === "mukellef" ? "/panel" : "/dashboard");
     } catch (err) {
       console.error(err);
-      setError(
-        authMode === "register"
-          ? "Kayıt oluşturulamadı. E-posta daha önce kullanılmış olabilir veya Firebase Auth ayarlarını kontrol etmek gerekebilir."
-          : isFirebaseReady
-          ? "Giriş başarısız. E-posta, şifre veya Firebase kullanıcı kaydını kontrol edin."
-          : "Demo giriş başarısız oldu."
-      );
+      if (!isFirebaseReady) {
+        setError("Demo modunda bu e-posta tanımlı değil. Aşağıdaki demo hesaplardan birini kullanın.");
+      } else if (authMode === "register") {
+        setError(parseFirebaseSignUpError(err));
+      } else {
+        setError(parseFirebaseAuthError(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -97,10 +110,10 @@ export default function GirisPage() {
     try {
       await resetPassword(email);
       setError(null);
-      toast.success("Şifre sıfırlama e-postası gönderildi.");
+      toast.success("Şifre sıfırlama e-postası gönderildi", `${email} adresine bağlantı gönderildi. Spam klasörünü de kontrol edin.`);
     } catch (err) {
       console.error(err);
-      setError("Şifre sıfırlama e-postası gönderilemedi.");
+      setError(parseFirebaseResetError(err));
     }
   };
 
@@ -286,7 +299,32 @@ export default function GirisPage() {
 
             {error && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
-                <p className="text-xs text-red-200">{error}</p>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-xs text-red-200 leading-relaxed">{error}</p>
+                    {/* Kullanıcı bulunamadıysa kayıt ol yönlendirmesi */}
+                    {error.includes("kayıtlı") && authMode === "login" && (
+                      <button
+                        type="button"
+                        onClick={toggleAuthMode}
+                        className="mt-1.5 text-xs text-blue-400 hover:text-blue-300 underline"
+                      >
+                        Kayıt olmak için tıklayın →
+                      </button>
+                    )}
+                    {/* Zaten kayıtlıysa giriş yap yönlendirmesi */}
+                    {error.includes("zaten") && authMode === "register" && (
+                      <button
+                        type="button"
+                        onClick={toggleAuthMode}
+                        className="mt-1.5 text-xs text-blue-400 hover:text-blue-300 underline"
+                      >
+                        Giriş yapmak için tıklayın →
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

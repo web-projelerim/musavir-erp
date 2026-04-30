@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Search, Plus, ArrowUpDown, ChevronRight,
   LayoutGrid, List, Phone, Mail, FileSpreadsheet,
-  Calendar, CheckSquare, CreditCard, FileText,
+  Calendar, CheckSquare, CreditCard, FileText, Upload,
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -15,12 +15,13 @@ import {
 } from "@/components/ui/Table";
 import { YeniMusteriModal } from "@/components/modals/YeniMusteriModal";
 import { MusteriImportModal } from "@/components/modals/MusteriImportModal";
+import { BankaHizmetEkstresiModal } from "@/components/modals/BankaHizmetEkstresiModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 import { hasPermission } from "@/lib/utils/permissions";
 import { PageLoading } from "@/components/ui/PageLoading";
-import { formatTarih } from "@/lib/utils/format";
-import type { Beyanname, Gorev } from "@/lib/types";
+import { formatPara, formatTarih } from "@/lib/utils/format";
+import type { Beyanname, Gorev, Tahsilat } from "@/lib/types";
 import Link from "next/link";
 
 // ─── Yaklaşan sorumluluk hesaplama ──────────────────────────────────────────
@@ -37,8 +38,7 @@ function hesaplaYaklasanSorumluluk(
   musteriId: string,
   beyannameler: Beyanname[],
   gorevler: Gorev[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tahsilatlar: any[]
+  tahsilatlar: Tahsilat[]
 ): YaklasanSorumluluk {
   let minTs = Infinity;
   let result: YaklasanSorumluluk = { tarih: null, tur: null, etiket: null };
@@ -108,10 +108,30 @@ export default function MusterilerPage() {
   const [view, setView]                 = useState<"tablo" | "kart">("tablo");
   const [showYeniModal, setShowYeniModal]   = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showBankaHizmetModal, setShowBankaHizmetModal] = useState(false);
 
   const { user } = useAuth();
-  const { musteriler, beyannameler, gorevler, tahsilatlar, loading } = useAppData();
+  const { musteriler, beyannameler, gorevler, tahsilatlar, tahakkuklar, kullanicilar, loading } = useAppData();
   const canWrite = hasPermission(user, "musteri_yazma");
+
+  // Her müşteri için hizmet tahakkuk özeti
+  const hizmetTahakkukMap = useMemo(() => {
+    const map = new Map<string, { adet: number; toplam: number; gecikmisMi: boolean }>();
+    const bugun = new Date();
+    for (const t of tahakkuklar) {
+      if (t.tahakkukTuru !== "hizmet") continue;
+      const prev = map.get(t.musteriId) ?? { adet: 0, toplam: 0, gecikmisMi: false };
+      const aktif = t.durum !== "odendi" && t.durum !== "iptal";
+      if (!aktif) continue;
+      const gecikmi = new Date(t.vadeTarihi) < bugun && t.durum !== "odendi";
+      map.set(t.musteriId, {
+        adet: prev.adet + 1,
+        toplam: prev.toplam + (t.tutar - (t.odenenTutar ?? 0)),
+        gecikmisMi: prev.gecikmisMi || gecikmi,
+      });
+    }
+    return map;
+  }, [tahakkuklar]);
 
   // Her müşteri için yaklaşan sorumluluk hesapla
   const sorumlulukMap = useMemo(() => {
@@ -149,7 +169,10 @@ export default function MusterilerPage() {
           m.vknTckn.includes(aramaText) ||
           m.yetkiliAd.toLowerCase().includes(low);
         const matchesDurum    = filterDurum    === "tumu" || m.durum            === filterDurum;
-        const matchesSorumlu  = filterSorumlu  === "tumu" || m.sorumluPersonel  === filterSorumlu;
+        // Hem ID hem de isim bazlı eşleştir (eski kayıtlar için geriye dönük uyum)
+        const matchesSorumlu  = filterSorumlu  === "tumu"
+          || m.sorumluPersonelId === filterSorumlu
+          || m.sorumluPersonel  === filterSorumlu;
         const matchesTahsilat = filterTahsilat === "tumu" || m.tahsilatDurumu   === filterTahsilat;
         return matchesSearch && matchesDurum && matchesSorumlu && matchesTahsilat;
       })
@@ -183,7 +206,10 @@ export default function MusterilerPage() {
     </TableHeadCell>
   );
 
-  const sorumluOptions = Array.from(new Set(musteriler.map((m) => m.sorumluPersonel))).filter(Boolean);
+  // Aktif musavir + personel kullanıcılar — filtre için
+  const sorumluOptions = kullanicilar
+    .filter((u) => u.aktif && (u.rol === "musavir" || u.rol === "personel"))
+    .map((u) => ({ id: u.id, ad: `${u.ad} ${u.soyad}` }));
 
   if (loading) return <PageLoading />;
 
@@ -197,6 +223,11 @@ export default function MusterilerPage() {
             {canWrite && (
               <Button variant="outline" icon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => setShowImportModal(true)}>
                 Excel İçe Aktar
+              </Button>
+            )}
+            {canWrite && (
+              <Button variant="outline" icon={<Upload className="w-4 h-4" />} onClick={() => setShowBankaHizmetModal(true)}>
+                Banka Ekstresi Yükle
               </Button>
             )}
             {canWrite && (
@@ -241,7 +272,7 @@ export default function MusterilerPage() {
             >
               <option value="tumu">Tüm Sorumlular</option>
               {sorumluOptions.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s.id} value={s.id}>{s.ad}</option>
               ))}
             </select>
 
@@ -288,6 +319,7 @@ export default function MusterilerPage() {
           ) : (
             filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
               const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : Calendar;
+              const hizmet = hizmetTahakkukMap.get(m.id);
               return (
                 <Link
                   key={m.id}
@@ -305,6 +337,19 @@ export default function MusterilerPage() {
                       {m.durum}
                     </Badge>
                   </div>
+
+                  {/* Hizmet tahakkuk özeti */}
+                  {hizmet && hizmet.adet > 0 && (
+                    <div className={`mb-3 rounded-lg px-3 py-2 text-xs flex items-center justify-between ${hizmet.gecikmisMi ? "bg-red-50 border border-red-100" : "bg-blue-50 border border-blue-100"}`}>
+                      <span className={`font-medium ${hizmet.gecikmisMi ? "text-red-700" : "text-blue-700"}`}>
+                        {hizmet.adet} hizmet tahakkuku
+                        {hizmet.gecikmisMi ? " · GECİKMİŞ" : ""}
+                      </span>
+                      <span className={`font-semibold ${hizmet.gecikmisMi ? "text-red-800" : "text-blue-800"}`}>
+                        {formatPara(hizmet.toplam)}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Yaklaşan sorumluluk */}
                   <div className="mb-3 rounded-lg bg-slate-50 p-3">
@@ -371,6 +416,7 @@ export default function MusterilerPage() {
                 <SortHeader field="firmaAdi" label="Firma" />
                 <TableHeadCell>VKN/TCKN</TableHeadCell>
                 <SortHeader field="yaklasanSorumluluk" label="Yaklaşan Sorumluluk" />
+                <TableHeadCell>Hizmet Tahakkuku</TableHeadCell>
                 <TableHeadCell>Tahsilat</TableHeadCell>
                 <TableHeadCell>Görev Durumu</TableHeadCell>
                 <TableHeadCell>Son Tebligat</TableHeadCell>
@@ -381,10 +427,11 @@ export default function MusterilerPage() {
             </TableHead>
             <TableBody>
               {filteredKayitlar.length === 0 ? (
-                <TableEmpty colSpan={9} message="Arama kriterlerine uyan müşteri bulunamadı" />
+                <TableEmpty colSpan={10} message="Arama kriterlerine uyan müşteri bulunamadı" />
               ) : (
                 filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
                   const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;
+                  const hizmet = hizmetTahakkukMap.get(m.id);
                   return (
                     <TableRow key={m.id}>
                       <TableCell>
@@ -415,6 +462,20 @@ export default function MusterilerPage() {
                           </div>
                         ) : (
                           <span className="text-xs text-emerald-600 font-medium">Sorumluluk yok</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {hizmet && hizmet.adet > 0 ? (
+                          <div>
+                            <p className={`text-xs font-semibold ${hizmet.gecikmisMi ? "text-red-600" : "text-blue-600"}`}>
+                              {formatPara(hizmet.toplam)}
+                            </p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {hizmet.adet} tahakkuk{hizmet.gecikmisMi ? " · gecikmiş" : ""}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -457,8 +518,9 @@ export default function MusterilerPage() {
         </div>
       )}
 
-      <YeniMusteriModal open={showYeniModal} onClose={() => setShowYeniModal(false)} />
+      <YeniMusteriModal open={showYeniModal} onClose={() => setShowYeniModal(false)} kullanicilar={kullanicilar} />
       <MusteriImportModal open={showImportModal} onClose={() => setShowImportModal(false)} />
+      <BankaHizmetEkstresiModal open={showBankaHizmetModal} onClose={() => setShowBankaHizmetModal(false)} />
     </div>
   );
 }

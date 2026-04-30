@@ -35,6 +35,7 @@ import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { updateBeyannameWorkflow } from "@/lib/firebase/repositories";
 import {
   beyanWorkflowLabel,
@@ -194,7 +195,7 @@ export default function BeyannamellerPage() {
       });
       toast.success(`${beyanWorkflowLabel(next)}`, `${beyanname.musteriAdi} — ${beyanname.tur}`);
     } catch (err) {
-      toast.error("Durum güncellenemedi", err instanceof Error ? err.message : undefined);
+      toast.error("Durum güncellenemedi", parseFirestoreError(err));
       throw err;
     } finally {
       setWorkflowLoading(null);

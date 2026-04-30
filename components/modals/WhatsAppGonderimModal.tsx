@@ -13,6 +13,7 @@ import { createGonderimKaydi } from "@/lib/firebase/repositories";
 import { sendWhatsAppMessages } from "@/lib/integrations/whatsapp/provider";
 import { formatTarih } from "@/lib/utils/format";
 import { MessageCircle, Send, CheckCircle2, X, Users } from "lucide-react";
+import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 
 interface Props {
   open: boolean;
@@ -78,6 +79,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
 
   const handleGonder = async () => {
     setStep("gonderiliyor");
+    try {
     const mesajlar = seciliMusteriler
       .map((id) => {
         const musteri = musteriler.find((m) => m.id === id);
@@ -142,7 +144,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
       entityType: "gonderim",
       entityId: `whatsapp-${Date.now()}`,
       entityLabel: SABLONLAR.find((s) => s.id === secilenSablon)?.ad,
-      summary: `${basarili}/${sonuclar.length} WhatsApp mesaji gonderildi`,
+      summary: `${basarili}/${sonuclar.length} WhatsApp mesajı gönderildi`,
       after: {
         kanal: "whatsapp",
         aliciSayisi: sonuclar.length,
@@ -155,6 +157,11 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
     const relatedRaporIds = raporIds.length > 0 ? raporIds : raporId ? [raporId] : [];
     if (basarili > 0 && relatedRaporIds.length > 0) {
       onSuccess?.(relatedRaporIds);
+    }
+    } catch (err) {
+      console.error(err);
+      setStep("secim");
+      toast.error("Mesajlar gönderilemedi", parseFirestoreError(err));
     }
   };
 

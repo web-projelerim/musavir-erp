@@ -76,6 +76,31 @@ export function withoutUndefined<T extends object>(data: T): DocumentData {
   return result;
 }
 
+export function subscribeDocById<T extends { id: string }>(
+  collectionName: CollectionName,
+  docId: string,
+  onData: (data: T | null, meta: SubscribeMeta) => void
+): Unsubscribe {
+  if (!firestoreDb || !docId) {
+    onData(null, { source: "mock" });
+    return () => undefined;
+  }
+
+  return onSnapshot(
+    doc(firestoreDb, collectionName, docId),
+    (snapshot) => {
+      onData(
+        snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as T) : null,
+        { source: "firebase" }
+      );
+    },
+    (error: FirestoreError) => {
+      console.error(`[Firestore] ${collectionName}/${docId} okunamadı`, error);
+      onData(null, { source: "mock", error: error.message });
+    }
+  );
+}
+
 export function subscribeCollection<T extends { id: string }>(
   collectionName: CollectionName,
   fallback: T[],

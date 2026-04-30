@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { mergeDerivedVergiTahakkuklari } from "@/lib/domain/tahakkuk";
 import { useCollectionData } from "@/lib/hooks/useCollectionData";
+import { useDocumentData } from "@/lib/hooks/useDocumentData";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/context/AuthContext";
 import type {
@@ -41,11 +42,17 @@ export function useAppData() {
   const { user, loading: authLoading } = useAuth();
   const enabled = !isFirebaseConfigured || (!authLoading && !!user);
   const ofisId = user?.ofisId;
+  const isMukellef = user?.rol === "mukellef";
 
   const ofisler = useCollectionData<Ofis>(COLLECTIONS.ofisler, [], enabled);
   const kullanicilar = useCollectionData<User>(COLLECTIONS.kullanicilar, [], enabled, ofisId);
   const davetler = useCollectionData<Davet>(COLLECTIONS.davetler, [], enabled, ofisId);
-  const musteriler = useCollectionData<Musteri>(COLLECTIONS.musteriler, [], enabled, ofisId);
+  // Mükellef: doğrudan musteriId ile belge aboneliği — ofisId uyuşmazlığını aşar
+  const musterilerCollection = useCollectionData<Musteri>(COLLECTIONS.musteriler, [], enabled && !isMukellef, ofisId);
+  const mukellefMusteri = useDocumentData<Musteri>(COLLECTIONS.musteriler, isMukellef ? user?.musteriId : undefined, enabled && isMukellef);
+  const musteriler = isMukellef
+    ? { data: mukellefMusteri.data ? [mukellefMusteri.data] : [], loading: mukellefMusteri.loading, source: mukellefMusteri.source }
+    : musterilerCollection;
   const mukellefiyetProfilleri = useCollectionData<MukellefiyetProfili>(COLLECTIONS.mukellefiyetProfilleri, [], enabled, ofisId);
   const yukumlulukler = useCollectionData<Yukumluluk>(COLLECTIONS.yukumlulukler, [], enabled, ofisId);
   const gorevler = useCollectionData<Gorev>(COLLECTIONS.gorevler, [], enabled, ofisId);

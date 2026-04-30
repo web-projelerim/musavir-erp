@@ -17,17 +17,15 @@ import { Badge, BeyannameBadge, TahsilatBadge, RaporDurumBadge } from "@/compone
 import { MetricCard, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
-import { doc, getDoc } from "firebase/firestore";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuth } from "@/lib/context/AuthContext";
-import { firestoreDb } from "@/lib/firebase/client";
 // hesaplaMusteriRisk: sadece PDF oluşturma için kullanılır, panelde gösterilmez (P1-2)
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { buildReportPdfBlob, buildReportPdfFileName, downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { formatTarih, formatPara } from "@/lib/utils/format";
-import type { Belge, Musteri, Rapor } from "@/lib/types";
+import type { Belge, Rapor } from "@/lib/types";
 
 function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -52,54 +50,32 @@ export default function MukellefPanelPage() {
   } = useAppData();
   const [showBelgeModal, setShowBelgeModal] = useState(false);
   const [localBelgeler, setLocalBelgeler] = useState<Belge[]>(tumBelgeler);
-  // ofisId filtresi eşleşmediğinde bile musteriId ile doğrudan Firestore'dan çek
-  const [directMusteri, setDirectMusteri] = useState<Musteri | null>(null);
-  const [directLoading, setDirectLoading] = useState(true);
 
   useEffect(() => {
     setLocalBelgeler(tumBelgeler);
   }, [tumBelgeler]);
 
-  useEffect(() => {
-    async function fetchDirect() {
-      if (!user?.musteriId || !firestoreDb) {
-        setDirectLoading(false);
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(firestoreDb, "musteriler", user.musteriId));
-        if (snap.exists()) {
-          setDirectMusteri({ id: snap.id, ...snap.data() } as Musteri);
-        }
-      } finally {
-        setDirectLoading(false);
-      }
-    }
-    fetchDirect();
-  }, [user?.musteriId]);
+  if (loading) return <PageLoading />;
 
-  if (loading || directLoading) return <PageLoading />;
-
-  const musteri =
-    directMusteri ??
-    musteriler.find((m) => m.id === user?.musteriId) ??
-    musteriler[0];
+  // useAppData already subscribes to the musteri directly by musteriId for mükellef role
+  const musteri = musteriler[0];
 
   if (!musteri) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8 text-center space-y-3 max-w-sm">
-          <h1 className="text-lg font-bold text-slate-900">Firma kaydı bulunamadı</h1>
+          <AlertCircle className="h-10 w-10 text-amber-400 mx-auto" />
+          <h1 className="text-lg font-bold text-slate-900">Firma bilgisi yükleniyor</h1>
           <p className="text-sm text-slate-500">
             {user?.musteriId
-              ? "Hesabınıza bağlı firma bilgilerine ulaşılamadı. Müşavirinizle iletişime geçin."
-              : "Bu hesabın mükellef kaydı yok. Farklı bir hesapla giriş yapın."}
+              ? "Firma kaydınıza ulaşılamadı. Bağlantınızı kontrol edip sayfayı yenileyin. Sorun devam ederse müşavirinizle iletişime geçin."
+              : "Bu hesaba bağlı bir firma kaydı bulunamadı. Müşavirinizden davet bağlantısı isteyin."}
           </p>
           <button
-            onClick={() => signOut().then(() => router.replace("/giris"))}
-            className="flex items-center gap-2 mx-auto text-sm text-slate-500 hover:text-slate-700"
+            onClick={() => router.refresh()}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            <LogOut className="h-4 w-4" /> Çıkış Yap
+            Sayfayı Yenile
           </button>
         </div>
       </div>

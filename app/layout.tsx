@@ -3,6 +3,7 @@ import "./globals.css";
 import { ToastProvider } from "@/lib/context/ToastContext";
 import { AuthProvider } from "@/lib/context/AuthContext";
 import { PwaRegister } from "@/components/layout/PwaRegister";
+import { ChunkErrorHandler } from "@/components/layout/ChunkErrorHandler";
 
 export const metadata: Metadata = {
   title: "MusavirERP - Mali Müşavir Yönetim Paneli",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <AuthProvider>
           <ToastProvider>
+            <ChunkErrorHandler />
             <PwaRegister />
             {children}
           </ToastProvider>

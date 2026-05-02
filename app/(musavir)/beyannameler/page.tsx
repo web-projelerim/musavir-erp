@@ -101,7 +101,9 @@ export default function BeyannamellerPage() {
   if (loading) return <PageLoading />;
 
   /* ── GİB Beyanname Sync ── */
-  const handleGibSync = async () => {
+
+  /** Captcha modal'ı aç ve yeni captcha yükle */
+  const openCaptchaModal = async () => {
     setCaptchaDk("");
     setCaptchaImageBase64("");
     setCaptchaImageID("");
@@ -118,6 +120,42 @@ export default function BeyannamellerPage() {
       setCaptchaModal(false);
     } finally {
       setCaptchaLoading(false);
+    }
+  };
+
+  /** "GİB Getir" düğmesi: önce cache'deki token ile dene, gerekirse captcha iste */
+  const handleGibSync = async () => {
+    const ofisId = gibEntegrasyonAyarlari[0]?.ofisId ?? user?.ofisId ?? "";
+    setGibSyncLoading(true);
+    setGibSyncProgress("GİB oturumu kontrol ediliyor...");
+    try {
+      // Captcha olmadan dene (cache'deki token kullanılır)
+      const res = await fetch("/api/gib/bulk-sync", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ ofisId, syncTipi: "beyanname" }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.needsCaptcha) {
+        // Cache yok veya süresi dolmuş → captcha iste
+        setGibSyncLoading(false);
+        setGibSyncProgress("");
+        await openCaptchaModal();
+        return;
+      }
+
+      if (!res.ok) {
+        toast.error("GİB sync başarısız", data.error ?? "Sunucu hatası");
+        return;
+      }
+
+      showSyncResult(data);
+    } catch (err) {
+      toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
+    } finally {
+      setGibSyncLoading(false);
+      setGibSyncProgress("");
     }
   };
 
@@ -139,6 +177,35 @@ export default function BeyannamellerPage() {
     }
   };
 
+  /** Sync sonucunu toast ile göster */
+  const showSyncResult = (data: {
+    toplamKayit: number;
+    hataSayisi: number;
+    islenenMusteriSayisi: number;
+    mesaj?: string;
+  }) => {
+    const { toplamKayit, hataSayisi, islenenMusteriSayisi, mesaj } = data;
+    if (mesaj && islenenMusteriSayisi === 0) {
+      toast.info("GİB sync", mesaj);
+    } else if (hataSayisi === 0) {
+      toast.success(
+        "GİB sync tamamlandı",
+        `${islenenMusteriSayisi} müşteri işlendi — ${toplamKayit} beyanname güncellendi`
+      );
+    } else if (toplamKayit > 0) {
+      toast.warning(
+        "Kısmi sync",
+        `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`
+      );
+    } else {
+      toast.error(
+        "GİB sync başarısız",
+        "Tüm müşterilerde hata. Captcha veya GİB kimlik bilgilerini kontrol edin"
+      );
+    }
+  };
+
+  /** Captcha ile sync (modal'dan çağrılır) */
   const executeGibSync = async () => {
     setCaptchaModal(false);
     setGibSyncLoading(true);
@@ -165,28 +232,7 @@ export default function BeyannamellerPage() {
         return;
       }
 
-      const { toplamKayit, hataSayisi, islenenMusteriSayisi } = data as {
-        toplamKayit: number;
-        hataSayisi: number;
-        islenenMusteriSayisi: number;
-      };
-
-      if (hataSayisi === 0) {
-        toast.success(
-          "GİB sync tamamlandı",
-          `${islenenMusteriSayisi} müşteri işlendi — ${toplamKayit} beyanname güncellendi`
-        );
-      } else if (toplamKayit > 0) {
-        toast.warning(
-          "Kısmi sync",
-          `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`
-        );
-      } else {
-        toast.error(
-          "GİB sync başarısız",
-          "Tüm müşterilerde hata. Captcha veya env kimlik bilgilerini kontrol edin"
-        );
-      }
+      showSyncResult(data);
     } catch (err) {
       toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
     } finally {

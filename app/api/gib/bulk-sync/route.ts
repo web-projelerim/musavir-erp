@@ -1,11 +1,15 @@
 /**
  * POST /api/gib/bulk-sync
  *
- * Captcha bir kere çözülür → tek bir IVD oturumu açılır → tüm aktif müşteriler
- * için beyanname/tahakkuk verileri bu oturum token'ı ile çekilir.
- * Böylece her müşteri için ayrı captcha gerekmez.
+ * Akıllı token cache sistemi:
+ *  - captchaDk/captchaImageID olmadan çağrılırsa → cache'lenmiş token denenir
+ *  - Cache yoksa/süre dolduysa → { needsCaptcha: true } döner
+ *  - captchaDk/captchaImageID ile çağrılırsa → yeni login, token cache'lenir (45 dk)
+ *
+ * Böylece oturum geçerliyken captcha olmadan sync yapılabilir.
  *
  * Yanıt: { ok, islenenMusteriSayisi, toplamKayit, hataSayisi, hatalar[] }
+ *      | { needsCaptcha: true }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -21,11 +25,54 @@ import type { BeyannameType } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+/** Token cache TTL: 45 dakika */
+const TOKEN_TTL_MS = 45 * 60 * 1000;
+
 interface BulkSyncBody {
   ofisId: string;
-  captchaDk: string;
-  captchaImageID: string;
+  captchaDk?: string;
+  captchaImageID?: string;
   syncTipi: "beyanname" | "tahakkuk" | "tumu";
+}
+
+/** Cache'lenmiş GİB token'ı Firestore'dan oku */
+async function getCachedToken(ofisId: string): Promise<string | null> {
+  const db = getAdminDb();
+  if (!db) return null;
+  try {
+    const doc = await db.collection("gibSessions").doc(ofisId).get();
+    if (!doc.exists) return null;
+    const data = doc.data() as { token?: string; expiresAt?: number } | undefined;
+    if (!data?.token || !data?.expiresAt) return null;
+    if (Date.now() > data.expiresAt) return null; // süresi dolmuş
+    return data.token;
+  } catch {
+    return null;
+  }
+}
+
+/** Token'ı Firestore'a yaz (45 dk TTL) */
+async function cacheToken(ofisId: string, token: string): Promise<void> {
+  try {
+    await adminUpsert("gibSessions", ofisId, {
+      token,
+      expiresAt: Date.now() + TOKEN_TTL_MS,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch {
+    // cache yazma hatası kritik değil — devam et
+  }
+}
+
+/** Token'ı geçersiz kıl (captcha hatası gibi durumlarda) */
+async function invalidateToken(ofisId: string): Promise<void> {
+  const db = getAdminDb();
+  if (!db) return;
+  try {
+    await db.collection("gibSessions").doc(ofisId).delete();
+  } catch {
+    // önemsiz
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -43,11 +90,8 @@ export async function POST(req: NextRequest) {
 
   const { ofisId, captchaDk, captchaImageID, syncTipi } = body;
 
-  if (!ofisId || !captchaDk || !captchaImageID) {
-    return NextResponse.json(
-      { error: "ofisId, captchaDk ve captchaImageID zorunludur" },
-      { status: 400 }
-    );
+  if (!ofisId) {
+    return NextResponse.json({ error: "ofisId zorunludur" }, { status: 400 });
   }
 
   // Env kimlik bilgileri
@@ -68,7 +112,40 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── 1. Aktif müşterileri Firestore'dan çek ───────────────────────────────
+  // ── 1. Token belirle: cache'den al veya yeni login yap ──────────────────
+  let token: string;
+  const hasCaptcha = !!captchaDk && !!captchaImageID;
+
+  if (!hasCaptcha) {
+    // Captcha verilmemiş → cache'i dene
+    const cached = await getCachedToken(ofisId);
+    if (!cached) {
+      // Geçerli oturum yok — istemciden captcha iste
+      return NextResponse.json({ needsCaptcha: true }, { status: 200 });
+    }
+    token = cached;
+  } else {
+    // Captcha verilmiş → yeni login
+    const envCreds = { vknTckn: kullaniciKodu, kullaniciKodu, sifre, captchaDk, captchaImageID };
+    try {
+      token = await ivdLogin(envCreds);
+      // Başarılı login → token'ı cache'le
+      await cacheToken(ofisId, token);
+    } catch (err) {
+      const mesaj = err instanceof Error ? err.message : "IVD giriş başarısız";
+      return NextResponse.json({ error: mesaj }, { status: 502 });
+    }
+  }
+
+  const envCreds = {
+    vknTckn: kullaniciKodu,
+    kullaniciKodu,
+    sifre,
+    captchaDk: captchaDk ?? "",
+    captchaImageID: captchaImageID ?? "",
+  };
+
+  // ── 2. Aktif müşterileri Firestore'dan çek ───────────────────────────────
   const musteriSnap = await db
     .collection("musteriler")
     .where("ofisId", "==", ofisId)
@@ -89,25 +166,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // ── 2. IVD'ye BİR KERE giriş yap — token tüm müşterilerde paylaşılır ────
-  let token: string;
-  try {
-    token = await ivdLogin({
-      vknTckn: kullaniciKodu, // ofis hesabı
-      kullaniciKodu,
-      sifre,
-      captchaDk,
-      captchaImageID,
-    });
-  } catch (err) {
-    const mesaj = err instanceof Error ? err.message : "IVD giriş başarısız";
-    return NextResponse.json({ error: mesaj }, { status: 502 });
-  }
-
-  const envCreds = { vknTckn: kullaniciKodu, kullaniciKodu, sifre, captchaDk, captchaImageID };
-
   const hatalar: string[] = [];
   let toplamKayit = 0;
+  let tokenGecersiz = false;
 
   // ── 3. Her müşteri için token ile veri çek, Firestore'a yaz ─────────────
   for (const musteri of musteriler) {
@@ -158,9 +219,25 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       const mesaj = err instanceof Error ? err.message : "Bilinmeyen hata";
+
+      // Token geçersiz mi? (GİB oturumu sona ermiş olabilir)
+      if (
+        mesaj.toLowerCase().includes("token") ||
+        mesaj.toLowerCase().includes("oturum") ||
+        mesaj.toLowerCase().includes("401") ||
+        mesaj.toLowerCase().includes("unauthorized")
+      ) {
+        tokenGecersiz = true;
+      }
+
       hatalar.push(`${firmaAdi}: ${mesaj}`);
       console.warn(`[GİB Bulk Sync] ${firmaAdi} (${vkn}):`, mesaj);
     }
+  }
+
+  // Token geçersizse cache'i temizle — bir sonraki istekte captcha istenecek
+  if (tokenGecersiz) {
+    await invalidateToken(ofisId);
   }
 
   return NextResponse.json({
@@ -168,6 +245,7 @@ export async function POST(req: NextRequest) {
     islenenMusteriSayisi: musteriler.length,
     toplamKayit,
     hataSayisi: hatalar.length,
-    hatalar: hatalar.slice(0, 10), // ilk 10 hatayı döndür
+    hatalar: hatalar.slice(0, 10),
+    tokenYenilendi: hasCaptcha, // istemci bilgilendirilsin
   });
 }

@@ -43,31 +43,72 @@ export interface GibCaptcha {
 
 const BASE = "https://intvrg.gib.gov.tr";
 
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+/**
+ * Captcha session cookie'lerini geçici bellekte tutar.
+ * Key: imageID, Value: cookie string + expiry
+ * Not: Vercel gibi serverless ortamlarda bu işlevsel olmayabilir;
+ * local dev ve tek-instance sunucular için yeterli.
+ */
+const cookieStore = new Map<string, { cookie: string; exp: number }>();
+
+function saveCookie(imageID: string, cookie: string) {
+  cookieStore.set(imageID, { cookie, exp: Date.now() + 10 * 60 * 1000 }); // 10 dk TTL
+}
+
+function getCookie(imageID: string): string {
+  const entry = cookieStore.get(imageID);
+  if (!entry || Date.now() > entry.exp) {
+    cookieStore.delete(imageID);
+    return "";
+  }
+  return entry.cookie;
+}
+
+/** Set-Cookie header'ından taşınabilir cookie string'i çıkar */
+function parseCookies(headers: Headers): string {
+  const raw = headers.getSetCookie?.() ?? [];
+  if (raw.length > 0) {
+    return raw.map((c) => c.split(";")[0]).join("; ");
+  }
+  // Eski Node.js uyumu
+  const single = headers.get("set-cookie") ?? "";
+  return single ? single.split(";")[0] : "";
+}
+
 /**
  * GİB'den captcha görselini çeker.
- * Dönen imageID ve imageBase64'ü kullanıcıya gösterin,
- * kullanıcının girdiği kodu dk olarak ivdLogin'e geçirin.
+ * Session cookie'yi saklar; ivdLogin aynı cookie'yi kullanır.
  */
 export async function fetchGibCaptcha(): Promise<GibCaptcha> {
-  // 1. captchaImg.jsp → imageID (cid)
+  // 1. captchaImg.jsp → imageID + session cookie
   const imgPageRes = await fetch(`${BASE}/captcha/captchaImg.jsp`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Referer: `${BASE}/`,
-    },
+    headers: { "User-Agent": UA, Referer: `${BASE}/` },
   });
+
+  const sessionCookie = parseCookies(imgPageRes.headers);
   const imgPageHtml = await imgPageRes.text();
-  const cidMatch = imgPageHtml.match(/value="([^"]+)"/);
+  console.log("[GİB Captcha] session cookie:", sessionCookie);
+  console.log("[GİB Captcha] HTML snippet:", imgPageHtml.slice(0, 400));
+
+  // imageID'yi name="imageID" veya name="cid" olan input'tan çıkar
+  const byName =
+    imgPageHtml.match(/name=["'](?:imageID|cid)["'][^>]*value=["']([^"']+)["']/i) ??
+    imgPageHtml.match(/value=["']([^"']+)["'][^>]*name=["'](?:imageID|cid)["']/i);
+  const cidMatch = byName ?? imgPageHtml.match(/value="([^"']+)"/);
   if (!cidMatch) throw new Error("GİB captcha ID alınamadı");
   const imageID = cidMatch[1];
+  console.log("[GİB Captcha] imageID:", imageID);
 
-  // 2. Captcha görselini indir
-  const imgRes = await fetch(`${BASE}/captcha/jcaptcha?imageID=${imageID}`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Referer: `${BASE}/`,
-    },
-  });
+  // Cookie'yi sakla (login isteğinde kullanılacak)
+  if (sessionCookie) saveCookie(imageID, sessionCookie);
+
+  // 2. Captcha görselini çek (cookie ile)
+  const imgHeaders: Record<string, string> = { "User-Agent": UA, Referer: `${BASE}/` };
+  if (sessionCookie) imgHeaders["Cookie"] = sessionCookie;
+
+  const imgRes = await fetch(`${BASE}/captcha/jcaptcha?imageID=${imageID}`, { headers: imgHeaders });
   if (!imgRes.ok) throw new Error(`GİB captcha görseli alınamadı: HTTP ${imgRes.status}`);
   const imgBuffer = await imgRes.arrayBuffer();
   const imageBase64 = Buffer.from(imgBuffer).toString("base64");
@@ -98,31 +139,54 @@ export async function ivdLogin(creds: IvdCredentials): Promise<string> {
     imageID: creds.captchaImageID,
   });
 
+  // Captcha session cookie'sini geri yükle — GİB bunu doğrulama için kullanıyor
+  const sessionCookie = getCookie(creds.captchaImageID);
+  console.log("[GİB IVD Login] Cookie:", sessionCookie || "(yok)");
+
+  const loginHeaders: Record<string, string> = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": UA,
+    Referer: `${BASE}/`,
+  };
+  if (sessionCookie) loginHeaders["Cookie"] = sessionCookie;
+
   const res = await fetch(`${BASE}/intvrg_server/assos-login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      Referer: `${BASE}/`,
-    },
+    headers: loginHeaders,
     body: body.toString(),
   });
 
-  if (!res.ok) throw new Error(`IVD login HTTP ${res.status}`);
+  if (!res.ok) {
+    const rawText = await res.text().catch(() => "");
+    console.error("[GİB IVD Login] HTTP hata:", res.status, rawText.slice(0, 500));
+    throw new Error(`IVD login HTTP ${res.status}: ${rawText.slice(0, 200)}`);
+  }
 
-  const json = await res.json().catch(() => null);
+  const rawText = await res.text();
+  console.log("[GİB IVD Login] Ham yanıt:", rawText.slice(0, 500));
+
+  let json: Record<string, unknown> | null = null;
+  try { json = JSON.parse(rawText); } catch { /* HTML yanıt gelebilir */ }
+
+  if (!json) {
+    throw new Error(`IVD login: JSON yanıt alınamadı. Ham yanıt: ${rawText.slice(0, 200)}`);
+  }
 
   if (json?.error) {
-    const mesaj = json?.messages?.[0]?.text ?? json?.error;
-    // type 5 = captcha yanlış
-    if (json?.messages?.[0]?.type === "5") {
+    const mesaj = (json?.messages as { text?: string; type?: string }[])?.[0]?.text ?? String(json?.error);
+    const tip = (json?.messages as { text?: string; type?: string }[])?.[0]?.type;
+    console.error("[GİB IVD Login] Hata yanıtı:", JSON.stringify(json));
+    if (tip === "5") {
       throw new Error(`Captcha hatalı: ${mesaj}`);
     }
     throw new Error(`IVD giriş başarısız: ${mesaj}`);
   }
 
-  const token: string = json?.token ?? "";
-  if (!token) throw new Error("IVD oturum token'ı alınamadı");
+  const token: string = (json?.token as string) ?? "";
+  if (!token) {
+    console.error("[GİB IVD Login] Token yok, yanıt:", JSON.stringify(json));
+    throw new Error("IVD oturum token'ı alınamadı");
+  }
   return token;
 }
 
@@ -139,7 +203,7 @@ export async function fetchTebligatlar(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": UA,
     },
     body: new URLSearchParams({
       assoscmd: "tebligat_liste",
@@ -177,7 +241,7 @@ export async function fetchBeyannameler(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": UA,
     },
     body: new URLSearchParams({
       assoscmd: "beyanname_liste",
@@ -222,7 +286,7 @@ export async function fetchBorcListesi(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": UA,
     },
     body: new URLSearchParams({
       assoscmd: "borc_listesi",
@@ -276,7 +340,7 @@ export async function fetchMukellefDurumu(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "User-Agent": UA,
     },
     body: new URLSearchParams({
       assoscmd: "mukellef_durum",

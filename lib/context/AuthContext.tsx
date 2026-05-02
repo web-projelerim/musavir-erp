@@ -114,7 +114,22 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
 
   if (snapshot.exists()) {
     const data = snapshot.data() as User;
-    return { ...data, id: snapshot.id };
+    const appUser = { ...data, id: snapshot.id };
+
+    // Güvenlik düzeltmesi: rol "mukellef" ama musteriId yoksa bu kullanıcı
+    // aslında bir müşavirdir — yanlış rol atanmış. Bellekte ve Firestore'da düzelt.
+    if (appUser.rol === "mukellef" && !appUser.musteriId) {
+      const corrected: User = { ...appUser, rol: "musavir" };
+      // Firestore'a kalıcı yaz (sessizce, hata olursa ignore et)
+      setDoc(
+        doc(firestoreDb, "kullanicilar", firebaseUser.uid),
+        { rol: "musavir" },
+        { merge: true }
+      ).catch(() => undefined);
+      return corrected;
+    }
+
+    return appUser;
   }
 
   // No Firestore doc — signUp flow didn't complete. Return an in-memory musavir fallback.

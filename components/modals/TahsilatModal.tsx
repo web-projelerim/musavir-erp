@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { useAuth } from "@/lib/context/AuthContext";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createTahsilat, updateTahsilat } from "@/lib/firebase/repositories";
@@ -25,6 +26,7 @@ const today = () => new Date().toISOString().split("T")[0];
 export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: Props) {
   const toast = useToast();
   const logAudit = useAuditLog();
+  const { user } = useAuth();
   const { musteriler } = useAppData();
   const [loading, setLoading] = useState(false);
 
@@ -101,7 +103,10 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
       odenenTutar > 0 ? "kismi" :
       form.durum;
 
+    const ofisId = selectedMusteri.ofisId ?? user?.ofisId;
+
     const payload: Omit<Tahsilat, "id"> = {
+      ofisId,
       musteriId: selectedMusteri.id,
       musteriAdi: selectedMusteri.firmaAdi,
       tutar,

@@ -91,18 +91,100 @@ export async function runGibSync(): Promise<GibSyncSonuc> {
         (a.otomatikTebligatSync || a.otomatikBeyanSync || a.otomatikBorcSync)
     );
 
-  if (aktifAyarlar.length === 0) {
-    return {
-      ok: true,
-      baslamaTarihi,
-      bitisTarihi: nowIso(),
-      islenenOfis: 0,
-      sonuclar: [],
-      mesaj: "Otomatik sync açık ofis bulunamadı",
-    };
-  }
-
   const sonuclar: OfisSync[] = [];
+
+  // ── ENV VAR FALLBACK ─────────────────────────────────────────────────────────
+  // Firestore'da ayarlı ofis yoksa .env.local'daki credentials kullan.
+  // Tüm aktif müşterileri bu kimlik bilgileriyle sync eder.
+  if (aktifAyarlar.length === 0) {
+    const envKodu = process.env.GIB_IVD_KULLANICI_KODU;
+    const envSifre = process.env.GIB_IVD_SIFRE;
+
+    if (!envKodu || !envSifre) {
+      return {
+        ok: true,
+        baslamaTarihi,
+        bitisTarihi: nowIso(),
+        islenenOfis: 0,
+        sonuclar: [],
+        mesaj:
+          "Otomatik sync açık ofis bulunamadı. " +
+          "GIB_IVD_KULLANICI_KODU ve GIB_IVD_SIFRE env değerleri de tanımlı değil.",
+      };
+    }
+
+    // Tüm aktif müşterileri çek (ofisId filtresi yok — env mod tek kiracılı varsayar)
+    const tumMusteriSnap = await db
+      .collection("musteriler")
+      .where("durum", "==", "aktif")
+      .get();
+    const tumMusteriler = tumMusteriSnap.docs.map((d) => d.data() as Musteri);
+
+    if (tumMusteriler.length === 0) {
+      return {
+        ok: true,
+        baslamaTarihi,
+        bitisTarihi: nowIso(),
+        islenenOfis: 0,
+        sonuclar: [],
+        mesaj: "Aktif müşteri bulunamadı — beyanname sync yapılmadı",
+      };
+    }
+
+    // İlk müşterinin ofisId'sini referans al (log ve upsert için)
+    const envOfisId = tumMusteriler[0].ofisId ?? "env-default";
+    const envCreds = { vknTckn: tumMusteriler[0].vknTckn, kullaniciKodu: envKodu, sifre: envSifre };
+
+    const hatalar: string[] = [];
+    let tebligatSayisi = 0, beyannameSayisi = 0, tahakkukSayisi = 0;
+
+    for (const musteri of tumMusteriler) {
+      try {
+        const creds = { ...envCreds, vknTckn: musteri.vknTckn };
+        const yazmaGorevleri: Promise<void>[] = [];
+
+        // Tebligat
+        const tebligatlar = await fetchTebligatlar(creds, musteri.vknTckn);
+        for (const t of tebligatlar) {
+          const enriched = { ...t, ofisId: musteri.ofisId ?? envOfisId, musteriId: musteri.id || t.musteriId, musteriAdi: t.musteriAdi || musteri.firmaAdi };
+          const id = stableTebligatId(enriched.musteriId, enriched.tarih, enriched.baslik);
+          yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...enriched }));
+        }
+        tebligatSayisi += tebligatlar.length;
+
+        // Beyanname
+        const beyannameler = await fetchBeyannameler(creds, musteri.vknTckn);
+        for (const b of beyannameler) {
+          const enriched = { ...b, ofisId: musteri.ofisId ?? envOfisId, musteriId: musteri.id || b.musteriId, musteriAdi: b.musteriAdi || musteri.firmaAdi };
+          const id = stableBeyannameId(enriched.musteriId, enriched.tur, enriched.donem);
+          yazmaGorevleri.push(adminUpsert("beyannameler", id, { id, ...enriched }));
+        }
+        beyannameSayisi += beyannameler.length;
+
+        // Borç/Tahakkuk
+        const borclar = await fetchBorcListesi(creds, musteri.vknTckn);
+        for (const b of borclar) {
+          const enriched = { ...b, ofisId: musteri.ofisId ?? envOfisId, musteriId: musteri.id || b.musteriId, musteriAdi: b.musteriAdi || musteri.firmaAdi };
+          const discriminator = enriched.resmiTahakkukFisNo ?? enriched.vadeTarihi;
+          const id = stableTahakkukId(enriched.musteriId, enriched.donem, enriched.vergiTuru ?? "diger", discriminator);
+          yazmaGorevleri.push(adminUpsert("tahakkuklar", id, { id, ...enriched }));
+        }
+        tahakkukSayisi += borclar.length;
+
+        await Promise.all(yazmaGorevleri);
+      } catch (err) {
+        const msg = `${musteri.firmaAdi} (${musteri.vknTckn}): ${err instanceof Error ? err.message : "bilinmeyen hata"}`;
+        hatalar.push(msg);
+        console.error("[GİB Sync][env]", msg);
+      }
+    }
+
+    await yazSyncLog(db, envOfisId, hatalar.length === 0 ? "basarili" : "basarisiz", baslamaTarihi, tebligatSayisi + beyannameSayisi + tahakkukSayisi, hatalar[0]);
+    sonuclar.push({ ofisId: envOfisId, islenenMusteri: tumMusteriler.length, tebligatSayisi, beyannameSayisi, tahakkukSayisi, hatalar });
+
+    return { ok: true, baslamaTarihi, bitisTarihi: nowIso(), islenenOfis: 1, sonuclar };
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   for (const ayar of aktifAyarlar) {
     const ofisId = ayar.ofisId;

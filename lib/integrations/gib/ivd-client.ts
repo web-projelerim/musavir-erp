@@ -75,8 +75,12 @@ export async function fetchGibCaptcha(): Promise<GibCaptcha> {
   return { imageID, imageBase64 };
 }
 
-/** IVD'ye captcha ile giriş yapar, oturum token'ı döndürür */
-async function ivdLogin(creds: IvdCredentials): Promise<string> {
+/**
+ * IVD'ye captcha ile giriş yapar, oturum token'ı döndürür.
+ * Token birden fazla müşteri için yeniden kullanılabilir —
+ * her müşteri için ayrı login (ve captcha) gerekmez.
+ */
+export async function ivdLogin(creds: IvdCredentials): Promise<string> {
   if (!creds.captchaDk || !creds.captchaImageID) {
     throw new Error(
       "GİB IVD girişi için captcha gereklidir. " +
@@ -122,12 +126,13 @@ async function ivdLogin(creds: IvdCredentials): Promise<string> {
   return token;
 }
 
-/** Tebligatları çeker */
+/** Tebligatları çeker. `existingToken` verilirse yeni login yapmaz. */
 export async function fetchTebligatlar(
   creds: IvdCredentials,
-  musteriVkn?: string
+  musteriVkn?: string,
+  existingToken?: string
 ): Promise<Omit<Tebligat, "id">[]> {
-  const token = await ivdLogin(creds);
+  const token = existingToken ?? await ivdLogin(creds);
 
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
@@ -159,12 +164,13 @@ export async function fetchTebligatlar(
   }));
 }
 
-/** Beyannameleri çeker */
+/** Beyannameleri çeker. `existingToken` verilirse yeni login yapmaz. */
 export async function fetchBeyannameler(
   creds: IvdCredentials,
-  musteriVkn?: string
+  musteriVkn?: string,
+  existingToken?: string
 ): Promise<Omit<Beyanname, "id">[]> {
-  const token = await ivdLogin(creds);
+  const token = existingToken ?? await ivdLogin(creds);
 
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
@@ -202,12 +208,13 @@ export async function fetchBeyannameler(
   }));
 }
 
-/** Vergi borç/tahakkuk listesini çeker */
+/** Vergi borç/tahakkuk listesini çeker. `existingToken` verilirse yeni login yapmaz. */
 export async function fetchBorcListesi(
   creds: IvdCredentials,
-  musteriVkn?: string
+  musteriVkn?: string,
+  existingToken?: string
 ): Promise<Omit<Tahakkuk, "id" | "ofisId">[]> {
-  const token = await ivdLogin(creds);
+  const token = existingToken ?? await ivdLogin(creds);
   const vkn = musteriVkn ?? creds.vknTckn;
 
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
@@ -256,12 +263,13 @@ export async function fetchBorcListesi(
   });
 }
 
-/** Mükellef durumunu sorgular */
+/** Mükellef durumunu sorgular. `existingToken` verilirse yeni login yapmaz. */
 export async function fetchMukellefDurumu(
   creds: IvdCredentials,
-  musteriVkn: string
+  musteriVkn: string,
+  existingToken?: string
 ): Promise<{ aktif: boolean; vergiDairesi?: string; mesaj?: string }> {
-  const token = await ivdLogin(creds);
+  const token = existingToken ?? await ivdLogin(creds);
 
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",

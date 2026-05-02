@@ -39,7 +39,7 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
-import { updateBeyannameWorkflow, upsertBeyannameFromGib } from "@/lib/firebase/repositories";
+import { updateBeyannameWorkflow } from "@/lib/firebase/repositories";
 import {
   beyanWorkflowLabel,
   beyanWorkflowVariant,
@@ -142,65 +142,56 @@ export default function BeyannamellerPage() {
   const executeGibSync = async () => {
     setCaptchaModal(false);
     setGibSyncLoading(true);
+    setGibSyncProgress("GİB'e bağlanılıyor...");
 
     const ofisId = gibEntegrasyonAyarlari[0]?.ofisId ?? user?.ofisId ?? "";
-    const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
 
-    if (aktifMusteriler.length === 0) {
-      toast.warning("Aktif müşteri bulunamadı", "Beyanname çekmek için VKN'li aktif müşteri gerekli");
-      setGibSyncLoading(false);
-      return;
-    }
-
-    let toplamKayit = 0;
-    let hataSayisi = 0;
-
-    for (let i = 0; i < aktifMusteriler.length; i++) {
-      const musteri = aktifMusteriler[i];
-      setGibSyncProgress(`${musteri.firmaAdi} (${i + 1}/${aktifMusteriler.length})`);
-
-      try {
-        const res = await fetch("/api/gib/sync", {
-          method: "POST",
-          headers: await authHeaders(),
-          body: JSON.stringify({
-            ofisId,
-            syncTipi: "beyanname",
-            musteriVkn: musteri.vknTckn,
-            captchaDk,
-            captchaImageID,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          console.warn(`[GİB Beyanname] ${musteri.firmaAdi}:`, data.error);
-          hataSayisi++;
-          continue;
-        }
-        const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
-          ...b,
+    try {
+      const res = await fetch("/api/gib/bulk-sync", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({
           ofisId,
-          musteriId: musteri.id,
-          musteriAdi: musteri.firmaAdi,
-        }));
-        toplamKayit += beyannameler.length;
-        type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
-        await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
-      } catch (err) {
-        console.warn(`[GİB Beyanname] ${musteri.firmaAdi}:`, err);
-        hataSayisi++;
+          captchaDk,
+          captchaImageID,
+          syncTipi: "beyanname",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error("GİB sync başarısız", data.error ?? "Sunucu hatası");
+        return;
       }
-    }
 
-    setGibSyncLoading(false);
-    setGibSyncProgress("");
+      const { toplamKayit, hataSayisi, islenenMusteriSayisi } = data as {
+        toplamKayit: number;
+        hataSayisi: number;
+        islenenMusteriSayisi: number;
+      };
 
-    if (hataSayisi === 0) {
-      toast.success("GİB sync tamamlandı", `${toplamKayit} beyanname Firestore'a yazıldı`);
-    } else if (toplamKayit > 0) {
-      toast.warning("Kısmi sync", `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`);
-    } else {
-      toast.error("GİB sync başarısız", "Captcha hatalı ya da env kimlik bilgileri eksik");
+      if (hataSayisi === 0) {
+        toast.success(
+          "GİB sync tamamlandı",
+          `${islenenMusteriSayisi} müşteri işlendi — ${toplamKayit} beyanname güncellendi`
+        );
+      } else if (toplamKayit > 0) {
+        toast.warning(
+          "Kısmi sync",
+          `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`
+        );
+      } else {
+        toast.error(
+          "GİB sync başarısız",
+          "Tüm müşterilerde hata. Captcha veya env kimlik bilgilerini kontrol edin"
+        );
+      }
+    } catch (err) {
+      toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
+    } finally {
+      setGibSyncLoading(false);
+      setGibSyncProgress("");
     }
   };
 

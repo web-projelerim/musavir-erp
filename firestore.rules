@@ -305,6 +305,12 @@ service cloud.firestore {
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
+    // ─── GİB oturum cache (server-only, client okuyamaz) ─────────────────────
+
+    match /gibSessions/{ofisId} {
+      allow read, write: if false; // sadece Admin SDK erişir
+    }
+
     // ─── GİB entegrasyon ayarları (şifreli) — sadece musavir ─────────────────
     // Not: gibEntegrasyonAyarlari şifreli secret blob içerir.
     // Yukarıda isMusavir() kontrolü zaten var; burada ek kural gerekmez.

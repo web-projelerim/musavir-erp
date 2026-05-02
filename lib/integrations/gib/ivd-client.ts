@@ -190,8 +190,7 @@ export async function ivdLogin(creds: IvdCredentials): Promise<string> {
 
   // GİB şifre yenileme zorunluluğunu logla — API çağrıları çalışmayabilir
   if (json?.chgpwd === "true" || json?.chgpwd === true) {
-    console.warn("[GİB IVD Login] ⚠️  GİB şifre değişikliği gerekiyor (chgpwd=true). intvrg.gib.gov.tr adresinden şifrenizi yenileyin ve .env.local dosyasını güncelleyin.");
-    throw new Error("GİB şifrenizin süresi dolmuş. intvrg.gib.gov.tr adresine girerek şifrenizi yenileyin, ardından .env.local dosyasındaki GIB_IVD_SIFRE değerini güncelleyin.");
+    console.warn("[GİB IVD Login] chgpwd=true — devam ediliyor");
   }
 
   return token;
@@ -243,6 +242,14 @@ export async function fetchBeyannameler(
 ): Promise<Omit<Beyanname, "id">[]> {
   const token = existingToken ?? await ivdLogin(creds);
 
+  const beyanParams = new URLSearchParams({
+    assoscmd: "beyanname_liste",
+    rtype: "json",
+    token,
+    vkn: musteriVkn ?? creds.vknTckn,
+  });
+  console.log(`[GİB Beyanname] İstek — VKN: ${musteriVkn}, params:`, beyanParams.toString().replace(token, token.slice(0, 10) + "..."));
+
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
     headers: {
@@ -250,11 +257,7 @@ export async function fetchBeyannameler(
       Token: token,
       "User-Agent": UA,
     },
-    body: new URLSearchParams({
-      assoscmd: "beyanname_liste",
-      rtype: "json",
-      vkn: musteriVkn ?? creds.vknTckn,
-    }).toString(),
+    body: beyanParams.toString(),
   });
 
   if (!res.ok) throw new Error(`Beyanname listesi HTTP ${res.status}`);

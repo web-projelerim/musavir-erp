@@ -187,6 +187,13 @@ export async function ivdLogin(creds: IvdCredentials): Promise<string> {
     console.error("[GİB IVD Login] Token yok, yanıt:", JSON.stringify(json));
     throw new Error("IVD oturum token'ı alınamadı");
   }
+
+  // GİB şifre yenileme zorunluluğunu logla — API çağrıları çalışmayabilir
+  if (json?.chgpwd === "true" || json?.chgpwd === true) {
+    console.warn("[GİB IVD Login] ⚠️  GİB şifre değişikliği gerekiyor (chgpwd=true). intvrg.gib.gov.tr adresinden şifrenizi yenileyin ve .env.local dosyasını güncelleyin.");
+    throw new Error("GİB şifrenizin süresi dolmuş. intvrg.gib.gov.tr adresine girerek şifrenizi yenileyin, ardından .env.local dosyasındaki GIB_IVD_SIFRE değerini güncelleyin.");
+  }
+
   return token;
 }
 
@@ -251,8 +258,11 @@ export async function fetchBeyannameler(
   });
 
   if (!res.ok) throw new Error(`Beyanname listesi HTTP ${res.status}`);
-  const json = await res.json();
-  const rows: Record<string, string>[] = json?.data ?? json?.liste ?? [];
+  const rawText = await res.text();
+  console.log(`[GİB Beyanname] VKN ${musteriVkn} yanıt:`, rawText.slice(0, 600));
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(rawText); } catch { /* HTML geldi */ }
+  const rows: Record<string, string>[] = (json?.data ?? json?.liste ?? []) as Record<string, string>[];
 
   const TUR_MAP: Record<string, BeyannameType> = {
     KDV: "KDV", MUHTAS: "MUHTAS", KURUM: "KURUM",

@@ -1,12 +1,18 @@
 import "server-only";
 
 /**
- * GİB otomatik sync iş mantığı.
- * Hem instrumentation.ts (node-cron) hem de /api/cron/gib-sync route'u tarafından çağrılır.
+ * GİB sync iş mantığı.
+ * /api/cron/gib-sync (manuel tetikleme) veya instrumentation.ts tarafından çağrılır.
+ *
+ * ⚠️  GİB IVD artık CAPTCHA gerektiriyor. Otomatik cron tabanlı sync çalışmaz.
+ *     Kullanıcı /ayarlar → GİB Sync butonuyla captcha çözüp manuel tetiklemelidir.
+ *     Bu fonksiyon captcha bilgisi eksikse erken çıkar (sunucuyu crashlemez).
  *
  * Gerekli env:
  *   FIREBASE_SERVICE_ACCOUNT_KEY  — Firebase Admin erişimi
  *   GIB_SECRET_KEY                — IVD şifre çözme anahtarı
+ *   GIB_IVD_KULLANICI_KODU        — Müşavir IVD kullanıcı kodu
+ *   GIB_IVD_SIFRE                 — Müşavir IVD şifresi
  */
 
 import { getAdminDb, adminUpsert } from "@/lib/firebase/admin";
@@ -54,8 +60,28 @@ function stableTahakkukId(musteriId: string, donem: string, vergiTuru: string, d
     .replace(/[^a-z0-9-]/g, "-");
 }
 
-export async function runGibSync(): Promise<GibSyncSonuc> {
+export interface GibSyncOptions {
+  /** CAPTCHA çözümü — GİB IVD yeni sistemde zorunlu */
+  captchaDk?: string;
+  captchaImageID?: string;
+}
+
+export async function runGibSync(opts: GibSyncOptions = {}): Promise<GibSyncSonuc> {
   const baslamaTarihi = nowIso();
+
+  // GİB artık CAPTCHA gerektiriyor — captcha yoksa açıklayıcı hata dön
+  if (!opts.captchaDk || !opts.captchaImageID) {
+    return {
+      ok: false,
+      baslamaTarihi,
+      bitisTarihi: nowIso(),
+      islenenOfis: 0,
+      sonuclar: [],
+      mesaj:
+        "GİB IVD sync için captcha gereklidir. " +
+        "Ayarlar → GİB Senkronizasyon bölümünden captcha'yı çözüp tekrar deneyin.",
+    };
+  }
 
   const db = getAdminDb();
   if (!db) {
@@ -134,7 +160,13 @@ export async function runGibSync(): Promise<GibSyncSonuc> {
 
     // İlk müşterinin ofisId'sini referans al (log ve upsert için)
     const envOfisId = tumMusteriler[0].ofisId ?? "env-default";
-    const envCreds = { vknTckn: tumMusteriler[0].vknTckn, kullaniciKodu: envKodu, sifre: envSifre, ...(envParola ? { parola: envParola } : {}) };
+    const envCreds = {
+      vknTckn: tumMusteriler[0].vknTckn,
+      kullaniciKodu: envKodu,
+      sifre: envSifre,
+      captchaDk: opts.captchaDk,
+      captchaImageID: opts.captchaImageID,
+    };
 
     const hatalar: string[] = [];
     let tebligatSayisi = 0, beyannameSayisi = 0, tahakkukSayisi = 0;
@@ -206,6 +238,8 @@ export async function runGibSync(): Promise<GibSyncSonuc> {
       vknTckn: ayar.vknTckn!,
       kullaniciKodu: ayar.ivdKullaniciKodu!,
       sifre: ivdSifre,
+      captchaDk: opts.captchaDk!,
+      captchaImageID: opts.captchaImageID!,
     };
 
     // Ofisteki aktif müşterileri çek

@@ -24,6 +24,9 @@ interface SyncBody {
   ofisId: string;
   syncTipi: SyncTipi;
   musteriVkn: string;
+  /** GİB captcha çözümü — yeni sistemde zorunlu */
+  captchaDk: string;
+  captchaImageID: string;
   /** Yalnızca tebligat sync için — mükellefin kendi IVD bilgileri */
   ivdKullaniciKodu?: string;
   vknTckn?: string;
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        const tebCreds = { vknTckn, kullaniciKodu: ivdKullaniciKodu, sifre: ivdSifre };
+        const tebCreds = { vknTckn, kullaniciKodu: ivdKullaniciKodu, sifre: ivdSifre, captchaDk: body.captchaDk, captchaImageID: body.captchaImageID };
         sonuclar.tebligatlar = await fetchTebligatlar(tebCreds, musteriVkn);
       }
     }
@@ -141,6 +144,8 @@ export async function POST(req: NextRequest) {
         vknTckn: musteriVkn,
         kullaniciKodu: envKullanici,
         sifre: envSifre,
+        captchaDk: body.captchaDk,
+        captchaImageID: body.captchaImageID,
       };
 
       if (syncTipi === "beyanname" || syncTipi === "tumu") {

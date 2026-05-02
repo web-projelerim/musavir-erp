@@ -167,6 +167,13 @@ export default function AyarlarPage() {
   const [localGibLogs, setLocalGibLogs] = useState<GibSyncLog[]>([]);
   const [localIntegrationLogs, setLocalIntegrationLogs] = useState<EntegrasyonLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(false);
+  // Captcha modal state
+  const [captchaModal, setCaptchaModal] = useState(false);
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [captchaImageBase64, setCaptchaImageBase64] = useState("");
+  const [captchaImageID, setCaptchaImageID] = useState("");
+  const [captchaDk, setCaptchaDk] = useState("");
+  const [pendingSyncTipi, setPendingSyncTipi] = useState<GibSyncLog["syncTipi"] | null>(null);
 
   const sortedAuditLogs = useMemo(
     () => [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
@@ -407,7 +414,29 @@ export default function AyarlarPage() {
     }
   };
 
+  /** Önce captcha çeker, modalı açar — kullanıcı kodu girdikten sonra executeGibSync çağrılır */
   const handleManualGibSync = async (syncTipi: GibSyncLog["syncTipi"]) => {
+    setPendingSyncTipi(syncTipi);
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    setCaptchaModal(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+      setCaptchaModal(false);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  const executeGibSync = async (syncTipi: GibSyncLog["syncTipi"]) => {
     if (!gibDraftSafe) return;
 
     setSyncLoading(true);
@@ -459,6 +488,8 @@ export default function AyarlarPage() {
               vknTckn: musteri.vknTckn,
               encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
               musteriVkn: musteri.vknTckn,
+              captchaDk,
+              captchaImageID,
             }),
           });
           const data = await res.json();
@@ -493,6 +524,8 @@ export default function AyarlarPage() {
               vknTckn: gibDraftSafe.vknTckn,
               encryptedIvdSifre: encSifre,
               musteriVkn: musteri.vknTckn,
+              captchaDk,
+              captchaImageID,
             }),
           });
           const data = await res.json();
@@ -527,6 +560,8 @@ export default function AyarlarPage() {
               vknTckn: gibDraftSafe.vknTckn,
               encryptedIvdSifre: encSifre,
               musteriVkn: musteri.vknTckn,
+              captchaDk,
+              captchaImageID,
             }),
           });
           if (!res.ok) {
@@ -600,6 +635,33 @@ export default function AyarlarPage() {
       toast.warning("Senkron tamamlandı", "İşlem logu kaydedilemedi, ancak veriler güncellendi.");
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  /** Captcha modalındaki "Senkronize Et" butonuna basıldığında çağrılır */
+  const handleCaptchaConfirm = async () => {
+    if (!pendingSyncTipi || !captchaDk.trim()) return;
+    setCaptchaModal(false);
+    await executeGibSync(pendingSyncTipi);
+    setPendingSyncTipi(null);
+  };
+
+  /** Captcha modalında "Yenile" butonuna basıldığında yeni captcha çeker */
+  const handleRefreshCaptcha = async () => {
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+    } finally {
+      setCaptchaLoading(false);
     }
   };
 
@@ -1529,6 +1591,87 @@ export default function AyarlarPage() {
           )}
         </div>
       </div>
+
+      {/* ─── GİB Captcha Modal ─────────────────────────────────────────── */}
+      {captchaModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-slate-800">GİB Güvenlik Doğrulaması</h2>
+              <button
+                onClick={() => { setCaptchaModal(false); setPendingSyncTipi(null); }}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              GİB IVD sistemine bağlanmak için aşağıdaki güvenlik kodunu girin.
+            </p>
+
+            {/* Captcha görseli */}
+            <div className="flex flex-col items-center gap-3">
+              {captchaLoading ? (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : captchaImageBase64 ? (
+                <img
+                  src={`data:image/jpeg;base64,${captchaImageBase64}`}
+                  alt="GİB güvenlik kodu"
+                  className="rounded-lg border border-slate-200 h-16 object-contain"
+                />
+              ) : (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center text-xs text-slate-400">
+                  Captcha yüklenemedi
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleRefreshCaptcha}
+                disabled={captchaLoading}
+                className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+              >
+                Yenile
+              </button>
+            </div>
+
+            {/* Kod girişi */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Güvenlik Kodu
+              </label>
+              <Input
+                value={captchaDk}
+                onChange={(e) => setCaptchaDk(e.target.value)}
+                placeholder="Resimdeki kodu girin"
+                onKeyDown={(e) => { if (e.key === "Enter") handleCaptchaConfirm(); }}
+                autoFocus
+              />
+            </div>
+
+            {/* Aksiyon butonları */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setCaptchaModal(false); setPendingSyncTipi(null); }}
+              >
+                İptal
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!captchaDk.trim() || captchaLoading || syncLoading}
+                loading={syncLoading}
+                onClick={handleCaptchaConfirm}
+              >
+                Senkronize Et
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DavetModal open={showInviteModal} onClose={() => setShowInviteModal(false)} defaultRole="personel" />
     </div>

@@ -4,10 +4,12 @@ import "server-only";
  * GİB İnteraktif Vergi Dairesi (IVD) HTTP istemcisi.
  *
  * GİB'in kamuya açık resmi API'si bulunmamaktadır.
- * Bu dosya ivd.gib.gov.tr servis katmanına yönelik HTTP çağrılarını yönetir.
+ * Bu dosya intvrg.gib.gov.tr servis katmanına yönelik HTTP çağrılarını yönetir.
  *
- * Endpoint'ler GİB tarafından değiştirilebilir; değişiklik durumunda
- * yalnızca bu dosyayı güncellemeniz yeterlidir.
+ * ⚠️  GİB sistemi değişti (2024): Eski tvd_server/dispatch → intvrg_server/assos-login
+ * ⚠️  Login artık CAPTCHA gerektiriyor (assoscmd: multilogin).
+ *     Captcha'yı /api/gib/captcha endpoint'i üzerinden çekin,
+ *     kullanıcıya gösterin, çözümü bu client'a dk+imageID olarak iletin.
  */
 
 import type { Beyanname, BeyannameType, Tahakkuk, VergiTahakkukTuru, Tebligat } from "@/lib/types";
@@ -27,26 +29,78 @@ export interface IvdCredentials {
   vknTckn: string;
   kullaniciKodu: string;
   sifre: string;
-  /** GİB IVD internet parolası — bazı hesaplarda gereklidir (varsayılan: "1") */
-  parola?: string;
+  /** CAPTCHA çözümü — GİB yeni sistemde zorunlu */
+  captchaDk: string;
+  /** CAPTCHA görsel ID — /api/gib/captcha'dan alınır */
+  captchaImageID: string;
 }
 
-const BASE = "https://ivd.gib.gov.tr/tvd_server";
+export interface GibCaptcha {
+  imageID: string;
+  /** base64 encoded JPEG — <img src={`data:image/jpeg;base64,${...}`}> */
+  imageBase64: string;
+}
 
-/** IVD'ye giriş yapar, oturum token'ı döndürür */
+const BASE = "https://intvrg.gib.gov.tr";
+
+/**
+ * GİB'den captcha görselini çeker.
+ * Dönen imageID ve imageBase64'ü kullanıcıya gösterin,
+ * kullanıcının girdiği kodu dk olarak ivdLogin'e geçirin.
+ */
+export async function fetchGibCaptcha(): Promise<GibCaptcha> {
+  // 1. captchaImg.jsp → imageID (cid)
+  const imgPageRes = await fetch(`${BASE}/captcha/captchaImg.jsp`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Referer: `${BASE}/`,
+    },
+  });
+  const imgPageHtml = await imgPageRes.text();
+  const cidMatch = imgPageHtml.match(/value="([^"]+)"/);
+  if (!cidMatch) throw new Error("GİB captcha ID alınamadı");
+  const imageID = cidMatch[1];
+
+  // 2. Captcha görselini indir
+  const imgRes = await fetch(`${BASE}/captcha/jcaptcha?imageID=${imageID}`, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Referer: `${BASE}/`,
+    },
+  });
+  if (!imgRes.ok) throw new Error(`GİB captcha görseli alınamadı: HTTP ${imgRes.status}`);
+  const imgBuffer = await imgRes.arrayBuffer();
+  const imageBase64 = Buffer.from(imgBuffer).toString("base64");
+
+  return { imageID, imageBase64 };
+}
+
+/** IVD'ye captcha ile giriş yapar, oturum token'ı döndürür */
 async function ivdLogin(creds: IvdCredentials): Promise<string> {
+  if (!creds.captchaDk || !creds.captchaImageID) {
+    throw new Error(
+      "GİB IVD girişi için captcha gereklidir. " +
+      "/api/gib/captcha endpoint'inden captcha alıp kullanıcıya gösterin."
+    );
+  }
+
   const body = new URLSearchParams({
-    assoscmd: "anlogin",
+    assoscmd: "multilogin",
     rtype: "json",
     userid: creds.kullaniciKodu,
     sifre: creds.sifre,
-    sifre2: creds.sifre,
-    parola: creds.parola ?? "1",
+    parola: "maliye", // GİB sistem sabiti — değişmez
+    dk: creds.captchaDk,
+    imageID: creds.captchaImageID,
   });
 
-  const res = await fetch(`${BASE}/dispatch`, {
+  const res = await fetch(`${BASE}/intvrg_server/assos-login`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Referer: `${BASE}/`,
+    },
     body: body.toString(),
   });
 
@@ -54,11 +108,16 @@ async function ivdLogin(creds: IvdCredentials): Promise<string> {
 
   const json = await res.json().catch(() => null);
 
-  if (json?.sonuc === "0" || json?.error) {
-    throw new Error(json?.hata ?? json?.error ?? "IVD giriş başarısız — kullanıcı kodu veya şifre hatalı");
+  if (json?.error) {
+    const mesaj = json?.messages?.[0]?.text ?? json?.error;
+    // type 5 = captcha yanlış
+    if (json?.messages?.[0]?.type === "5") {
+      throw new Error(`Captcha hatalı: ${mesaj}`);
+    }
+    throw new Error(`IVD giriş başarısız: ${mesaj}`);
   }
 
-  const token: string = json?.token ?? json?.TknInfo?.Token ?? "";
+  const token: string = json?.token ?? "";
   if (!token) throw new Error("IVD oturum token'ı alınamadı");
   return token;
 }
@@ -70,11 +129,12 @@ export async function fetchTebligatlar(
 ): Promise<Omit<Tebligat, "id">[]> {
   const token = await ivdLogin(creds);
 
-  const res = await fetch(`${BASE}/dispatch`, {
+  const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     body: new URLSearchParams({
       assoscmd: "tebligat_liste",
@@ -106,11 +166,12 @@ export async function fetchBeyannameler(
 ): Promise<Omit<Beyanname, "id">[]> {
   const token = await ivdLogin(creds);
 
-  const res = await fetch(`${BASE}/dispatch`, {
+  const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     body: new URLSearchParams({
       assoscmd: "beyanname_liste",
@@ -141,8 +202,7 @@ export async function fetchBeyannameler(
   }));
 }
 
-/** Vergi borç/tahakkuk listesini çeker (borc_listesi endpoint'i).
- *  Dönen kayıtlarda ofisId yoktur — caller inject etmelidir. */
+/** Vergi borç/tahakkuk listesini çeker */
 export async function fetchBorcListesi(
   creds: IvdCredentials,
   musteriVkn?: string
@@ -150,11 +210,12 @@ export async function fetchBorcListesi(
   const token = await ivdLogin(creds);
   const vkn = musteriVkn ?? creds.vknTckn;
 
-  const res = await fetch(`${BASE}/dispatch`, {
+  const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     body: new URLSearchParams({
       assoscmd: "borc_listesi",
@@ -202,11 +263,12 @@ export async function fetchMukellefDurumu(
 ): Promise<{ aktif: boolean; vergiDairesi?: string; mesaj?: string }> {
   const token = await ivdLogin(creds);
 
-  const res = await fetch(`${BASE}/dispatch`, {
+  const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Token: token,
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     },
     body: new URLSearchParams({
       assoscmd: "mukellef_durum",

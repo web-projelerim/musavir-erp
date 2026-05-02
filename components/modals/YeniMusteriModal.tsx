@@ -126,7 +126,9 @@ function VergiSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none w-full bg-rose-500 text-white rounded-lg pl-3 pr-7 py-1.5 text-xs font-medium cursor-pointer border-none outline-none"
+        className={`appearance-none w-full text-white rounded-lg pl-3 pr-7 py-1.5 text-xs font-medium cursor-pointer border-none outline-none ${
+          value === "mukellef" ? "bg-emerald-500" : "bg-rose-500"
+        }`}
       >
         {VERGI_TURU_SECENEKLER.map((o) => (
           <option key={o.value} value={o.value}>

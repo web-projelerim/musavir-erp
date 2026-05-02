@@ -117,13 +117,13 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     return { ...data, id: snapshot.id };
   }
 
-  // No Firestore doc — signUp flow didn't complete. Return an in-memory musavir fallback;
-  // signUp's own setDoc is responsible for persisting the real user document.
+  // No Firestore doc — signUp flow didn't complete. Return an in-memory musavir fallback.
+  // ofisId = müşavirin kendi Firebase uid'si (prefix'siz) — signUp ile tutarlı.
   const displayName = firebaseUser.displayName ?? "";
   const [ad = "Kullanici", soyad = ""] = displayName.split(" ");
   return {
     id: firebaseUser.uid,
-    ofisId: `ofis-${firebaseUser.uid}`,
+    ofisId: firebaseUser.uid,
     ad,
     soyad,
     email: firebaseUser.email ?? "",
@@ -203,10 +203,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: `${ad} ${soyad}`.trim(),
       });
 
-      // For self-registering müşavirler, generate a unique ofis.
+      // Müşavir kendi kaydoluyorsa ofisId = kendi Firebase uid'si (prefix'siz).
+      // Personel/mükellef davetinden geliyorsa ofisId = davet.ofisId (müşavirin uid'si).
       const resolvedOfisId = rol === "musavir" && !ofisId
-        ? `ofis-${credential.user.uid}`
-        : (ofisId ?? "ofis-default");
+        ? credential.user.uid
+        : (ofisId ?? credential.user.uid);
 
       if (rol === "musavir" && !ofisId) {
         const ofisDoc: Ofis = {

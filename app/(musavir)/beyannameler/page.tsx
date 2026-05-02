@@ -11,6 +11,8 @@ import {
   Clock,
   RotateCcw,
   Shield,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -31,12 +33,13 @@ import { Input, Select } from "@/components/ui/Input";
 import { YeniBeyanameModal } from "@/components/modals/YeniBeyanameModal";
 import { UcOnayModal, type UcOnayAdim } from "@/components/modals/UcOnayModal";
 import { useToast } from "@/lib/context/ToastContext";
+import { useAuth } from "@/lib/context/AuthContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
-import { updateBeyannameWorkflow } from "@/lib/firebase/repositories";
+import { updateBeyannameWorkflow, upsertBeyannameFromGib } from "@/lib/firebase/repositories";
 import {
   beyanWorkflowLabel,
   beyanWorkflowVariant,
@@ -68,8 +71,9 @@ function sonTarihUyari(sonTarih: string): "gecikti" | "yaklasan" | "normal" {
 
 export default function BeyannamellerPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const logAudit = useAuditLog();
-  const { beyannameler: loadedBeyanlar, musteriler, loading } = useAppData();
+  const { beyannameler: loadedBeyanlar, musteriler, gibEntegrasyonAyarlari, loading } = useAppData();
 
   const [beyanlar, setBeyanlar] = useState<Beyanname[]>(loadedBeyanlar);
   const [showModal, setShowModal] = useState(false);
@@ -81,11 +85,129 @@ export default function BeyannamellerPage() {
   const [onayBekleyen, setOnayBekleyen] = useState<Beyanname | null>(null);
   const [onayTip, setOnayTip] = useState<"gonder" | "duzelt" | null>(null);
 
+  // GİB sync state
+  const [captchaModal, setCaptchaModal] = useState(false);
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [captchaImageBase64, setCaptchaImageBase64] = useState("");
+  const [captchaImageID, setCaptchaImageID] = useState("");
+  const [captchaDk, setCaptchaDk] = useState("");
+  const [gibSyncLoading, setGibSyncLoading] = useState(false);
+  const [gibSyncProgress, setGibSyncProgress] = useState("");
+
   useEffect(() => {
     setBeyanlar(loadedBeyanlar);
   }, [loadedBeyanlar]);
 
   if (loading) return <PageLoading />;
+
+  /* ── GİB Beyanname Sync ── */
+  const handleGibSync = async () => {
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    setCaptchaModal(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+      setCaptchaModal(false);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  const handleRefreshCaptcha = async () => {
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  const executeGibSync = async () => {
+    setCaptchaModal(false);
+    setGibSyncLoading(true);
+
+    const ofisId = gibEntegrasyonAyarlari[0]?.ofisId ?? user?.ofisId ?? "";
+    const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
+
+    if (aktifMusteriler.length === 0) {
+      toast.warning("Aktif müşteri bulunamadı", "Beyanname çekmek için VKN'li aktif müşteri gerekli");
+      setGibSyncLoading(false);
+      return;
+    }
+
+    let toplamKayit = 0;
+    let hataSayisi = 0;
+
+    for (let i = 0; i < aktifMusteriler.length; i++) {
+      const musteri = aktifMusteriler[i];
+      setGibSyncProgress(`${musteri.firmaAdi} (${i + 1}/${aktifMusteriler.length})`);
+
+      try {
+        const res = await fetch("/api/gib/sync", {
+          method: "POST",
+          headers: await authHeaders(),
+          body: JSON.stringify({
+            ofisId,
+            syncTipi: "beyanname",
+            musteriVkn: musteri.vknTckn,
+            captchaDk,
+            captchaImageID,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          console.warn(`[GİB Beyanname] ${musteri.firmaAdi}:`, data.error);
+          hataSayisi++;
+          continue;
+        }
+        const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
+          ...b,
+          ofisId,
+          musteriId: musteri.id,
+          musteriAdi: musteri.firmaAdi,
+        }));
+        toplamKayit += beyannameler.length;
+        type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
+        await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
+      } catch (err) {
+        console.warn(`[GİB Beyanname] ${musteri.firmaAdi}:`, err);
+        hataSayisi++;
+      }
+    }
+
+    setGibSyncLoading(false);
+    setGibSyncProgress("");
+
+    if (hataSayisi === 0) {
+      toast.success("GİB sync tamamlandı", `${toplamKayit} beyanname Firestore'a yazıldı`);
+    } else if (toplamKayit > 0) {
+      toast.warning("Kısmi sync", `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`);
+    } else {
+      toast.error("GİB sync başarısız", "Captcha hatalı ya da env kimlik bilgileri eksik");
+    }
+  };
+
+  const handleCaptchaConfirm = async () => {
+    if (!captchaDk.trim()) return;
+    await executeGibSync();
+  };
 
   const gonderAdimlar: [UcOnayAdim, UcOnayAdim, UcOnayAdim] = [
     {
@@ -239,13 +361,30 @@ export default function BeyannamellerPage() {
         title="Beyannameler"
         subtitle="Tüm beyannameleri takip edin, iş akışını yönetin"
         action={
-          <Button
-            size="sm"
-            icon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => setShowModal(true)}
-          >
-            Yeni Beyanname
-          </Button>
+          <div className="flex items-center gap-2">
+            {gibSyncLoading && gibSyncProgress && (
+              <span className="text-xs text-slate-500 hidden sm:block truncate max-w-[160px]">
+                {gibSyncProgress}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<RefreshCw className={`w-3.5 h-3.5 ${gibSyncLoading ? "animate-spin" : ""}`} />}
+              loading={gibSyncLoading}
+              onClick={handleGibSync}
+              title="GİB IVD'den beyannameleri çek"
+            >
+              GİB Getir
+            </Button>
+            <Button
+              size="sm"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => setShowModal(true)}
+            >
+              Yeni Beyanname
+            </Button>
+          </div>
         }
       />
 
@@ -496,6 +635,83 @@ export default function BeyannamellerPage() {
             setOnayTip(null);
           }}
         />
+      )}
+
+      {/* ─── GİB Captcha Modal ─────────────────────────────────────────── */}
+      {captchaModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-800">GİB Güvenlik Doğrulaması</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Beyannameleri çekmek için kodu girin</p>
+              </div>
+              <button
+                onClick={() => setCaptchaModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Captcha görseli */}
+            <div className="flex flex-col items-center gap-3">
+              {captchaLoading ? (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : captchaImageBase64 ? (
+                <img
+                  src={`data:image/jpeg;base64,${captchaImageBase64}`}
+                  alt="GİB güvenlik kodu"
+                  className="rounded-lg border border-slate-200 h-16 object-contain"
+                />
+              ) : (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center text-xs text-slate-400">
+                  Captcha yüklenemedi
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleRefreshCaptcha}
+                disabled={captchaLoading}
+                className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+              >
+                Yenile
+              </button>
+            </div>
+
+            {/* Kod girişi */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Güvenlik Kodu</label>
+              <Input
+                value={captchaDk}
+                onChange={(e) => setCaptchaDk(e.target.value)}
+                placeholder="Resimdeki kodu girin"
+                onKeyDown={(e) => { if (e.key === "Enter") handleCaptchaConfirm(); }}
+                autoFocus
+              />
+            </div>
+
+            {/* Butonlar */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setCaptchaModal(false)}
+              >
+                İptal
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!captchaDk.trim() || captchaLoading}
+                onClick={handleCaptchaConfirm}
+              >
+                Beyanname Getir
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

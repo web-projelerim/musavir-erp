@@ -91,9 +91,10 @@ export default function GirisPage() {
     setAuthMode(nextMode);
     setError(null);
     setShowPass(false);
-    setPassword(nextMode === "login" ? "sifre123" : "");
+    // Demo değerleri yalnızca Firebase yapılandırılmadığında öner
+    setPassword(!isFirebaseReady && nextMode === "login" ? "sifre123" : "");
     setConfirmPassword("");
-    setEmail(nextMode === "login" ? "ali@musavir.com" : "");
+    setEmail(!isFirebaseReady && nextMode === "login" ? "ali@musavir.com" : "");
   };
 
   const handleForgotPassword = async () => {
@@ -303,8 +304,8 @@ export default function GirisPage() {
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs text-red-200 leading-relaxed">{error}</p>
-                    {/* Kullanıcı bulunamadıysa kayıt ol yönlendirmesi */}
-                    {error.includes("kayıtlı") && authMode === "login" && (
+                    {/* Kullanıcı bulunamadıysa veya hatalı kimlik bilgisi girildiyse kayıt ol yönlendirmesi */}
+                    {(error.includes("kayıtlı") || error.includes("hatalı")) && authMode === "login" && (
                       <button
                         type="button"
                         onClick={toggleAuthMode}
@@ -328,10 +329,20 @@ export default function GirisPage() {
               </div>
             )}
 
-            {!isFirebaseReady && (
+            {!isFirebaseReady ? (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
                 <p className="text-xs text-amber-100">
                   Firebase env bilgileri girilmediği için demo oturum modu aktif.
+                </p>
+              </div>
+            ) : authMode === "login" && (
+              <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-3">
+                <p className="text-xs text-slate-400">
+                  İlk kez giriş yapıyorsanız{" "}
+                  <button type="button" onClick={toggleAuthMode} className="text-blue-400 underline hover:text-blue-300">
+                    kayıt olun
+                  </button>{" "}
+                  — hesabınız yoksa giriş yapılamaz.
                 </p>
               </div>
             )}

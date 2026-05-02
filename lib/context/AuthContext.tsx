@@ -110,7 +110,20 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     return fallbackUserFromEmail(firebaseUser.email ?? "", firebaseUser.uid);
   }
 
-  const snapshot = await getDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid));
+  // Firestore yanıt vermezse 6 saniye sonra fallback kullanıcıya geç —
+  // bu sayede "Oturum kontrol ediliyor..." ekranında takılma olmaz.
+  let snapshot;
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("firestore-timeout")), 6000)
+    );
+    snapshot = await Promise.race([
+      getDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid)),
+      timeoutPromise,
+    ]);
+  } catch {
+    return fallbackUserFromEmail(firebaseUser.email ?? "", firebaseUser.uid);
+  }
 
   if (snapshot.exists()) {
     const data = snapshot.data() as User;

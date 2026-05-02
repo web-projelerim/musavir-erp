@@ -5,7 +5,6 @@ import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { mergeDerivedVergiTahakkuklari } from "@/lib/domain/tahakkuk";
 import { useCollectionData } from "@/lib/hooks/useCollectionData";
 import { useDocumentData } from "@/lib/hooks/useDocumentData";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { useAuth } from "@/lib/context/AuthContext";
 import type {
   AuditLog,
@@ -40,7 +39,7 @@ import type {
 
 export function useAppData() {
   const { user, loading: authLoading } = useAuth();
-  const enabled = !isFirebaseConfigured || (!authLoading && !!user);
+  const enabled = !authLoading && !!user;
   const ofisId = user?.ofisId;
   const isMukellef = user?.rol === "mukellef";
 

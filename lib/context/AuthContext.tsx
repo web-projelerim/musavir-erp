@@ -18,23 +18,20 @@ import {
   type User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { firebaseAuth, firestoreDb, isFirebaseConfigured } from "@/lib/firebase/client";
+import { firebaseAuth, firestoreDb } from "@/lib/firebase/client";
 import { withoutUndefined } from "@/lib/firebase/firestore";
 import type { KullaniciYetki, Ofis, User, UserRole } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  isFirebaseReady: boolean;
   signIn: (email: string, password: string) => Promise<User>;
-  signInDemo: (email: string) => User;
   signUp: (input: SignUpInput) => Promise<User>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const DEMO_USER_KEY = "musavir-erp-demo-user";
 
 interface SignUpInput {
   ad: string;
@@ -48,60 +45,18 @@ interface SignUpInput {
   yetkiler?: KullaniciYetki[];
 }
 
-const demoUsers: Record<string, User> = {
-  "ali@musavir.com": {
-    id: "demo-musavir",
-    ofisId: "ofis-default",
-    ad: "Ali",
-    soyad: "Musavir",
-    email: "ali@musavir.com",
-    rol: "musavir",
-    aktif: true,
-    createdAt: new Date().toISOString(),
-  },
-  "selin@musavir.com": {
-    id: "demo-personel",
-    ofisId: "ofis-default",
-    ad: "Selin",
-    soyad: "Kaya",
-    email: "selin@musavir.com",
-    rol: "personel",
-    aktif: true,
-    createdAt: new Date().toISOString(),
-  },
-  "ahmet@akdeniz.com": {
-    id: "demo-mukellef",
-    ofisId: "ofis-default",
-    ad: "Ahmet",
-    soyad: "Yilmaz",
-    email: "ahmet@akdeniz.com",
-    rol: "mukellef",
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    musteriId: "m1",
-  },
-};
-
-function inferRole(email: string): UserRole {
-  if (email === "ali@musavir.com") return "musavir";
-  if (email.endsWith("@musavir.com")) return "personel";
-  return "mukellef";
-}
-
-function fallbackUserFromEmail(email: string, uid = `demo-${email}`): User {
+/** Firestore zaman aşımı veya belge eksik olduğunda kullanılan güvenli fallback */
+function fallbackUserFromEmail(email: string, uid: string): User {
   const [namePart] = email.split("@");
-  const role = inferRole(email);
-
   return {
     id: uid,
-    ofisId: "ofis-default",
+    ofisId: uid,
     ad: namePart || "Kullanici",
     soyad: "",
     email,
-    rol: role,
+    rol: "musavir",
     aktif: true,
     createdAt: new Date().toISOString(),
-    musteriId: role === "mukellef" ? "m1" : undefined,
   };
 }
 
@@ -133,7 +88,6 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     // aslında bir müşavirdir — yanlış rol atanmış. Bellekte ve Firestore'da düzelt.
     if (appUser.rol === "mukellef" && !appUser.musteriId) {
       const corrected: User = { ...appUser, rol: "musavir" };
-      // Firestore'a kalıcı yaz (sessizce, hata olursa ignore et)
       setDoc(
         doc(firestoreDb, "kullanicilar", firebaseUser.uid),
         { rol: "musavir" },
@@ -145,8 +99,7 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     return appUser;
   }
 
-  // No Firestore doc — signUp flow didn't complete. Return an in-memory musavir fallback.
-  // ofisId = müşavirin kendi Firebase uid'si (prefix'siz) — signUp ile tutarlı.
+  // Firestore belgesi yok — signUp akışı tamamlanmamış. Bellekte müşavir fallback döndür.
   const displayName = firebaseUser.displayName ?? "";
   const [ad = "Kullanici", soyad = ""] = displayName.split(" ");
   return {
@@ -167,9 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!firebaseAuth) {
-      const storedUser =
-        typeof window !== "undefined" ? window.localStorage.getItem(DEMO_USER_KEY) : null;
-      setUser(storedUser ? (JSON.parse(storedUser) as User) : null);
+      console.error("[Auth] Firebase yapılandırılmamış — NEXT_PUBLIC_FIREBASE_* env değişkenlerini kontrol edin");
       setLoading(false);
       return;
     }
@@ -191,25 +142,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (firebaseAuth) {
-      const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      const appUser = await resolveAppUser(credential.user);
-      setUser(appUser);
-      return appUser;
-    }
-
-    const demoUser = demoUsers[email] ?? fallbackUserFromEmail(email);
-    window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
-    setUser(demoUser);
-    return demoUser;
-  }, []);
-
-  // Firebase bypass — her zaman localStorage demo kullanıcısını yükler
-  const signInDemo = useCallback((email: string) => {
-    const demoUser = demoUsers[email] ?? fallbackUserFromEmail(email);
-    window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
-    setUser(demoUser);
-    return demoUser;
+    if (!firebaseAuth) throw new Error("Firebase yapılandırılmamış");
+    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+    const appUser = await resolveAppUser(credential.user);
+    setUser(appUser);
+    return appUser;
   }, []);
 
   const signUp = useCallback(async ({
@@ -223,54 +160,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     davetId,
     yetkiler,
   }: SignUpInput) => {
+    if (!firebaseAuth || !firestoreDb) throw new Error("Firebase yapılandırılmamış");
     const createdAt = new Date().toISOString();
 
-    if (firebaseAuth && firestoreDb) {
-      const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      await updateProfile(credential.user, {
-        displayName: `${ad} ${soyad}`.trim(),
-      });
+    const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+    await updateProfile(credential.user, {
+      displayName: `${ad} ${soyad}`.trim(),
+    });
 
-      // Müşavir kendi kaydoluyorsa ofisId = kendi Firebase uid'si (prefix'siz).
-      // Personel/mükellef davetinden geliyorsa ofisId = davet.ofisId (müşavirin uid'si).
-      const resolvedOfisId = rol === "musavir" && !ofisId
-        ? credential.user.uid
-        : (ofisId ?? credential.user.uid);
+    const resolvedOfisId = rol === "musavir" && !ofisId
+      ? credential.user.uid
+      : (ofisId ?? credential.user.uid);
 
-      if (rol === "musavir" && !ofisId) {
-        const ofisDoc: Ofis = {
-          id: resolvedOfisId,
-          unvan: `${ad} ${soyad}`.trim(),
-          whatsappDurum: "pasif",
-          gibDurum: "pasif",
-          createdAt,
-        };
-        await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
-      }
-
-      // Firestore undefined değer kabul etmez — sadece tanımlı alanları yaz
-      const appUser: User = {
-        id: credential.user.uid,
-        ofisId: resolvedOfisId,
-        ad,
-        soyad,
-        email,
-        rol,
-        aktif: true,
+    if (rol === "musavir" && !ofisId) {
+      const ofisDoc: Ofis = {
+        id: resolvedOfisId,
+        unvan: `${ad} ${soyad}`.trim(),
+        whatsappDurum: "pasif",
+        gibDurum: "pasif",
         createdAt,
-        ...(yetkiler?.length ? { yetkiler } : {}),
-        ...(musteriId ? { musteriId } : {}),
-        ...(davetId ? { davetId } : {}),
       };
-
-      await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), withoutUndefined(appUser));
-      setUser(appUser);
-      return appUser;
+      await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
     }
 
-    const demoUser: User = {
-      id: `demo-${Date.now()}`,
-      ofisId: ofisId ?? "ofis-default",
+    const appUser: User = {
+      id: credential.user.uid,
+      ofisId: resolvedOfisId,
       ad,
       soyad,
       email,
@@ -281,16 +196,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(musteriId ? { musteriId } : {}),
       ...(davetId ? { davetId } : {}),
     };
-    window.localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
-    setUser(demoUser);
-    return demoUser;
+
+    await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), withoutUndefined(appUser));
+    setUser(appUser);
+    return appUser;
   }, []);
 
   const signOut = useCallback(async () => {
-    if (firebaseAuth) {
-      await firebaseSignOut(firebaseAuth);
-    }
-    window.localStorage.removeItem(DEMO_USER_KEY);
+    if (firebaseAuth) await firebaseSignOut(firebaseAuth);
     setUser(null);
   }, []);
 
@@ -300,17 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      loading,
-      isFirebaseReady: isFirebaseConfigured,
-      signIn,
-      signInDemo,
-      signUp,
-      signOut,
-      resetPassword,
-    }),
-    [loading, resetPassword, signIn, signInDemo, signOut, signUp, user]
+    () => ({ user, loading, signIn, signUp, signOut, resetPassword }),
+    [loading, resetPassword, signIn, signOut, signUp, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

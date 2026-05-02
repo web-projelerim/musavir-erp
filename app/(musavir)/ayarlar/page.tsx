@@ -20,7 +20,7 @@ import {
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { isMusavir } from "@/lib/utils/permissions";
-import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
+import { authHeaders } from "@/lib/firebase/client";
 import {
   createAuditLog,
   createEntegrasyonLog,
@@ -33,7 +33,6 @@ import {
   upsertTebligatFromGib,
   upsertWhatsAppEntegrasyonAyari,
 } from "@/lib/firebase/repositories";
-import { seedFirebaseMockData } from "@/lib/firebase/seed";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
@@ -41,7 +40,6 @@ import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErro
 import type {
   AuditAction,
   EntegrasyonDurum,
-  EntegrasyonLog,
   GibEntegrasyonAyari,
   GibSyncLog,
   GonderimKaydi,
@@ -132,7 +130,6 @@ export default function AyarlarPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("entegrasyon");
   const [activeIntegration, setActiveIntegration] = useState<IntegrationPanel>("gib");
-  const [seeding, setSeeding] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const {
     auditLogs,
@@ -164,8 +161,6 @@ export default function AyarlarPage() {
   // Sunucu tarafında şifrelenmiş haller — Firestore'a bunlar yazılır
   const [encryptedGibSecrets, setEncryptedGibSecrets] = useState<Record<string, string>>({});
   const [lucaSecret, setLucaSecret] = useState("");
-  const [localGibLogs, setLocalGibLogs] = useState<GibSyncLog[]>([]);
-  const [localIntegrationLogs, setLocalIntegrationLogs] = useState<EntegrasyonLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(false);
   // Captcha modal state
   const [captchaModal, setCaptchaModal] = useState(false);
@@ -194,14 +189,6 @@ export default function AyarlarPage() {
       setWaDraft({ businessPhoneNumberId: wa.businessPhoneNumberId ?? "", accessTokenGirildi: wa.accessTokenSet });
     }
   }, [whatsappEntegrasyonAyarlari]);
-
-  useEffect(() => {
-    setLocalGibLogs(gibSyncLogs);
-  }, [gibSyncLogs]);
-
-  useEffect(() => {
-    setLocalIntegrationLogs(entegrasyonLoglari);
-  }, [entegrasyonLoglari]);
 
   const selectedOfis = ofisler[0];
   // gibDraft and lucaDraft may be null; all usage below checks for null before reading
@@ -246,42 +233,6 @@ export default function AyarlarPage() {
     },
   ];
 
-  const addIntegrationLogLocal = (entry: EntegrasyonLog) => {
-    setLocalIntegrationLogs((prev) => [entry, ...prev].slice(0, 20));
-  };
-
-  const addGibSyncLogLocal = (entry: GibSyncLog) => {
-    setLocalGibLogs((prev) => [entry, ...prev].slice(0, 20));
-  };
-
-  const handleSeedFirebase = async () => {
-    if (!isFirebaseConfigured) {
-      toast.warning("Firebase yapılandırması yok", ".env.local dosyasına Firebase bilgilerini ekleyin");
-      return;
-    }
-
-    setSeeding(true);
-    try {
-      await seedFirebaseMockData();
-      await createAuditLog({
-        actorId: user?.id ?? "demo-musavir",
-        actorName: user ? `${user.ad} ${user.soyad}` : "Demo Müşavir",
-        actorRole: "musavir",
-        action: "seed",
-        entityType: "sistem",
-        entityId: "firebase-seed",
-        entityLabel: "Demo veri",
-        summary: "Demo veri Firestore'a aktarıldı",
-      });
-      toast.success("Demo veri Firestore'a aktarıldı");
-    } catch (error) {
-      console.error(error);
-      toast.error("Demo veri aktarılamadı", "Firestore yetkilerini ve Firebase ayarlarını kontrol edin");
-    } finally {
-      setSeeding(false);
-    }
-  };
-
   const handleSaveGib = async () => {
     if (!gibDraftSafe) return;
 
@@ -323,31 +274,17 @@ export default function AyarlarPage() {
     setGibSecrets({ ivdSifre: "", ebeyannameParola: "", ebeyannameSifre: "" });
 
     try {
-      if (isFirebaseConfigured) {
-        // Şifreli secret'ları ve metadata'yı birlikte Firestore'a yaz
-        await upsertGibEntegrasyonAyari(next);
-        await createEntegrasyonLog({
-          ofisId: next.ofisId,
-          entegrasyon: "gib",
-          islem: "kaydet",
-          durum: "basarili",
-          detay: hasNewSecrets
-            ? "GİB kimlik bilgileri sunucu tarafında şifrelenerek kaydedildi."
-            : "GİB ayar metadata'sı güncellendi.",
-          createdBy: user?.id ?? "musavir",
-        });
-      } else {
-        addIntegrationLogLocal({
-          id: `elog-local-${Date.now()}`,
-          ofisId: next.ofisId,
-          entegrasyon: "gib",
-          islem: "kaydet",
-          durum: "basarili",
-          detay: "Demo modunda GİB ayarları güncellendi.",
-          createdBy: user?.id ?? "demo-musavir",
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await upsertGibEntegrasyonAyari(next);
+      await createEntegrasyonLog({
+        ofisId: next.ofisId,
+        entegrasyon: "gib",
+        islem: "kaydet",
+        durum: "basarili",
+        detay: hasNewSecrets
+          ? "GİB kimlik bilgileri sunucu tarafında şifrelenerek kaydedildi."
+          : "GİB ayar metadata'sı güncellendi.",
+        createdBy: user?.id ?? "",
+      });
       toast.success("GİB ayarları kaydedildi", hasNewSecrets ? "Kimlik bilgileri şifrelenerek saklandı" : "Ayarlar güncellendi");
     } catch (error) {
       console.error(error);
@@ -371,7 +308,7 @@ export default function AyarlarPage() {
       durum: success ? "bagli" : "eksik",
       sonTestTarihi: new Date().toISOString(),
       sonHata: success ? undefined : "Kimlik veya şifre alanları eksik",
-      updatedBy: user?.id ?? "demo-musavir",
+      updatedBy: user?.id ?? "",
       updatedAt: new Date().toISOString(),
     };
     setGibDraft(next);
@@ -381,28 +318,15 @@ export default function AyarlarPage() {
       : "GİB bağlantı testi için VKN/TCKN ve şifre set alanları eksik.";
 
     try {
-      if (isFirebaseConfigured) {
-        await upsertGibEntegrasyonAyari(next);
-        await createEntegrasyonLog({
-          ofisId: next.ofisId,
-          entegrasyon: "gib",
-          islem: "test",
-          durum: success ? "basarili" : "basarisiz",
-          detay: logDetail,
-          createdBy: user?.id ?? "demo-musavir",
-        });
-      } else {
-        addIntegrationLogLocal({
-          id: `elog-local-${Date.now()}`,
-          ofisId: next.ofisId,
-          entegrasyon: "gib",
-          islem: "test",
-          durum: success ? "basarili" : "basarisiz",
-          detay: logDetail,
-          createdBy: user?.id ?? "demo-musavir",
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await upsertGibEntegrasyonAyari(next);
+      await createEntegrasyonLog({
+        ofisId: next.ofisId,
+        entegrasyon: "gib",
+        islem: "test",
+        durum: success ? "basarili" : "basarisiz",
+        detay: logDetail,
+        createdBy: user?.id ?? "",
+      });
       if (success) {
         toast.success("GİB bağlantı testi başarılı");
       } else {
@@ -504,10 +428,8 @@ export default function AyarlarPage() {
             musteriAdi: musteri.firmaAdi,
           }));
           islenenKayitSayisi += tebligatlar.length;
-          if (isFirebaseConfigured) {
-            type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
-            await Promise.all((tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)));
-          }
+          type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
+          await Promise.all((tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)));
         }
       }
 
@@ -540,10 +462,8 @@ export default function AyarlarPage() {
             musteriAdi: musteri.firmaAdi,
           }));
           islenenKayitSayisi += beyannameler.length;
-          if (isFirebaseConfigured) {
-            type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
-            await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
-          }
+          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
+          await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
         }
       }
 
@@ -586,10 +506,8 @@ export default function AyarlarPage() {
       bitisTarihi: new Date().toISOString(),
       islenenKayitSayisi,
       hataMesaji: sonHata,
-      createdBy: user?.id ?? "musavir",
+      createdBy: user?.id ?? "",
     };
-
-    addGibSyncLogLocal(entry);
 
     const next = {
       ...gibDraftSafe,
@@ -597,36 +515,23 @@ export default function AyarlarPage() {
       sonHata: syncDurum === "basarisiz" ? sonHata : undefined,
       durum: syncDurum === "basarili" ? ("bagli" as const) : ("hata" as const),
       updatedAt: new Date().toISOString(),
-      updatedBy: user?.id ?? "musavir",
+      updatedBy: user?.id ?? "",
     };
     setGibDraft(next);
 
     try {
-      if (isFirebaseConfigured) {
-        await createGibSyncLog(entry);
-        await upsertGibEntegrasyonAyari(next);
-        await createEntegrasyonLog({
-          ofisId: gibDraftSafe.ofisId,
-          entegrasyon: "gib",
-          islem: "manuel_sync",
-          durum: syncDurum,
-          detay: syncDurum === "basarili"
-            ? `${syncTipi} senkronu tamamlandı — ${islenenKayitSayisi} kayıt işlendi`
-            : `${syncTipi} senkronu başarısız: ${sonHata}`,
-          createdBy: user?.id ?? "musavir",
-        });
-      } else {
-        addIntegrationLogLocal({
-          id: `elog-local-${Date.now()}`,
-          ofisId: gibDraftSafe.ofisId,
-          entegrasyon: "gib",
-          islem: "manuel_sync",
-          durum: syncDurum,
-          detay: `${syncTipi} senkronu ${syncDurum === "basarili" ? "tamamlandı" : "başarısız"}`,
-          createdBy: user?.id ?? "demo-musavir",
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await createGibSyncLog(entry);
+      await upsertGibEntegrasyonAyari(next);
+      await createEntegrasyonLog({
+        ofisId: gibDraftSafe.ofisId,
+        entegrasyon: "gib",
+        islem: "manuel_sync",
+        durum: syncDurum,
+        detay: syncDurum === "basarili"
+          ? `${syncTipi} senkronu tamamlandı — ${islenenKayitSayisi} kayıt işlendi`
+          : `${syncTipi} senkronu başarısız: ${sonHata}`,
+        createdBy: user?.id ?? "",
+      });
       if (syncDurum === "basarili") {
         toast.success(`GİB ${syncTipi} senkronu tamamlandı`, `${islenenKayitSayisi} kayıt işlendi`);
       }
@@ -673,35 +578,22 @@ export default function AyarlarPage() {
       adminSifreSet: lucaDraftSafe.adminSifreSet || Boolean(lucaSecret),
       durum: (lucaDraftSafe.uyeNo && lucaDraftSafe.adminKullaniciAdi ? "test_edilmedi" : "eksik") as LucaEntegrasyonAyari["durum"],
       updatedAt: new Date().toISOString(),
-      updatedBy: user?.id ?? "demo-musavir",
+      updatedBy: user?.id ?? "",
     };
 
     setLucaDraft(next);
     setLucaSecret("");
 
     try {
-      if (isFirebaseConfigured) {
-        await upsertLucaEntegrasyonAyari(next);
-        await createEntegrasyonLog({
-          ofisId: next.ofisId,
-          entegrasyon: "luca",
-          islem: "kaydet",
-          durum: "basarili",
-          detay: "Luca import/export metadata ayarları güncellendi.",
-          createdBy: user?.id ?? "demo-musavir",
-        });
-      } else {
-        addIntegrationLogLocal({
-          id: `elog-local-${Date.now()}`,
-          ofisId: next.ofisId,
-          entegrasyon: "luca",
-          islem: "kaydet",
-          durum: "basarili",
-          detay: "Demo modunda Luca import/export ayarları güncellendi.",
-          createdBy: user?.id ?? "demo-musavir",
-          createdAt: new Date().toISOString(),
-        });
-      }
+      await upsertLucaEntegrasyonAyari(next);
+      await createEntegrasyonLog({
+        ofisId: next.ofisId,
+        entegrasyon: "luca",
+        islem: "kaydet",
+        durum: "basarili",
+        detay: "Luca import/export metadata ayarları güncellendi.",
+        createdBy: user?.id ?? "",
+      });
       toast.success("Luca ayarları güncellendi");
     } catch (error) {
       console.error(error);
@@ -745,14 +637,12 @@ export default function AyarlarPage() {
       const data = await res.json();
       const basarili = res.status !== 501 && data.basarili > 0;
 
-      if (isFirebaseConfigured) {
-        await updateGonderimKaydi(kayit.id, {
-          durum: basarili ? "gonderildi" : "basarisiz",
-          denemeSayisi: kayit.denemeSayisi + 1,
-          sentAt: basarili ? new Date().toISOString() : undefined,
-          hataMesaji: basarili ? undefined : (data.results?.[0]?.hataMesaji ?? "Bilinmeyen hata"),
-        });
-      }
+      await updateGonderimKaydi(kayit.id, {
+        durum: basarili ? "gonderildi" : "basarisiz",
+        denemeSayisi: kayit.denemeSayisi + 1,
+        sentAt: basarili ? new Date().toISOString() : undefined,
+        hataMesaji: basarili ? undefined : (data.results?.[0]?.hataMesaji ?? "Bilinmeyen hata"),
+      });
 
       if (basarili) {
         toast.success("Mesaj yeniden gönderildi", musteri.firmaAdi);
@@ -768,7 +658,7 @@ export default function AyarlarPage() {
 
   const handleSaveWhatsApp = async () => {
     setWaSaving(true);
-    const ofisId = whatsappEntegrasyonAyarlari[0]?.ofisId ?? gibDraftSafe?.ofisId ?? "ofis-default";
+    const ofisId = whatsappEntegrasyonAyarlari[0]?.ofisId ?? gibDraftSafe?.ofisId ?? "";
     const existing = whatsappEntegrasyonAyarlari[0];
     const next: Omit<WhatsAppEntegrasyonAyari, "updatedAt"> = {
       id: existing?.id ?? `wa-${ofisId}`,
@@ -786,17 +676,15 @@ export default function AyarlarPage() {
       updatedBy: user?.id ?? "musavir",
     };
     try {
-      if (isFirebaseConfigured) {
-        await upsertWhatsAppEntegrasyonAyari(next);
-        await createEntegrasyonLog({
-          ofisId,
-          entegrasyon: "whatsapp",
-          islem: "kaydet",
-          durum: "basarili",
-          detay: `WhatsApp Phone Number ID güncellendi: ${waDraft.businessPhoneNumberId || "(boş)"}`,
-          createdBy: user?.id ?? "musavir",
-        });
-      }
+      await upsertWhatsAppEntegrasyonAyari(next);
+      await createEntegrasyonLog({
+        ofisId,
+        entegrasyon: "whatsapp",
+        islem: "kaydet",
+        durum: "basarili",
+        detay: `WhatsApp Phone Number ID güncellendi: ${waDraft.businessPhoneNumberId || "(boş)"}`,
+        createdBy: user?.id ?? "",
+      });
       toast.success("WhatsApp ayarları kaydedildi", "WHATSAPP_ACCESS_TOKEN'ı .env.local dosyasına ekleyin");
     } catch (err) {
       toast.error("WhatsApp ayarları kaydedilemedi", parseFirestoreError(err));
@@ -929,11 +817,11 @@ export default function AyarlarPage() {
             {/* Sync Geçmişi */}
             <Card>
               <h3 className="text-sm font-semibold text-slate-800 mb-3">Senkron Geçmişi</h3>
-              {localGibLogs.length === 0 ? (
+              {gibSyncLogs.length === 0 ? (
                 <p className="text-xs text-slate-500">Henüz senkron kaydı yok.</p>
               ) : (
                 <div className="space-y-2">
-                  {localGibLogs.slice(0, 8).map((log) => (
+                  {gibSyncLogs.slice(0, 8).map((log) => (
                     <div key={log.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
                       <div>
                         <p className="text-xs font-medium text-slate-800 capitalize">{log.syncTipi}</p>
@@ -1280,10 +1168,6 @@ export default function AyarlarPage() {
                                 type="button"
                                 title="Daveti iptal et"
                                 onClick={async () => {
-                                  if (!isFirebaseConfigured) {
-                                    toast.warning("Firebase gerekli");
-                                    return;
-                                  }
                                   await updateDavet(davet.id, { durum: "iptal" });
                                   toast.success("Davet iptal edildi");
                                 }}
@@ -1370,10 +1254,10 @@ export default function AyarlarPage() {
                     </tr>
                   </TableHead>
                   <TableBody>
-                    {localIntegrationLogs.length === 0 ? (
+                    {entegrasyonLoglari.length === 0 ? (
                       <TableEmpty colSpan={5} message="Entegrasyon logu bulunamadı" />
                     ) : (
-                      localIntegrationLogs.slice(0, 10).map((log) => (
+                      entegrasyonLoglari.slice(0, 10).map((log) => (
                         <TableRow key={log.id}>
                           <TableCell><span className="text-xs font-medium text-slate-700">{panelTitle(log.entegrasyon)}</span></TableCell>
                           <TableCell><span className="text-xs text-slate-600">{log.islem}</span></TableCell>
@@ -1565,11 +1449,8 @@ export default function AyarlarPage() {
                   <Input label="Telefon" defaultValue={selectedOfis?.telefon ?? ""} />
                   <Input label="E-posta" defaultValue={selectedOfis?.email ?? ""} />
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4">
                   <Button>Kaydet</Button>
-                  <Button type="button" variant="outline" loading={seeding} onClick={handleSeedFirebase}>
-                    Demo Veriyi Firestore'a Aktar
-                  </Button>
                 </div>
               </Card>
 

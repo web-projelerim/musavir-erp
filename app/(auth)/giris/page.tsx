@@ -9,7 +9,7 @@ import { parseFirebaseAuthError, parseFirebaseResetError, parseFirebaseSignUpErr
 
 export default function GirisPage() {
   const router = useRouter();
-  const { user, loading: authLoading, signIn, signInDemo, signUp, resetPassword, isFirebaseReady } = useAuth();
+  const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
   const toast = useToast();
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPass, setShowPass] = useState(false);
@@ -74,9 +74,7 @@ export default function GirisPage() {
       router.replace(appUser.rol === "mukellef" ? "/panel" : "/dashboard");
     } catch (err) {
       console.error(err);
-      if (!isFirebaseReady) {
-        setError("Demo modunda bu e-posta tanımlı değil. Aşağıdaki demo hesaplardan birini kullanın.");
-      } else if (authMode === "register") {
+      if (authMode === "register") {
         setError(parseFirebaseSignUpError(err));
       } else {
         setError(parseFirebaseAuthError(err));
@@ -91,20 +89,14 @@ export default function GirisPage() {
     setAuthMode(nextMode);
     setError(null);
     setShowPass(false);
-    // Demo değerleri yalnızca Firebase yapılandırılmadığında öner
-    setPassword(!isFirebaseReady && nextMode === "login" ? "sifre123" : "");
+    setPassword("");
     setConfirmPassword("");
-    setEmail(!isFirebaseReady && nextMode === "login" ? "ali@musavir.com" : "");
+    setEmail("");
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
       setError("Şifre sıfırlama için e-posta adresini girin.");
-      return;
-    }
-
-    if (!isFirebaseReady) {
-      setError("Demo modunda şifre sıfırlama gönderilmez. Firebase env girilince aktif olur.");
       return;
     }
 
@@ -183,16 +175,14 @@ export default function GirisPage() {
           <p className="text-slate-400 text-sm mb-8">
             {authMode === "login"
               ? "Hesabınıza erişmek için bilgilerinizi girin"
-              : "Firebase üzerinde yeni mali müşavir hesabı oluşturun"}
+              : "Yeni mali müşavir hesabı oluşturun"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {authMode === "register" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Ad
-                  </label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Ad</label>
                   <input
                     type="text"
                     value={ad}
@@ -204,9 +194,7 @@ export default function GirisPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                    Soyad
-                  </label>
+                  <label className="block text-sm font-medium text-slate-300 mb-1.5">Soyad</label>
                   <input
                     type="text"
                     value={soyad}
@@ -221,9 +209,7 @@ export default function GirisPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                E-posta Adresi
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">E-posta Adresi</label>
               <input
                 type="email"
                 value={email}
@@ -272,9 +258,7 @@ export default function GirisPage() {
 
             {authMode === "register" ? (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Şifre Tekrarı
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Şifre Tekrarı</label>
                 <input
                   type={showPass ? "text" : "password"}
                   value={confirmPassword}
@@ -292,9 +276,7 @@ export default function GirisPage() {
                   id="remember"
                   className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="remember" className="text-sm text-slate-400">
-                  Beni hatırla
-                </label>
+                <label htmlFor="remember" className="text-sm text-slate-400">Beni hatırla</label>
               </div>
             )}
 
@@ -304,7 +286,6 @@ export default function GirisPage() {
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs text-red-200 leading-relaxed">{error}</p>
-                    {/* Kullanıcı bulunamadıysa veya hatalı kimlik bilgisi girildiyse kayıt ol yönlendirmesi */}
                     {(error.includes("kayıtlı") || error.includes("hatalı")) && authMode === "login" && (
                       <button
                         type="button"
@@ -314,7 +295,6 @@ export default function GirisPage() {
                         Kayıt olmak için tıklayın →
                       </button>
                     )}
-                    {/* Zaten kayıtlıysa giriş yap yönlendirmesi */}
                     {error.includes("zaten") && authMode === "register" && (
                       <button
                         type="button"
@@ -326,24 +306,6 @@ export default function GirisPage() {
                     )}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {!isFirebaseReady ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                <p className="text-xs text-amber-100">
-                  Firebase env bilgileri girilmediği için demo oturum modu aktif.
-                </p>
-              </div>
-            ) : authMode === "login" && (
-              <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-3">
-                <p className="text-xs text-slate-400">
-                  İlk kez giriş yapıyorsanız{" "}
-                  <button type="button" onClick={toggleAuthMode} className="text-blue-400 underline hover:text-blue-300">
-                    kayıt olun
-                  </button>{" "}
-                  — hesabınız yoksa giriş yapılamaz.
-                </p>
               </div>
             )}
 
@@ -367,15 +329,9 @@ export default function GirisPage() {
               ) : (
                 <>
                   {authMode === "login" ? (
-                    <>
-                      Giriş Yap
-                      <ArrowRight className="w-4 h-4" />
-                    </>
+                    <>Giriş Yap <ArrowRight className="w-4 h-4" /></>
                   ) : (
-                    <>
-                      Kayıt Ol
-                      <UserPlus className="w-4 h-4" />
-                    </>
+                    <>Kayıt Ol <UserPlus className="w-4 h-4" /></>
                   )}
                 </>
               )}
@@ -393,35 +349,6 @@ export default function GirisPage() {
                 : "Zaten hesabınız var mı? Giriş yapın"}
             </button>
           </div>
-
-          {/* Demo hesaplar — yalnızca Firebase yapılandırılmadığında göster */}
-          {authMode === "login" && !isFirebaseReady && (
-          <div className="mt-8 border border-slate-700/50 rounded-xl p-4">
-            <p className="text-xs text-slate-500 font-medium mb-3 uppercase tracking-wide">Demo Hesaplar</p>
-            <div className="space-y-2">
-              {[
-                { rol: "Mali Müşavir", email: "ali@musavir.com" },
-                { rol: "Personel", email: "selin@musavir.com" },
-                { rol: "Mükellef", email: "ahmet@akdeniz.com" },
-              ].map(({ rol, email: demoEmail }) => (
-                <div key={demoEmail} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">{rol}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const u = signInDemo(demoEmail);
-                      router.replace(u.rol === "mukellef" ? "/panel" : "/dashboard");
-                    }}
-                    className="text-blue-400 hover:text-blue-300 font-mono hover:underline transition-colors"
-                  >
-                    {demoEmail}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] text-slate-600">Tıklayarak doğrudan giriş yapın</p>
-          </div>
-          )}
         </div>
       </div>
     </div>

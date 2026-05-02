@@ -66,6 +66,11 @@ function getCookie(imageID: string): string {
   return entry.cookie;
 }
 
+/** Login sonrası oturum cookie'leri: token → cookie string */
+const loginCookieStore = new Map<string, string>();
+function saveLoginCookie(token: string, cookie: string) { loginCookieStore.set(token, cookie); }
+function getLoginCookie(token: string): string { return loginCookieStore.get(token) ?? ""; }
+
 /** Set-Cookie header'ından taşınabilir cookie string'i çıkar */
 function parseCookies(headers: Headers): string {
   const raw = headers.getSetCookie?.() ?? [];
@@ -193,6 +198,16 @@ export async function ivdLogin(creds: IvdCredentials): Promise<string> {
     console.warn("[GİB IVD Login] chgpwd=true — devam ediliyor");
   }
 
+  // Login response'tan gelen cookie'leri token'a bağla
+  const loginCookie = parseCookies(res.headers);
+  // Captcha cookie + login cookie'yi birleştir
+  const captchaCookie = getCookie(creds.captchaImageID);
+  const fullCookie = [captchaCookie, loginCookie].filter(Boolean).join("; ");
+  if (fullCookie) {
+    saveLoginCookie(token, fullCookie);
+    console.log("[GİB IVD Login] Oturum cookie kaydedildi:", fullCookie.slice(0, 80));
+  }
+
   return token;
 }
 
@@ -248,15 +263,20 @@ export async function fetchBeyannameler(
     token,
     vkn: musteriVkn ?? creds.vknTckn,
   });
-  console.log(`[GİB Beyanname] İstek — VKN: ${musteriVkn}, params:`, beyanParams.toString().replace(token, token.slice(0, 10) + "..."));
+
+  const dispatchHeaders: Record<string, string> = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    Token: token,
+    "User-Agent": UA,
+    Referer: `${BASE}/`,
+  };
+  const oturumCookie = getLoginCookie(token);
+  if (oturumCookie) dispatchHeaders["Cookie"] = oturumCookie;
+  console.log(`[GİB Beyanname] VKN: ${musteriVkn} | Cookie: ${oturumCookie.slice(0, 60) || "(yok)"}`);
 
   const res = await fetch(`${BASE}/intvrg_server/dispatch`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Token: token,
-      "User-Agent": UA,
-    },
+    headers: dispatchHeaders,
     body: beyanParams.toString(),
   });
 

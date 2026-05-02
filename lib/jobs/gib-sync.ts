@@ -99,6 +99,7 @@ export async function runGibSync(): Promise<GibSyncSonuc> {
   if (aktifAyarlar.length === 0) {
     const envKodu = process.env.GIB_IVD_KULLANICI_KODU;
     const envSifre = process.env.GIB_IVD_SIFRE;
+    const envParola = process.env.GIB_IVD_PAROLA;
 
     if (!envKodu || !envSifre) {
       return {
@@ -133,7 +134,7 @@ export async function runGibSync(): Promise<GibSyncSonuc> {
 
     // İlk müşterinin ofisId'sini referans al (log ve upsert için)
     const envOfisId = tumMusteriler[0].ofisId ?? "env-default";
-    const envCreds = { vknTckn: tumMusteriler[0].vknTckn, kullaniciKodu: envKodu, sifre: envSifre };
+    const envCreds = { vknTckn: tumMusteriler[0].vknTckn, kullaniciKodu: envKodu, sifre: envSifre, ...(envParola ? { parola: envParola } : {}) };
 
     const hatalar: string[] = [];
     let tebligatSayisi = 0, beyannameSayisi = 0, tahakkukSayisi = 0;

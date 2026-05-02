@@ -27,6 +27,8 @@ export interface IvdCredentials {
   vknTckn: string;
   kullaniciKodu: string;
   sifre: string;
+  /** GİB IVD internet parolası — bazı hesaplarda gereklidir (varsayılan: "1") */
+  parola?: string;
 }
 
 const BASE = "https://ivd.gib.gov.tr/tvd_server";
@@ -39,7 +41,7 @@ async function ivdLogin(creds: IvdCredentials): Promise<string> {
     userid: creds.kullaniciKodu,
     sifre: creds.sifre,
     sifre2: creds.sifre,
-    parola: "1",
+    parola: creds.parola ?? "1",
   });
 
   const res = await fetch(`${BASE}/dispatch`, {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, FileText, PlayCircle } from "lucide-react";
+import { CheckCircle, FileText, PlayCircle, RefreshCw, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import {
@@ -28,12 +28,15 @@ import {
   tebligatSlaVariant,
 } from "@/lib/domain/tebligatSla";
 import { useToast } from "@/lib/context/ToastContext";
-import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { useAuth } from "@/lib/context/AuthContext";
+import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateTebligat } from "@/lib/firebase/repositories";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { downloadPdfBlob } from "@/lib/reports/pdfReport";
 import { buildTebligatPdfBlob, tebligatPdfFileName } from "@/lib/reports/tebligatPdf";
 import type { Tebligat } from "@/lib/types";
@@ -41,15 +44,133 @@ import { formatTarih } from "@/lib/utils/format";
 
 export default function TebligatlarPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const logAudit = useAuditLog();
   const [filterDurum, setFilterDurum] = useState("tumu");
-  const { tebligatlar: loadedTebligatlar, belgeler, loading } = useAppData();
+  const { tebligatlar: loadedTebligatlar, belgeler, gibEntegrasyonAyarlari, loading } = useAppData();
   const [tebligatlar, setTebligatlar] = useState<Tebligat[]>(loadedTebligatlar);
   const [seciliTebligat, setSeciliTebligat] = useState<Tebligat | null>(null);
+
+  // GİB sync state
+  const [captchaModal, setCaptchaModal] = useState(false);
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [captchaImageBase64, setCaptchaImageBase64] = useState("");
+  const [captchaImageID, setCaptchaImageID] = useState("");
+  const [captchaDk, setCaptchaDk] = useState("");
+  const [gibSyncLoading, setGibSyncLoading] = useState(false);
 
   useEffect(() => {
     setTebligatlar(loadedTebligatlar);
   }, [loadedTebligatlar]);
+
+  /* ── GİB Tebligat Sync ── */
+
+  const openCaptchaModal = async () => {
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    setCaptchaModal(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+      setCaptchaModal(false);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  const handleGibSync = async () => {
+    const ofisId = gibEntegrasyonAyarlari[0]?.ofisId ?? user?.ofisId ?? "";
+    setGibSyncLoading(true);
+    try {
+      const res = await fetch("/api/gib/bulk-sync", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ ofisId, syncTipi: "tebligat" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.needsCaptcha) {
+        setGibSyncLoading(false);
+        await openCaptchaModal();
+        return;
+      }
+      if (!res.ok) {
+        toast.error("GİB sync başarısız", data.error ?? "Sunucu hatası");
+        return;
+      }
+      const { toplamKayit = 0, hataSayisi = 0, islenenMusteriSayisi = 0, mesaj } = data;
+      if (mesaj && islenenMusteriSayisi === 0) {
+        toast.info("GİB sync", mesaj);
+      } else if (hataSayisi === 0) {
+        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} müşteri — ${toplamKayit} tebligat güncellendi`);
+      } else if (toplamKayit > 0) {
+        toast.warning("Kısmi sync", `${toplamKayit} tebligat güncellendi, ${hataSayisi} müşteride hata`);
+      } else {
+        toast.error("GİB sync başarısız", "Tüm müşterilerde hata. GİB kimlik bilgilerini kontrol edin");
+      }
+    } catch (err) {
+      toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
+    } finally {
+      setGibSyncLoading(false);
+    }
+  };
+
+  const handleRefreshCaptcha = async () => {
+    setCaptchaDk("");
+    setCaptchaImageBase64("");
+    setCaptchaImageID("");
+    setCaptchaLoading(true);
+    try {
+      const res = await fetch("/api/gib/captcha");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
+      setCaptchaImageBase64(data.imageBase64);
+      setCaptchaImageID(data.imageID);
+    } catch (err) {
+      toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  const executeGibSync = async () => {
+    setCaptchaModal(false);
+    setGibSyncLoading(true);
+    const ofisId = gibEntegrasyonAyarlari[0]?.ofisId ?? user?.ofisId ?? "";
+    try {
+      const res = await fetch("/api/gib/bulk-sync", {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ ofisId, captchaDk, captchaImageID, syncTipi: "tebligat" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error("GİB sync başarısız", data.error ?? "Sunucu hatası");
+        return;
+      }
+      const { toplamKayit = 0, hataSayisi = 0, islenenMusteriSayisi = 0 } = data;
+      if (hataSayisi === 0) {
+        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} müşteri — ${toplamKayit} tebligat güncellendi`);
+      } else {
+        toast.warning("Kısmi sync", `${toplamKayit} tebligat, ${hataSayisi} müşteride hata`);
+      }
+    } catch (err) {
+      toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
+    } finally {
+      setGibSyncLoading(false);
+    }
+  };
+
+  const handleCaptchaConfirm = async () => {
+    if (!captchaDk.trim()) return;
+    await executeGibSync();
+  };
 
   const handleTebligatPdf = (tebligat: Tebligat) => {
     const belgePdf = belgeler.find(
@@ -182,6 +303,18 @@ export default function TebligatlarPage() {
       <PageHeader
         title="Tebligatlar"
         subtitle="GİB kaynaklı resmi bildirimler"
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            icon={<RefreshCw className={`w-3.5 h-3.5 ${gibSyncLoading ? "animate-spin" : ""}`} />}
+            loading={gibSyncLoading}
+            onClick={handleGibSync}
+            title="GİB IVD'den tebligatları çek"
+          >
+            GİB Getir
+          </Button>
+        }
       />
 
       <StatsDrawer
@@ -425,6 +558,80 @@ export default function TebligatlarPage() {
         onIslendi={handleTebligatIslendi}
         onAksiyon={handleTebligatAksiyon}
       />
+
+      {/* ─── GİB Captcha Modal ─────────────────────────────────────────── */}
+      {captchaModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-800">GİB Güvenlik Doğrulaması</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Tebligatları çekmek için kodu girin</p>
+              </div>
+              <button
+                onClick={() => setCaptchaModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              {captchaLoading ? (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : captchaImageBase64 ? (
+                <img
+                  src={`data:image/jpeg;base64,${captchaImageBase64}`}
+                  alt="GİB güvenlik kodu"
+                  className="rounded-lg border border-slate-200 h-16 object-contain"
+                />
+              ) : (
+                <div className="w-48 h-16 bg-slate-100 rounded-lg flex items-center justify-center text-xs text-slate-400">
+                  Captcha yüklenemedi
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleRefreshCaptcha}
+                disabled={captchaLoading}
+                className="text-xs text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+              >
+                Yenile
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Güvenlik Kodu</label>
+              <Input
+                value={captchaDk}
+                onChange={(e) => setCaptchaDk(e.target.value)}
+                placeholder="Resimdeki kodu girin"
+                onKeyDown={(e) => { if (e.key === "Enter") handleCaptchaConfirm(); }}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setCaptchaModal(false)}
+              >
+                İptal
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!captchaDk.trim() || captchaLoading}
+                onClick={handleCaptchaConfirm}
+              >
+                Tebligatları Çek
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

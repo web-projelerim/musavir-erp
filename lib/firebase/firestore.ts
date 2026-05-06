@@ -191,6 +191,36 @@ export async function tikleNot(
 }
 
 /**
+ * Kullanıcının kendi yazdığı notları dinler (createdBy == uid).
+ */
+export function subscribeNotlarByCreator<T extends { id: string }>(
+  uid: string,
+  onData: (data: T[], meta: SubscribeMeta) => void
+): Unsubscribe {
+  if (!firestoreDb || !uid) {
+    onData([], { source: "mock" });
+    return () => undefined;
+  }
+
+  const ref = query(
+    collection(firestoreDb, COLLECTIONS.notlar),
+    where("createdBy", "==", uid)
+  );
+
+  return onSnapshot(
+    ref,
+    (snapshot) => {
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as T[];
+      onData(data, { source: "firebase" });
+    },
+    (error: FirestoreError) => {
+      console.error("[Firestore] notlar (createdBy) okunamadı", error);
+      onData([], { source: "mock", error: error.message });
+    }
+  );
+}
+
+/**
  * `paylasilanEmails` array-contains sorgusyla notları dinler.
  * Kullanıcının e-postası bir notun paylasilanEmails listesindeyse o notu alır.
  */

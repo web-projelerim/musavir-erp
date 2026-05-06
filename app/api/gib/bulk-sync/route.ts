@@ -19,6 +19,10 @@ import {
   ivdLogin,
   fetchBeyannameler,
   fetchBorcListesi,
+  fetchTebligatlar,
+  restoreLoginCookie,
+  restoreCaptchaCookie,
+  getLoginCookieForCaching,
 } from "@/lib/integrations/gib/ivd-client";
 import type { BeyannameType } from "@/lib/types";
 
@@ -32,30 +36,35 @@ interface BulkSyncBody {
   ofisId: string;
   captchaDk?: string;
   captchaImageID?: string;
-  syncTipi: "beyanname" | "tahakkuk" | "tumu";
+  /** GİB captcha session cookie — /api/gib/captcha'nın döndürdüğü sessionCookie değeri */
+  captchaSessionCookie?: string;
+  syncTipi: "beyanname" | "tahakkuk" | "tebligat" | "tumu";
 }
 
-/** Cache'lenmiş GİB token'ı Firestore'dan oku */
-async function getCachedToken(ofisId: string): Promise<string | null> {
+interface CachedSession { token: string; cookie: string; }
+
+/** Cache'lenmiş GİB token + cookie'yi Firestore'dan oku */
+async function getCachedToken(ofisId: string): Promise<CachedSession | null> {
   const db = getAdminDb();
   if (!db) return null;
   try {
     const doc = await db.collection("gibSessions").doc(ofisId).get();
     if (!doc.exists) return null;
-    const data = doc.data() as { token?: string; expiresAt?: number } | undefined;
+    const data = doc.data() as { token?: string; cookie?: string; expiresAt?: number } | undefined;
     if (!data?.token || !data?.expiresAt) return null;
     if (Date.now() > data.expiresAt) return null; // süresi dolmuş
-    return data.token;
+    return { token: data.token, cookie: data.cookie ?? "" };
   } catch {
     return null;
   }
 }
 
-/** Token'ı Firestore'a yaz (45 dk TTL) */
-async function cacheToken(ofisId: string, token: string): Promise<void> {
+/** Token + cookie'yi Firestore'a yaz (45 dk TTL) */
+async function cacheToken(ofisId: string, token: string, cookie: string): Promise<void> {
   try {
     await adminUpsert("gibSessions", ofisId, {
       token,
+      cookie, // serverless cold-start sonrası cookie restore için
       expiresAt: Date.now() + TOKEN_TTL_MS,
       updatedAt: new Date().toISOString(),
     });
@@ -88,7 +97,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Geçersiz istek gövdesi" }, { status: 400 });
   }
 
-  const { ofisId, captchaDk, captchaImageID, syncTipi } = body;
+  const { ofisId, captchaDk, captchaImageID, captchaSessionCookie, syncTipi } = body;
 
   if (!ofisId) {
     return NextResponse.json({ error: "ofisId zorunludur" }, { status: 400 });
@@ -123,17 +132,31 @@ export async function POST(req: NextRequest) {
       // Geçerli oturum yok — istemciden captcha iste
       return NextResponse.json({ needsCaptcha: true }, { status: 200 });
     }
-    token = cached;
+    token = cached.token;
+    // Serverless cold-start sonrası cookie'yi in-memory store'a geri yükle
+    if (cached.cookie) restoreLoginCookie(token, cached.cookie);
   } else {
     // Captcha verilmiş → yeni login
+    // Captcha session cookie'yi in-memory store'a restore et.
+    // /api/gib/captcha farklı bir serverless instance'da çalıştığından
+    // client cookie'yi geri gönderir; login bu cookie'ye ihtiyaç duyar.
+    if (captchaImageID && captchaSessionCookie) {
+      restoreCaptchaCookie(captchaImageID, captchaSessionCookie);
+    }
     const envCreds = { vknTckn: kullaniciKodu, kullaniciKodu, sifre, captchaDk, captchaImageID };
     try {
       token = await ivdLogin(envCreds);
-      // Başarılı login → token'ı cache'le
-      await cacheToken(ofisId, token);
+      // Başarılı login → token + cookie'yi birlikte cache'le
+      const cookie = getLoginCookieForCaching(token);
+      await cacheToken(ofisId, token, cookie);
     } catch (err) {
       const mesaj = err instanceof Error ? err.message : "IVD giriş başarısız";
-      return NextResponse.json({ error: mesaj }, { status: 502 });
+      // Captcha hatası kullanıcı girdi hatasıdır → 400; gerçek sunucu hatası → 502
+      const isCaptchaHatasi = mesaj.toLowerCase().includes("captcha") || mesaj.includes("Doğrulama");
+      return NextResponse.json(
+        { error: mesaj, captchaGecersiz: isCaptchaHatasi },
+        { status: isCaptchaHatasi ? 400 : 502 }
+      );
     }
   }
 
@@ -176,6 +199,25 @@ export async function POST(req: NextRequest) {
     const firmaAdi = musteri.firmaAdi ?? vkn;
 
     try {
+      // Tebligat (ofis hesabıyla müşteri adına sorgu)
+      if (syncTipi === "tebligat" || syncTipi === "tumu") {
+        const tebligatlar = await fetchTebligatlar(envCreds, vkn, token);
+        for (const teb of tebligatlar) {
+          const stableId = `teb-gib-${musteri.id}-${teb.tarih.slice(0, 10)}-${teb.baslik.slice(0, 30)}`
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "-");
+          await adminUpsert("tebligatlar", stableId, {
+            ...teb,
+            id: stableId,
+            ofisId,
+            musteriId: musteri.id,
+            musteriAdi: firmaAdi,
+            vknTckn: vkn,
+          });
+          toplamKayit++;
+        }
+      }
+
       // Beyanname
       if (syncTipi === "beyanname" || syncTipi === "tumu") {
         const rows = await fetchBeyannameler(envCreds, vkn, token);

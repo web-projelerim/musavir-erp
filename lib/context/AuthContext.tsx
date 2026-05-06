@@ -45,8 +45,11 @@ interface SignUpInput {
   yetkiler?: KullaniciYetki[];
 }
 
-/** Firestore zaman aşımı veya belge eksik olduğunda kullanılan güvenli fallback */
-function fallbackUserFromEmail(email: string, uid: string): User {
+/**
+ * Firebase yapılandırılmamış (demo mod) olduğunda kullanılan fallback.
+ * Yalnızca !firestoreDb durumunda çağrılır — Firestore timeout için KULLANILMAZ.
+ */
+function demoFallbackUser(email: string, uid: string): User {
   const [namePart] = email.split("@");
   return {
     id: uid,
@@ -61,12 +64,13 @@ function fallbackUserFromEmail(email: string, uid: string): User {
 }
 
 async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
+  // Demo mod: Firebase yapılandırılmamış → tam erişimli fallback (kasıtlı)
   if (!firestoreDb) {
-    return fallbackUserFromEmail(firebaseUser.email ?? "", firebaseUser.uid);
+    return demoFallbackUser(firebaseUser.email ?? "", firebaseUser.uid);
   }
 
-  // Firestore yanıt vermezse 6 saniye sonra fallback kullanıcıya geç —
-  // bu sayede "Oturum kontrol ediliyor..." ekranında takılma olmaz.
+  // Firestore yanıt vermezse 6 saniye sonra hata fırlat —
+  // timeout durumunda bilinmeyen bir kullanıcıya musavir yetkisi verilmemelidir.
   let snapshot;
   try {
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -76,13 +80,27 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
       getDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid)),
       timeoutPromise,
     ]);
-  } catch {
-    return fallbackUserFromEmail(firebaseUser.email ?? "", firebaseUser.uid);
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.message === "firestore-timeout";
+    throw new Error(
+      isTimeout
+        ? "Kullanıcı bilgileri yüklenemedi. Lütfen sayfayı yenileyin."
+        : "Bağlantı hatası. İnternet bağlantınızı kontrol edin."
+    );
   }
 
   if (snapshot.exists()) {
-    const data = snapshot.data() as User;
-    const appUser = { ...data, id: snapshot.id };
+    const data = snapshot.data() as Omit<User, "id">;
+    const appUser: User = {
+      ...data,
+      id: snapshot.id,
+      ofisId: data.ofisId ?? firebaseUser.uid,
+    };
+
+    // Güvenlik: aktif değilse oturumu kapat
+    if (!appUser.aktif) {
+      throw new Error("Hesabınız devre dışı bırakılmıştır. Lütfen müşavirinizle iletişime geçin.");
+    }
 
     // Güvenlik düzeltmesi: rol "mukellef" ama musteriId yoksa bu kullanıcı
     // aslında bir müşavirdir — yanlış rol atanmış. Bellekte ve Firestore'da düzelt.
@@ -99,7 +117,7 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     return appUser;
   }
 
-  // Firestore belgesi yok — signUp akışı tamamlanmamış. Bellekte müşavir fallback döndür.
+  // Firestore belgesi yok — signUp akışı henüz tamamlanmamış olabilir.
   const displayName = firebaseUser.displayName ?? "";
   const [ad = "Kullanici", soyad = ""] = displayName.split(" ");
   return {
@@ -135,6 +153,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         setUser(await resolveAppUser(firebaseUser));
+      } catch (err) {
+        console.error("[Auth] resolveAppUser hatası:", err);
+        await firebaseSignOut(firebaseAuth!).catch(() => undefined);
+        setUser(null);
+        if (typeof window !== "undefined") {
+          const msg = err instanceof Error ? err.message : "Oturum açılamadı.";
+          sessionStorage.setItem("auth_error", msg);
+        }
       } finally {
         setLoading(false);
       }

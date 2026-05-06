@@ -50,6 +50,7 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { MiniTakvim } from "@/components/ui/MiniTakvim";
 import type { TakvimOlay } from "@/components/ui/MiniTakvim";
+import { getVergiTakvimiIkiYil } from "@/lib/data/vergiTakvimi";
 import { formatTarih } from "@/lib/utils/format";
 import { authHeaders } from "@/lib/firebase/client";
 import Link from "next/link";
@@ -225,6 +226,18 @@ export default function DashboardPage() {
 
   const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
     const olaylar: TakvimOlay[] = [];
+
+    // GİB vergi takvimi (sabit — gib.gov.tr/vergi-takvimi baz alınarak)
+    for (const v of getVergiTakvimiIkiYil()) {
+      olaylar.push({
+        tarih: v.tarih,
+        renk: "purple",
+        etiket: v.baslik,
+        tur: "vergi",
+        aciklama: v.aciklama,
+      });
+    }
+
     for (const b of beyannameler.filter((b) => b.durum === "bekliyor" || b.durum === "gecikti")) {
       olaylar.push({
         tarih: b.sonTarih,

@@ -52,6 +52,7 @@ export const MOCK_OFISLER: Ofis[] = [
 export const MOCK_KULLANICILAR: User[] = [
   {
     id: "demo-musavir",
+    ofisId: "demo-musavir",
     ad: "Ali",
     soyad: "Müşavir",
     email: "ali@musavir.com",
@@ -61,6 +62,7 @@ export const MOCK_KULLANICILAR: User[] = [
   },
   {
     id: "demo-personel-selin",
+    ofisId: "demo-musavir",
     ad: "Selin",
     soyad: "Kaya",
     email: "selin@musavir.com",
@@ -70,6 +72,7 @@ export const MOCK_KULLANICILAR: User[] = [
   },
   {
     id: "demo-personel-murat",
+    ofisId: "demo-musavir",
     ad: "Murat",
     soyad: "Çelik",
     email: "murat@musavir.com",
@@ -79,6 +82,7 @@ export const MOCK_KULLANICILAR: User[] = [
   },
   {
     id: "demo-mukellef-akdeniz",
+    ofisId: "demo-musavir",
     ad: "Ahmet",
     soyad: "Yılmaz",
     email: "ahmet@akdeniz.com",

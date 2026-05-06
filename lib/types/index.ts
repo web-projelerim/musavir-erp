@@ -3,7 +3,7 @@ export type UserRole = "musavir" | "personel" | "mukellef";
 
 export interface User {
   id: string;
-  ofisId?: string;
+  ofisId: string;
   ad: string;
   soyad: string;
   email: string;
@@ -35,7 +35,10 @@ export interface Ofis {
   email?: string;
   whatsappDurum: "pasif" | "hazirlik" | "aktif";
   gibDurum: "pasif" | "hazirlik" | "aktif";
+  sgkKullaniciAdi?: string;
+  sgkSifresi?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type EntegrasyonDurum = "bagli" | "eksik" | "hata" | "test_edilmedi";

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import type { Davet } from "@/lib/types";
 
-// Sunucu tarafında btoa yerine Buffer kullanılır
-function hashToken(token: string): string {
-  return Buffer.from(token).toString("base64").replace(/=+$/, "");
+async function hashToken(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export async function GET(_req: Request, { params }: { params: { token: string } }) {
@@ -20,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   }
 
   try {
-    const tokenHash = hashToken(token);
+    const tokenHash = await hashToken(token);
 
     // tokenHash ile ara, bulamazsan davetLinki sonekiyle ara
     let snapshot = await db

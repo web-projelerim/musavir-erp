@@ -34,6 +34,7 @@ import type {
   EmailEntegrasyonAyari,
   EntegrasyonLog,
   Not,
+  Ofis,
 } from "@/lib/types";
 
 function createId(prefix: string) {
@@ -556,3 +557,13 @@ export async function createNot(input: Omit<Not, "id" | "createdAt">) {
 export async function deleteNot(id: string) {
   await deleteDocument(COLLECTIONS.notlar, id);
 }
+
+export async function upsertOfis(input: Ofis) {
+  const ofis: Ofis = {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.ofisler, ofis);
+  return ofis;
+}
+

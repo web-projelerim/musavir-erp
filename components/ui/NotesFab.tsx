@@ -5,9 +5,8 @@ import { Pencil, X, Trash2, ChevronDown, Users, PencilOff, Check } from "lucide-
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
-import { useAppData } from "@/lib/hooks/useAppData";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
-import { subscribeNotlarByEmail, tikleNot } from "@/lib/firebase/firestore";
+import { subscribeNotlarByCreator, subscribeNotlarByEmail, tikleNot } from "@/lib/firebase/firestore";
 import { createNot, deleteNot } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
 import type { Not, NotRenk } from "@/lib/types";
@@ -65,7 +64,7 @@ function AdAvatar({ ad, kendi }: { ad: string; kendi: boolean }) {
 export function NotesFab() {
   const { user } = useAuth();
   const toast = useToast();
-  const { notlar } = useAppData();
+  // useAppData().notlar artık kullanılmıyor — notlar sadece kendi UID veya paylaşılan email ile gelir
 
   const [panelAcik, setPanelAcik] = useState(false);
   const [yazmaAcik, setYazmaAcik] = useState(false);
@@ -73,16 +72,20 @@ export function NotesFab() {
   const [seciliRenk, setSeciliRenk] = useState<NotRenk>("sari");
   const [filtre, setFiltre] = useState<NotRenk | "hepsi">("hepsi");
   const [kayit, setKayit] = useState(false);
-  const [localNotlar, setLocalNotlar] = useState<Not[]>([]);
+  const [kendiNotlar, setKendiNotlar] = useState<Not[]>([]);
   const [paylasilanNotlar, setPaylasilanNotlar] = useState<Not[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Ofis notlarını localNotlar'a aktar
+  // Sadece kendi yazdığı notları al (createdBy == uid)
   useEffect(() => {
-    setLocalNotlar(notlar);
-  }, [notlar]);
+    if (!user?.id || !isFirebaseConfigured) return;
+    const unsub = subscribeNotlarByCreator<Not>(user.id, (data) => {
+      setKendiNotlar(data);
+    });
+    return unsub;
+  }, [user?.id]);
 
-  // Email bazlı paylaşılan notları ayrı abone ile al (farklı ofis notları da dahil)
+  // Paylaşılan notları ayrı abone ile al (paylasilanEmails'de email varsa)
   useEffect(() => {
     if (!user?.email || !isFirebaseConfigured) return;
     const unsub = subscribeNotlarByEmail<Not>(user.email, (data) => {
@@ -136,7 +139,7 @@ export function NotesFab() {
           paylasilanEmails: PAYLASIM_EMAILS,
         });
       } else {
-        setLocalNotlar((prev) => [yeni, ...prev]);
+        setKendiNotlar((prev) => [yeni, ...prev]);
       }
 
       setIcerik("");
@@ -150,7 +153,7 @@ export function NotesFab() {
   };
 
   const handleSil = async (id: string) => {
-    setLocalNotlar((prev) => prev.filter((n) => n.id !== id));
+    setKendiNotlar((prev) => prev.filter((n: Not) => n.id !== id));
     if (isFirebaseConfigured && !id.startsWith("not-local-")) {
       try {
         await deleteNot(id);
@@ -160,8 +163,8 @@ export function NotesFab() {
     }
   };
 
-  // Ofis notları + paylaşılan notları birleştir (duplicate'i id'ye göre kaldır)
-  const tumNotlar = [...localNotlar, ...paylasilanNotlar].filter(
+  // Kendi notlar + paylaşılan notları birleştir (duplicate'i id'ye göre kaldır)
+  const tumNotlar = [...kendiNotlar, ...paylasilanNotlar].filter(
     (not, index, self) => self.findIndex((n) => n.id === not.id) === index
   );
 
@@ -187,7 +190,7 @@ export function NotesFab() {
               )}
               <span className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 ml-1">
                 <Users className="h-3 w-3" />
-                Tüm ekip görebilir
+                Sadece siz ve paylaşılanlar
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -363,7 +366,7 @@ export function NotesFab() {
               <span className="text-sm font-semibold text-slate-800">Yeni Not</span>
               <div className="flex items-center gap-1 mt-0.5">
                 <Users className="h-3 w-3 text-slate-400" />
-                <span className="text-[10px] text-slate-400">Tüm ekip görebilir</span>
+                <span className="text-[10px] text-slate-400">Sadece siz ve paylaşılanlar</span>
               </div>
             </div>
             <button

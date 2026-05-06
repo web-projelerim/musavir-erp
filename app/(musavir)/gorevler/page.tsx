@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Calendar, ChevronDown, MoreHorizontal, Plus, Search, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import {
+  Calendar, CheckCircle2, Circle, ChevronDown, MoreHorizontal,
+  Plus, Search, Tag, Trash2, Wand2, X,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge, GorevDurumBadge } from "@/components/ui/Badge";
 import {
-  Table,
-  TableHead,
-  TableHeadCell,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableEmpty,
+  Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty,
 } from "@/components/ui/Table";
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
@@ -21,10 +18,7 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { getOfisId } from "@/lib/domain/office";
-import {
-  gorevInputFromOneri,
-  hesaplaOtomatikGorevOnerileri,
-} from "@/lib/domain/otomatikGorev";
+import { gorevInputFromOneri, hesaplaOtomatikGorevOnerileri } from "@/lib/domain/otomatikGorev";
 import {
   createGorev as createGorevFirebase,
   deleteGorev as deleteGorevFirebase,
@@ -35,225 +29,198 @@ import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { formatTarih } from "@/lib/utils/format";
 import { useToast } from "@/lib/context/ToastContext";
-import type { Gorev, GorevDurum, GorevNot, GorevOncelik } from "@/lib/types";
+import type { Gorev, GorevDurum, GorevNot, GorevTip } from "@/lib/types";
+
+// ── Sabitler ──────────────────────────────────────────────────────────────────
+
+type FilterTab = "tumu" | "beklemede" | "devam" | "tamamlandi" | "iptal";
 
 const DURUM_KOLONLAR: { key: GorevDurum; label: string; color: string; bg: string }[] = [
-  { key: "beklemede", label: "Yapılacak",     color: "border-slate-300",   bg: "bg-slate-100" },
-  { key: "devam",     label: "Devam Ediyor",  color: "border-blue-400",    bg: "bg-blue-50"   },
-  { key: "tamamlandi",label: "Tamamlandı",    color: "border-emerald-400", bg: "bg-emerald-50"},
-  { key: "iptal",     label: "İptal",         color: "border-red-300",     bg: "bg-red-50"    },
+  { key: "beklemede",  label: "Yapılacak",    color: "border-slate-300",   bg: "bg-slate-100"  },
+  { key: "devam",      label: "Devam Ediyor", color: "border-blue-400",    bg: "bg-blue-50"    },
+  { key: "tamamlandi", label: "Tamamlandı",   color: "border-emerald-400", bg: "bg-emerald-50" },
+  { key: "iptal",      label: "İptal",        color: "border-red-300",     bg: "bg-red-50"     },
 ];
 
+const TIP_LABEL: Record<GorevTip, string> = {
+  beyanname: "Beyanname",
+  tebligat:  "Tebligat",
+  tahsilat:  "Tahsilat",
+  belge:     "Belge",
+  kdv2:      "KDV2",
+  diger:     "Diğer",
+};
+
+const TIP_SIRA: GorevTip[] = ["beyanname", "tebligat", "tahsilat", "belge", "kdv2", "diger"];
+
+// ── Sayfa ─────────────────────────────────────────────────────────────────────
 
 export default function GorevlerPage() {
-  const toast = useToast();
+  const toast    = useToast();
   const { user } = useAuth();
   const logAudit = useAuditLog();
-  const [view, setView] = useState<"kanban" | "tablo">("tablo");
-  const [aramaText, setAramaText] = useState("");
-  const [filterDurum, setFilterDurum] = useState("tumu");
-  const [filterOncelik, setFilterOncelik] = useState("tumu");
-  const [showYeniModal, setShowYeniModal] = useState(false);
-  const [otomatikLoading, setOtomatikLoading] = useState(false);
-  const [seciliGorev, setSeciliGorev] = useState<Gorev | null>(null);
+  const quickRef = useRef<HTMLInputElement>(null);
+
+  const [view,           setView]           = useState<"tablo" | "kanban">("tablo");
+  const [activeTab,      setActiveTab]      = useState<FilterTab>("tumu");
+  const [aramaText,      setAramaText]      = useState("");
+  const [filterOncelik,  setFilterOncelik]  = useState("tumu");
+  const [showYeniModal,  setShowYeniModal]  = useState(false);
+  const [otomatikLoading,setOtomatikLoading]= useState(false);
+  const [seciliGorev,    setSeciliGorev]    = useState<Gorev | null>(null);
+  const [quickTitle,     setQuickTitle]     = useState("");
+  const [quickLoading,   setQuickLoading]   = useState(false);
+
   const {
-    musteriler,
-    gorevler: loadedGorevler,
-    tebligatlar,
-    beyannameler,
-    tahsilatlar,
-    belgeler,
-    loading,
-    source,
+    musteriler, gorevler: loadedGorevler, tebligatlar,
+    beyannameler, tahsilatlar, belgeler, loading, source,
   } = useAppData();
+
   const [gorevler, setGorevler] = useState<Gorev[]>(loadedGorevler);
+  useEffect(() => { setGorevler(loadedGorevler); }, [loadedGorevler]);
 
-  useEffect(() => {
-    setGorevler(loadedGorevler);
-  }, [loadedGorevler]);
+  // ── Tab sayıları ─────────────────────────────────────────────────────────
+  const tabCounts = useMemo(() => ({
+    tumu:        gorevler.filter(g => g.durum !== "tamamlandi" && g.durum !== "iptal").length,
+    beklemede:   gorevler.filter(g => g.durum === "beklemede").length,
+    devam:       gorevler.filter(g => g.durum === "devam").length,
+    tamamlandi:  gorevler.filter(g => g.durum === "tamamlandi").length,
+    iptal:       gorevler.filter(g => g.durum === "iptal").length,
+  }), [gorevler]);
 
+  // ── Filtreleme ────────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const search = aramaText.toLowerCase();
+    return gorevler.filter(g => {
+      const matchSearch   = !search || g.baslik.toLowerCase().includes(search) || g.musteriAdi.toLowerCase().includes(search);
+      const matchTab      = activeTab === "tumu"
+        ? g.durum !== "tamamlandi" && g.durum !== "iptal"
+        : g.durum === activeTab;
+      const matchOncelik  = filterOncelik === "tumu" || g.oncelik === filterOncelik;
+      return matchSearch && matchTab && matchOncelik;
+    });
+  }, [gorevler, aramaText, activeTab, filterOncelik]);
+
+  // ── Tablo görünümü için tip bazlı gruplar ─────────────────────────────────
+  const grupluGorevler = useMemo(() => {
+    const map = new Map<GorevTip, Gorev[]>();
+    TIP_SIRA.forEach(tip => {
+      const list = filtered.filter(g => g.tip === tip);
+      if (list.length > 0) map.set(tip, list);
+    });
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  // ── Otomatik öneriler ─────────────────────────────────────────────────────
+  const otomatikOneriler = hesaplaOtomatikGorevOnerileri({
+    musteriler, gorevler, tebligatlar, beyannameler, tahsilatlar, belgeler,
+  });
+
+  // ── Yardımcılar ───────────────────────────────────────────────────────────
   const applyGorevPatch = (id: string, patch: Partial<Gorev>) => {
-    setGorevler((prev) =>
-      prev.map((gorev) => (gorev.id === id ? { ...gorev, ...patch } : gorev))
-    );
-    setSeciliGorev((prev) => (prev?.id === id ? { ...prev, ...patch } : prev));
+    setGorevler(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
+    setSeciliGorev(prev => prev?.id === id ? { ...prev, ...patch } : prev);
   };
 
   const handleDurumGuncelle = async (id: string, durum: GorevDurum) => {
-    applyGorevPatch(id, {
-      durum,
-      tamamlanmaTarihi: durum === "tamamlandi" ? new Date().toISOString() : undefined,
-    });
-
+    applyGorevPatch(id, { durum, tamamlanmaTarihi: durum === "tamamlandi" ? new Date().toISOString() : undefined });
     if (source !== "firebase") return;
-
     try {
       await updateGorevDurumFirebase(id, durum);
-      const gorev = gorevler.find((item) => item.id === id);
-      await logAudit({
-        action: "status_change",
-        entityType: "gorev",
-        entityId: id,
-        entityLabel: gorev?.baslik,
-        summary: `Görev durumu ${durum} olarak güncellendi`,
-        after: { durum },
-      });
+      const gorev = gorevler.find(g => g.id === id);
+      await logAudit({ action: "status_change", entityType: "gorev", entityId: id, entityLabel: gorev?.baslik, summary: `Görev durumu ${durum} olarak güncellendi`, after: { durum } });
     } catch (error) {
-      console.error(error);
       toast.error("Görev durumu kaydedilemedi", parseFirestoreError(error));
-      throw error;
     }
   };
 
   const handleGorevGuncelle = async (id: string, patch: Partial<Gorev>) => {
     applyGorevPatch(id, patch);
-
     if (source !== "firebase") return;
-
     try {
       await updateGorevFirebase(id, patch);
-      const gorev = gorevler.find((item) => item.id === id);
-      await logAudit({
-        action: "update",
-        entityType: "gorev",
-        entityId: id,
-        entityLabel: gorev?.baslik,
-        summary: "Görev bilgileri güncellendi",
-        after: patch as Record<string, unknown>,
-      });
+      const gorev = gorevler.find(g => g.id === id);
+      await logAudit({ action: "update", entityType: "gorev", entityId: id, entityLabel: gorev?.baslik, summary: "Görev bilgileri güncellendi", after: patch as Record<string, unknown> });
     } catch (error) {
-      console.error(error);
       toast.error("Görev güncellemesi kaydedilemedi", parseFirestoreError(error));
-      throw error;
     }
   };
 
   const handleNotEkle = async (id: string, yeniNot: GorevNot) => {
-    const hedefGorev = gorevler.find((gorev) => gorev.id === id);
-    const guncelNotlar = [...normalizeGorevNotlar(hedefGorev?.notlar), yeniNot];
-
+    const hedef = gorevler.find(g => g.id === id);
+    const guncelNotlar = [...normalizeGorevNotlar(hedef?.notlar), yeniNot];
     applyGorevPatch(id, { notlar: guncelNotlar });
-
     if (source !== "firebase") return;
-
     try {
       await updateGorevFirebase(id, { notlar: guncelNotlar });
-      await logAudit({
-        action: "update",
-        entityType: "gorev",
-        entityId: id,
-        entityLabel: hedefGorev?.baslik,
-        summary: "Göreve not eklendi",
-        after: { notSayisi: guncelNotlar.length },
-      });
+      await logAudit({ action: "update", entityType: "gorev", entityId: id, entityLabel: hedef?.baslik, summary: "Göreve not eklendi", after: { notSayisi: guncelNotlar.length } });
     } catch (error) {
-      console.error(error);
       toast.error("Görev notu kaydedilemedi", parseFirestoreError(error));
-      throw error;
+    }
+  };
+
+  const handleNotSil = async (id: string, notId: string) => {
+    const hedef = gorevler.find(g => g.id === id);
+    const guncelNotlar = normalizeGorevNotlar(hedef?.notlar).filter(n => n.id !== notId);
+    applyGorevPatch(id, { notlar: guncelNotlar });
+    if (source !== "firebase") return;
+    try {
+      await updateGorevFirebase(id, { notlar: guncelNotlar });
+    } catch (error) {
+      toast.error("Not silinemedi", parseFirestoreError(error));
     }
   };
 
   const handleGorevSil = async (id: string) => {
-    const silinenGorev = gorevler.find((gorev) => gorev.id === id);
-    setGorevler((prev) => prev.filter((gorev) => gorev.id !== id));
+    const silinenGorev = gorevler.find(g => g.id === id);
+    setGorevler(prev => prev.filter(g => g.id !== id));
     setSeciliGorev(null);
-
     if (source !== "firebase") return;
-
     try {
       await deleteGorevFirebase(id);
-      await logAudit({
-        action: "delete",
-        entityType: "gorev",
-        entityId: id,
-        entityLabel: silinenGorev?.baslik,
-        summary: "Görev silindi",
-        before: silinenGorev as unknown as Record<string, unknown>,
-      });
+      await logAudit({ action: "delete", entityType: "gorev", entityId: id, entityLabel: silinenGorev?.baslik, summary: "Görev silindi", before: silinenGorev as unknown as Record<string, unknown> });
     } catch (error) {
-      console.error(error);
       toast.error("Görev silinemedi", parseFirestoreError(error));
-      throw error;
     }
   };
 
-  const otomatikOneriler = hesaplaOtomatikGorevOnerileri({
-    musteriler,
-    gorevler,
-    tebligatlar,
-    beyannameler,
-    tahsilatlar,
-    belgeler,
-  });
-
   const handleOtomatikGorevOlustur = async () => {
     if (otomatikOneriler.length === 0) {
-      toast.info("Öneri yok", "Acil göreve dönüştürülecek yeni sinyal bulunmuyor");
+      toast.info("Öneri yok", "Acil göreve dönüştürülecek sinyal yok");
       return;
     }
-
     setOtomatikLoading(true);
     try {
       const created = await Promise.all(
-        otomatikOneriler.map(async (oneri, index) => {
+        otomatikOneriler.map(async (oneri, i) => {
           const input = gorevInputFromOneri(oneri, getOfisId(user?.ofisId));
-
-          if (source === "firebase") {
-            return createGorevFirebase(input);
-          }
-
-          return {
-            ...input,
-            id: `auto-${Date.now()}-${index}`,
-            durum: "beklemede" as const,
-            createdAt: new Date().toISOString(),
-          };
+          if (source === "firebase") return createGorevFirebase(input);
+          return { ...input, id: `auto-${Date.now()}-${i}`, durum: "beklemede" as const, createdAt: new Date().toISOString() };
         })
       );
-
-      setGorevler((prev) => {
-        const existing = new Set(prev.map((gorev) => gorev.id));
-        return [...created.filter((gorev) => !existing.has(gorev.id)), ...prev];
+      setGorevler(prev => {
+        const existing = new Set(prev.map(g => g.id));
+        return [...created.filter(g => !existing.has(g.id)), ...prev];
       });
-      await Promise.all(
-        created.map((gorev) =>
-          logAudit({
-            action: "create",
-            entityType: "gorev",
-            entityId: gorev.id,
-            entityLabel: gorev.baslik,
-            summary: "Otomatik görev oluşturuldu",
-            after: {
-              tip: gorev.tip,
-              oncelik: gorev.oncelik,
-              musteriId: gorev.musteriId,
-            },
-          })
-        )
-      );
+      await Promise.all(created.map(g => logAudit({ action: "create", entityType: "gorev", entityId: g.id, entityLabel: g.baslik, summary: "Otomatik görev oluşturuldu", after: { tip: g.tip, oncelik: g.oncelik } })));
       toast.success(`${created.length} otomatik görev oluşturuldu`);
     } catch (error) {
-      console.error(error);
       toast.error("Otomatik görevler oluşturulamadı", parseFirestoreError(error));
     } finally {
       setOtomatikLoading(false);
     }
   };
 
-  const filtered = gorevler.filter((gorev) => {
-    const search = aramaText.toLowerCase();
-    const matchesSearch =
-      !search ||
-      gorev.baslik.toLowerCase().includes(search) ||
-      gorev.musteriAdi.toLowerCase().includes(search);
-    const matchesDurum = filterDurum === "tumu" || gorev.durum === filterDurum;
-    const matchesOncelik = filterOncelik === "tumu" || gorev.oncelik === filterOncelik;
-    return matchesSearch && matchesDurum && matchesOncelik;
-  });
+  // Hızlı görev ekle (sadece başlık — modal ile devam)
+  const handleQuickAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTitle.trim()) return;
+    setShowYeniModal(true);
+    // Modal açıldığında başlık pre-fill için session'a bırak (modal bağımsız state'i var)
+    setQuickTitle("");
+  };
 
-  const bekleyenSayi = gorevler.filter(
-    (gorev) => gorev.durum !== "tamamlandi" && gorev.durum !== "iptal"
-  ).length;
+  const today = new Date().toISOString().split("T")[0];
 
   if (loading) return <PageLoading />;
 
@@ -262,23 +229,20 @@ export default function GorevlerPage() {
       <div>
         <PageHeader
           title="Görev Yönetimi"
-          subtitle={`${bekleyenSayi} bekleyen görev`}
+          subtitle={`${tabCounts.tumu} bekleyen görev`}
           action={
             <div className="flex items-center gap-2">
+              {/* Kanban / Tablo toggle */}
               <div className="flex rounded-lg border border-slate-200 overflow-hidden">
                 <button
                   onClick={() => setView("tablo")}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    view === "tablo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === "tablo" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
                 >
                   Tablo
                 </button>
                 <button
                   onClick={() => setView("kanban")}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === "kanban" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
                 >
                   Kanban
                 </button>
@@ -299,32 +263,23 @@ export default function GorevlerPage() {
           }
         />
 
+        {/* Otomatik öneri banner */}
         {otomatikOneriler.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-amber-900">Otomatik görev önerileri</p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  {otomatikOneriler.length} sinyal göreve dönüştürülmeye hazır.
-                </p>
+                <p className="text-xs text-amber-700 mt-0.5">{otomatikOneriler.length} sinyal göreve dönüştürülmeye hazır.</p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                icon={<Wand2 className="w-3.5 h-3.5" />}
-                loading={otomatikLoading}
-                onClick={handleOtomatikGorevOlustur}
-              >
+              <Button size="sm" variant="outline" icon={<Wand2 className="w-3.5 h-3.5" />} loading={otomatikLoading} onClick={handleOtomatikGorevOlustur}>
                 Tümünü Oluştur
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-              {otomatikOneriler.slice(0, 3).map((oneri) => (
+              {otomatikOneriler.slice(0, 3).map(oneri => (
                 <div key={oneri.id} className="bg-white border border-amber-100 rounded-lg p-3">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <Badge variant={oneri.oncelik === "kritik" ? "danger" : "warning"}>
-                      {oneri.oncelik}
-                    </Badge>
+                    <Badge variant={oneri.oncelik === "kritik" ? "danger" : "warning"}>{oneri.oncelik}</Badge>
                     <span className="text-xs text-slate-400">{oneri.kaynak}</span>
                   </div>
                   <p className="text-xs font-semibold text-slate-800 line-clamp-2">{oneri.baslik}</p>
@@ -335,60 +290,84 @@ export default function GorevlerPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card p-4 mb-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 flex-1 min-w-[200px]">
-              <Search className="w-3.5 h-3.5 text-slate-400" />
+        {/* ── Filtre satırı ─────────────────────────────────────────────── */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+          {/* Pill tabs */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 self-start w-full sm:w-fit overflow-x-auto">
+            {(
+              [
+                { key: "tumu",       label: "Tümü"         },
+                { key: "beklemede",  label: "Beklemede"    },
+                { key: "devam",      label: "Devam Ediyor" },
+                { key: "tamamlandi", label: "Tamamlandı"   },
+                { key: "iptal",      label: "İptal"        },
+              ] as { key: FilterTab; label: string }[]
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`px-3 py-1.5 text-[12.5px] font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === key ? "bg-blue-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {label}
+                {tabCounts[key] > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    {tabCounts[key]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Sağ taraf: arama + öncelik filtresi */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Görev veya müşteri ara..."
                 value={aramaText}
-                onChange={(e) => setAramaText(e.target.value)}
+                onChange={e => setAramaText(e.target.value)}
                 className="bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none flex-1"
               />
+              {aramaText && (
+                <button onClick={() => setAramaText("")} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <select
-              value={filterDurum}
-              onChange={(e) => setFilterDurum(e.target.value)}
-              className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
-            >
-              <option value="tumu">Tüm Durumlar</option>
-              <option value="beklemede">Beklemede</option>
-              <option value="devam">Devam Ediyor</option>
-              <option value="tamamlandi">Tamamlandı</option>
-              <option value="iptal">İptal</option>
-            </select>
-            <select
               value={filterOncelik}
-              onChange={(e) => setFilterOncelik(e.target.value)}
+              onChange={e => setFilterOncelik(e.target.value)}
               className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
             >
               <option value="tumu">Tüm Öncelikler</option>
-              <option value="kritik">Kritik</option>
-              <option value="yuksek">Yüksek</option>
-              <option value="normal">Normal</option>
-              <option value="dusuk">Düşük</option>
+              <option value="kritik">🔴 Kritik</option>
+              <option value="yuksek">🟠 Yüksek</option>
+              <option value="normal">🟡 Normal</option>
+              <option value="dusuk">🟢 Düşük</option>
             </select>
-            <span className="text-xs text-slate-500 ml-auto">{filtered.length} görev</span>
+            <span className="text-xs text-slate-400">{filtered.length} görev</span>
           </div>
         </div>
 
+        {/* ── Kanban görünümü ───────────────────────────────────────────── */}
         {view === "kanban" && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {DURUM_KOLONLAR.map((kolon) => {
-              const kolonGorevler = filtered.filter((gorev) => gorev.durum === kolon.key);
+            {DURUM_KOLONLAR.map(kolon => {
+              const kolonGorevler = filtered.filter(g => g.durum === kolon.key);
               return (
                 <div
                   key={kolon.key}
                   className={`flex flex-col rounded-2xl p-3 min-h-48 ${kolon.bg}`}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
                     e.preventDefault();
-                    const gorevId = e.dataTransfer.getData("text/plain");
-                    if (gorevId) handleDurumGuncelle(gorevId, kolon.key);
+                    const id = e.dataTransfer.getData("text/plain");
+                    if (id) handleDurumGuncelle(id, kolon.key);
                   }}
                 >
-                  {/* Kolon başlığı */}
                   <div className="flex items-center justify-between mb-3 px-1">
                     <span className="text-sm font-bold text-slate-800">{kolon.label}</span>
                     <span className="min-w-[22px] text-center rounded-full bg-white border border-slate-200 px-1.5 py-0.5 text-xs font-bold text-slate-600 shadow-sm">
@@ -396,46 +375,30 @@ export default function GorevlerPage() {
                     </span>
                   </div>
 
-                  {/* Kartlar */}
                   <div className="flex flex-col gap-2 flex-1">
-                    {kolonGorevler.map((gorev) => (
+                    {kolonGorevler.map(gorev => (
                       <div
                         key={gorev.id}
                         draggable
-                        onDragStart={(e) => e.dataTransfer.setData("text/plain", gorev.id)}
+                        onDragStart={e => e.dataTransfer.setData("text/plain", gorev.id)}
                         onClick={() => setSeciliGorev(gorev)}
                         className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
                       >
-                        {/* Başlık + 3 nokta */}
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-bold text-slate-900 leading-snug flex-1">
-                            {gorev.baslik}
-                          </p>
+                          <p className="text-sm font-bold text-slate-900 leading-snug flex-1">{gorev.baslik}</p>
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setSeciliGorev(gorev); }}
+                            onClick={e => { e.stopPropagation(); setSeciliGorev(gorev); }}
                             className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-slate-400 hover:text-slate-600"
                           >
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
                         </div>
-
-                        {/* Müşteri */}
                         <p className="text-xs text-blue-600 font-medium mt-1.5">{gorev.musteriAdi}</p>
-
-                        {/* Öncelik */}
                         <div className="flex items-center gap-1 mt-2">
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 flex-shrink-0 ${
-                              gorev.oncelik === "kritik" ? "text-red-500" :
-                              gorev.oncelik === "yuksek" ? "text-amber-500" :
-                              "text-slate-400"
-                            }`}
-                          />
+                          <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ${gorev.oncelik === "kritik" ? "text-red-500" : gorev.oncelik === "yuksek" ? "text-amber-500" : "text-slate-400"}`} />
                           <span className="text-xs text-slate-500 capitalize">{gorev.oncelik}</span>
                         </div>
-
-                        {/* Alt satır: tarih + avatar */}
                         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
                           <div className="flex items-center gap-1 text-xs text-slate-400">
                             <Calendar className="w-3 h-3" />
@@ -446,21 +409,19 @@ export default function GorevlerPage() {
                             style={{ background: "#2563eb" }}
                             title={gorev.atananKisi}
                           >
-                            {gorev.atananKisi.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                            {gorev.atananKisi.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Kart ekle */}
                   <button
                     type="button"
                     onClick={() => setShowYeniModal(true)}
                     className="mt-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-2.5 text-xs font-medium text-slate-500 transition-colors hover:border-blue-400 hover:bg-white hover:text-blue-600"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Kart ekle
+                    <Plus className="w-3.5 h-3.5" /> Kart ekle
                   </button>
                 </div>
               );
@@ -468,71 +429,155 @@ export default function GorevlerPage() {
           </div>
         )}
 
+        {/* ── Tablo görünümü ────────────────────────────────────────────── */}
         {view === "tablo" && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-            <Table>
-              <TableHead>
-                <tr>
-                  <TableHeadCell>Görev</TableHeadCell>
-                  <TableHeadCell>Müşteri</TableHeadCell>
-                  <TableHeadCell>Tür</TableHeadCell>
-                  <TableHeadCell>Öncelik</TableHeadCell>
-                  <TableHeadCell>Atanan</TableHeadCell>
-                  <TableHeadCell>Termin</TableHeadCell>
-                  <TableHeadCell>Durum</TableHeadCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableEmpty colSpan={7} />
-                ) : (
-                  filtered.map((gorev) => (
-                    <TableRow key={gorev.id} onClick={() => setSeciliGorev(gorev)} className="cursor-pointer">
-                      <TableCell>
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{gorev.baslik}</p>
-                          {gorev.aciklama && (
-                            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{gorev.aciklama}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-medium text-blue-600">{gorev.musteriAdi}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="neutral">{gorev.tip}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            gorev.oncelik === "kritik" ? "danger" :
-                            gorev.oncelik === "yuksek" ? "warning" : "neutral"
-                          }
-                        >
-                          {gorev.oncelik}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <span className="text-blue-600 text-xs font-bold">
-                              {gorev.atananKisi.split(" ").map((name) => name[0]).join("")}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-600">{gorev.atananKisi}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-medium text-slate-700">{formatTarih(gorev.terminTarihi)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <GorevDurumBadge durum={gorev.durum} />
-                      </TableCell>
-                    </TableRow>
-                  ))
+
+            {/* Hızlı ekle çubuğu */}
+            <div className="border-b border-slate-100 px-5 py-3 bg-slate-50/60">
+              <form onSubmit={handleQuickAdd} className="flex items-center gap-3">
+                <Plus className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <input
+                  ref={quickRef}
+                  value={quickTitle}
+                  onChange={e => setQuickTitle(e.target.value)}
+                  placeholder="Görev ekle... (Enter ile detaylı forma geç)"
+                  className="flex-1 text-[13.5px] text-slate-600 placeholder:text-slate-400 focus:outline-none bg-transparent font-medium"
+                />
+                {quickTitle && (
+                  <button type="submit" disabled={quickLoading} className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+                    Ekle
+                  </button>
                 )}
-              </TableBody>
-            </Table>
+              </form>
+            </div>
+
+            {/* Gruplu tablo */}
+            {filtered.length === 0 ? (
+              <Table>
+                <TableBody>
+                  <TableEmpty colSpan={7} />
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {grupluGorevler.map(([tip, tipGorevleri]) => (
+                  <div key={tip}>
+                    {/* Grup başlığı */}
+                    <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50/80 border-b border-slate-100">
+                      <Tag className="w-3 h-3 text-slate-400" />
+                      <span className="text-[11.5px] font-bold uppercase tracking-wide text-slate-500">
+                        {TIP_LABEL[tip]}
+                      </span>
+                      <span className="text-[10.5px] font-semibold text-slate-400 bg-white border border-slate-200 rounded-full px-2 py-0.5">
+                        {tipGorevleri.length}
+                      </span>
+                    </div>
+
+                    {/* Satırlar */}
+                    <Table>
+                      <TableHead>
+                        <tr>
+                          <TableHeadCell>Görev</TableHeadCell>
+                          <TableHeadCell>Müşteri</TableHeadCell>
+                          <TableHeadCell>Öncelik</TableHeadCell>
+                          <TableHeadCell>Atanan</TableHeadCell>
+                          <TableHeadCell>Termin</TableHeadCell>
+                          <TableHeadCell>Durum</TableHeadCell>
+                          <TableHeadCell></TableHeadCell>
+                        </tr>
+                      </TableHead>
+                      <TableBody>
+                        {tipGorevleri.map(gorev => {
+                          const isOverdue = gorev.terminTarihi < today && gorev.durum !== "tamamlandi" && gorev.durum !== "iptal";
+                          return (
+                            <TableRow
+                              key={gorev.id}
+                              onClick={() => setSeciliGorev(gorev)}
+                              className="cursor-pointer group"
+                            >
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {/* Tamamla toggle */}
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleDurumGuncelle(gorev.id, gorev.durum === "tamamlandi" ? "beklemede" : "tamamlandi");
+                                    }}
+                                    className="flex-shrink-0 text-slate-300 hover:text-emerald-500 transition-colors"
+                                  >
+                                    {gorev.durum === "tamamlandi"
+                                      ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                      : <Circle className="w-4 h-4" />
+                                    }
+                                  </button>
+                                  <div className={gorev.durum === "tamamlandi" ? "opacity-50" : ""}>
+                                    <p className={`text-sm font-medium text-slate-800 ${gorev.durum === "tamamlandi" ? "line-through text-slate-400" : ""}`}>
+                                      {gorev.baslik}
+                                    </p>
+                                    {gorev.aciklama && (
+                                      <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{gorev.aciklama}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-xs font-medium text-blue-600">{gorev.musteriAdi}</span>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={gorev.oncelik === "kritik" ? "danger" : gorev.oncelik === "yuksek" ? "warning" : "neutral"}>
+                                  {gorev.oncelik}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span className="text-blue-600 text-xs font-bold">
+                                      {gorev.atananKisi.split(" ").map(n => n[0]).join("")}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-slate-600">{gorev.atananKisi}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`text-xs font-medium ${isOverdue ? "text-red-500" : "text-slate-700"}`}>
+                                  {formatTarih(gorev.terminTarihi)}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <GorevDurumBadge durum={gorev.durum} />
+                              </TableCell>
+                              <TableCell>
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); handleGorevSil(gorev.id); }}
+                                  className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Footer stats */}
+            {gorevler.length > 0 && (
+              <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center gap-4">
+                <span className="text-[12px] text-slate-400">{tabCounts.tumu} bekleyen</span>
+                {tabCounts.tamamlandi > 0 && (
+                  <span className="flex items-center gap-1.5 text-[12px] text-slate-400">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> {tabCounts.tamamlandi} tamamlandı
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -540,9 +585,7 @@ export default function GorevlerPage() {
       <YeniGorevModal
         open={showYeniModal}
         onClose={() => setShowYeniModal(false)}
-        onCreated={(gorev) => {
-          if (source !== "firebase") setGorevler((prev) => [gorev, ...prev]);
-        }}
+        onCreated={gorev => { if (source !== "firebase") setGorevler(prev => [gorev, ...prev]); }}
         onSuccess={() => toast.success("Görev listesi güncellendi")}
       />
       <GorevDetayDrawer
@@ -550,6 +593,7 @@ export default function GorevlerPage() {
         onClose={() => setSeciliGorev(null)}
         onDurumGuncelle={handleDurumGuncelle}
         onNotEkle={handleNotEkle}
+        onNotSil={handleNotSil}
         onGorevGuncelle={handleGorevGuncelle}
         onGorevSil={handleGorevSil}
       />

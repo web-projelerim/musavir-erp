@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, CheckSquare, CreditCard, Dot } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, CheckSquare, CreditCard, Dot, Receipt } from "lucide-react";
 import Link from "next/link";
 
 export interface TakvimOlay {
   tarih: string; // ISO
-  renk: "red" | "blue" | "amber" | "emerald";
+  renk: "red" | "blue" | "amber" | "emerald" | "purple";
   etiket: string;
   href?: string;
-  tur?: "beyanname" | "gorev" | "tahsilat" | "diger";
+  tur?: "beyanname" | "gorev" | "tahsilat" | "vergi" | "diger";
   durum?: string;
+  aciklama?: string;
 }
 
 interface Props {
@@ -28,6 +29,7 @@ const RENK_DOT: Record<TakvimOlay["renk"], string> = {
   blue:    "bg-blue-500",
   amber:   "bg-amber-500",
   emerald: "bg-emerald-500",
+  purple:  "bg-purple-500",
 };
 
 const RENK_ICON_BG: Record<TakvimOlay["renk"], string> = {
@@ -35,6 +37,15 @@ const RENK_ICON_BG: Record<TakvimOlay["renk"], string> = {
   blue:    "bg-blue-100 text-blue-700",
   amber:   "bg-amber-100 text-amber-700",
   emerald: "bg-emerald-100 text-emerald-700",
+  purple:  "bg-purple-100 text-purple-700",
+};
+
+const RENK_DAY_BG: Record<TakvimOlay["renk"], string> = {
+  red:     "bg-red-50",
+  blue:    "bg-blue-50",
+  amber:   "bg-amber-50",
+  emerald: "bg-emerald-50",
+  purple:  "bg-purple-50",
 };
 
 const DURUM_LABEL: Record<string, string> = {
@@ -51,6 +62,7 @@ function OlayIcon({ tur }: { tur?: TakvimOlay["tur"] }) {
   if (tur === "beyanname") return <FileText className="w-3.5 h-3.5" />;
   if (tur === "gorev")     return <CheckSquare className="w-3.5 h-3.5" />;
   if (tur === "tahsilat")  return <CreditCard className="w-3.5 h-3.5" />;
+  if (tur === "vergi")     return <Receipt className="w-3.5 h-3.5" />;
   return <Dot className="w-3.5 h-3.5" />;
 }
 
@@ -172,6 +184,9 @@ export function MiniTakvim({ olaylar }: Props) {
             const gunOlaylari = olayHaritasi.get(dateStr) ?? [];
             const hasOlay    = gunOlaylari.length > 0;
             const noktalar   = gunOlaylari.slice(0, 4);
+            // Günün baskın rengi (ilk olay belirler) — %40 opasite arka plan tonu
+            const baskınRenk = hasOlay ? gunOlaylari[0].renk : null;
+            const gunBg = !isSelected && baskınRenk ? RENK_DAY_BG[baskınRenk] : "";
 
             return (
               <button
@@ -180,7 +195,7 @@ export function MiniTakvim({ olaylar }: Props) {
                 onClick={() => setSecilenGun(isSelected ? null : dateStr)}
                 className={[
                   "relative flex flex-col items-center py-1 rounded-lg transition-colors cursor-pointer",
-                  isSelected ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50",
+                  isSelected ? "bg-blue-50 ring-1 ring-blue-200" : hasOlay ? `${gunBg} hover:brightness-95` : "hover:bg-slate-50",
                 ].join(" ")}
               >
                 <span
@@ -212,7 +227,7 @@ export function MiniTakvim({ olaylar }: Props) {
         </div>
 
         {/* Lejant */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-x-5 gap-y-1.5">
+        <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1.5">
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" /> Beyanname
           </span>
@@ -221,6 +236,9 @@ export function MiniTakvim({ olaylar }: Props) {
           </span>
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" /> Tahsilat
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0" /> Vergi Takvimi
           </span>
         </div>
       </div>
@@ -254,7 +272,10 @@ export function MiniTakvim({ olaylar }: Props) {
                     </span>
                     <span className="flex-1 min-w-0">
                       <span className="block text-xs font-medium text-slate-800 truncate">{olay.etiket}</span>
-                      {durumLabel && (
+                      {olay.aciklama && (
+                        <span className="block text-[10px] text-slate-400 leading-snug mt-0.5 line-clamp-2">{olay.aciklama}</span>
+                      )}
+                      {durumLabel && !olay.aciklama && (
                         <span className="text-[10px] text-slate-400">{durumLabel}</span>
                       )}
                     </span>

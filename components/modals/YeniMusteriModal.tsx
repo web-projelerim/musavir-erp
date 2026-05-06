@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
 import { createMusteri, updateMusteri } from "@/lib/firebase/repositories";
 import type { Musteri, User } from "@/lib/types";
 
@@ -438,12 +439,13 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Seçim Yapın</option>
-                  <option value="Bağcılar">Bağcılar</option>
-                  <option value="Kadıköy">Kadıköy</option>
-                  <option value="Beşiktaş">Beşiktaş</option>
-                  <option value="Fatih">Fatih</option>
-                  <option value="Şişli">Şişli</option>
-                  <option value="Üsküdar">Üsküdar</option>
+                  {VERGI_DAIRESI_GRUPLARI.map(({ grup, daireler }) => (
+                    <optgroup key={grup} label={grup}>
+                      {daireler.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                   <option value="Diğer">Diğer</option>
                 </select>
               </div>

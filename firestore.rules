@@ -70,14 +70,13 @@ service cloud.firestore {
     // ─── Davetler (ofisId filtreli) ───────────────────────────────────────────
 
     match /davetler/{davetId} {
-      allow read:   if isSignedIn() &&
-                      (sameOffice(resource.data.ofisId) ||
-                       // Davet tokeni ile kayıt akışında kendi davetini okuyabilir
-                       request.auth.uid != null);
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      // Davet e-postası eşleşen giriş yapmış kullanıcı kendi davetini okuyabilir
+                      (isSignedIn() && resource.data.email == request.auth.token.email);
       allow create: if writingToOwnOffice() && isStaff();
       allow update: if sameOffice(resource.data.ofisId) ||
                       // Davet kabul edilirken (kullanildi: true) mükellef güncelleyebilir
-                      (isSignedIn() && resource.data.davetliEmail == request.auth.token.email);
+                      (isSignedIn() && resource.data.email == request.auth.token.email);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
@@ -318,13 +317,16 @@ service cloud.firestore {
     // ─── Hızlı notlar ────────────────────────────────────────────────────────
 
     match /notlar/{notId} {
-      allow read:   if (isStaff() && sameOffice(resource.data.ofisId))
-                    || (isSignedIn() && request.auth.token.email in resource.data.paylasilanEmails);
+      // Sadece yazanın kendisi (uid eşleşmesi) veya paylaşılan email görebilir
+      allow read:   if isSignedIn()
+                    && (resource.data.createdBy == request.auth.uid
+                        || request.auth.token.email in resource.data.paylasilanEmails);
       allow create: if isStaff() && writingToOwnOffice();
-      allow delete: if isStaff() && sameOffice(resource.data.ofisId);
-      // Tikleme: sadece tikleyenler alanı güncellenebilir — okuma yetkisi olan herkes tıklayabilir
+      // Sadece yazan silebilir
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      // Tikleme: sadece tikleyenler alanı güncellenebilir — yazan veya paylaşılan tıklayabilir
       allow update: if isSignedIn()
-                    && ((isStaff() && sameOffice(resource.data.ofisId))
+                    && (resource.data.createdBy == request.auth.uid
                         || request.auth.token.email in resource.data.paylasilanEmails)
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["tikleyenler"]);
     }

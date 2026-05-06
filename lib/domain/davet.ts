@@ -11,20 +11,21 @@ export const PERSONEL_DEFAULT_YETKILER: KullaniciYetki[] = [
 
 export function defaultYetkilerForRole(role: UserRole): KullaniciYetki[] {
   if (role === "personel") return PERSONEL_DEFAULT_YETKILER;
-  if (role === "musavir") return PERSONEL_DEFAULT_YETKILER;
+  // musavir: hasPermission() zaten her zaman true döner, yetkiler listesine gerek yok
   return [];
 }
 
 export function createInviteToken() {
-  const randomPart =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random()}`;
-  return btoa(randomPart).replace(/=+$/g, "").replace(/[+/]/g, "-").slice(0, 32);
+  // crypto.randomUUID() Next.js (browser + Node 14.17+) ortamlarında her zaman mevcuttur
+  return crypto.randomUUID().replace(/-/g, "");
 }
 
-export function hashInviteToken(token: string) {
-  return btoa(token).replace(/=+$/g, "");
+export async function hashInviteToken(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function buildInviteLink(token: string) {

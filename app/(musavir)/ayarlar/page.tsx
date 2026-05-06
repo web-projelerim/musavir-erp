@@ -30,12 +30,14 @@ import {
   upsertBeyannameFromGib,
   upsertGibEntegrasyonAyari,
   upsertLucaEntegrasyonAyari,
+  upsertOfis,
   upsertTebligatFromGib,
   upsertWhatsAppEntegrasyonAyari,
 } from "@/lib/firebase/repositories";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
+import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
 import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErrors";
 import type {
   AuditAction,
@@ -48,6 +50,7 @@ import type {
 } from "@/lib/types";
 
 const TABS = [
+  { id: "kurum", label: "Kurum Bilgileri", icon: Database },
   { id: "kullanicilar", label: "Kullanıcılar", icon: Users },
   { id: "entegrasyon", label: "Entegrasyonlar", icon: Link2 },
   { id: "gonderimler", label: "Gönderimler", icon: Bell },
@@ -128,7 +131,7 @@ function panelTitle(panel: IntegrationPanel) {
 export default function AyarlarPage() {
   const toast = useToast();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("entegrasyon");
+  const [activeTab, setActiveTab] = useState<TabId>("kurum");
   const [activeIntegration, setActiveIntegration] = useState<IntegrationPanel>("gib");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const {
@@ -162,11 +165,14 @@ export default function AyarlarPage() {
   const [encryptedGibSecrets, setEncryptedGibSecrets] = useState<Record<string, string>>({});
   const [lucaSecret, setLucaSecret] = useState("");
   const [syncLoading, setSyncLoading] = useState(false);
+  const [kurumForm, setKurumForm] = useState({ unvan: "", vergiDairesi: "", telefon: "", email: "", sgkKullaniciAdi: "", sgkSifresi: "" });
+  const [kurumSaving, setKurumSaving] = useState(false);
   // Captcha modal state
   const [captchaModal, setCaptchaModal] = useState(false);
   const [captchaLoading, setCaptchaLoading] = useState(false);
   const [captchaImageBase64, setCaptchaImageBase64] = useState("");
   const [captchaImageID, setCaptchaImageID] = useState("");
+  const [captchaSessionCookie, setCaptchaSessionCookie] = useState("");
   const [captchaDk, setCaptchaDk] = useState("");
   const [pendingSyncTipi, setPendingSyncTipi] = useState<GibSyncLog["syncTipi"] | null>(null);
 
@@ -191,6 +197,35 @@ export default function AyarlarPage() {
   }, [whatsappEntegrasyonAyarlari]);
 
   const selectedOfis = ofisler[0];
+
+  useEffect(() => {
+    if (!selectedOfis) return;
+    setKurumForm({
+      unvan: selectedOfis.unvan ?? "",
+      vergiDairesi: selectedOfis.vergiDairesi ?? "",
+      telefon: selectedOfis.telefon ?? "",
+      email: selectedOfis.email ?? "",
+      sgkKullaniciAdi: selectedOfis.sgkKullaniciAdi ?? "",
+      sgkSifresi: selectedOfis.sgkSifresi ?? "",
+    });
+  }, [selectedOfis]);
+
+  const handleSaveKurum = async () => {
+    if (!selectedOfis) {
+      toast.warning("Ofis verisi bulunamadı", "Sayfayı yenileyip tekrar deneyin");
+      return;
+    }
+    setKurumSaving(true);
+    try {
+      await upsertOfis({ ...selectedOfis, ...kurumForm });
+      toast.success("Kurum bilgileri kaydedildi");
+    } catch (err) {
+      toast.error("Kurum bilgileri kaydedilemedi", parseFirestoreError(err));
+    } finally {
+      setKurumSaving(false);
+    }
+  };
+
   // gibDraft and lucaDraft may be null; all usage below checks for null before reading
   const gibDraftSafe = gibDraft;
   const lucaDraftSafe = lucaDraft;
@@ -344,6 +379,7 @@ export default function AyarlarPage() {
     setCaptchaDk("");
     setCaptchaImageBase64("");
     setCaptchaImageID("");
+    setCaptchaSessionCookie("");
     setCaptchaLoading(true);
     setCaptchaModal(true);
     try {
@@ -352,6 +388,7 @@ export default function AyarlarPage() {
       if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
       setCaptchaImageBase64(data.imageBase64);
       setCaptchaImageID(data.imageID);
+      setCaptchaSessionCookie(data.sessionCookie ?? "");
     } catch (err) {
       toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
       setCaptchaModal(false);
@@ -399,97 +436,76 @@ export default function AyarlarPage() {
     }
 
     try {
-      // ─── Tebligat: müşteri kendi hesabıyla giriş yapar ──────────────────
-      if (yapilacakTebligat && tebligatHedefleri.length > 0) {
-        for (const musteri of tebligatHedefleri) {
-          const res = await fetch("/api/gib/sync", {
-            method: "POST",
-            headers: await authHeaders(),
-            body: JSON.stringify({
-              ofisId,
-              syncTipi: "tebligat",
-              ivdKullaniciKodu: musteri.gibIvdKullaniciAdi,
-              vknTckn: musteri.vknTckn,
-              encryptedIvdSifre: musteri.gibEncryptedIvdSifre,
-              musteriVkn: musteri.vknTckn,
-              captchaDk,
-              captchaImageID,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            console.warn(`[GIB Tebligat] ${musteri.firmaAdi}:`, data.error);
-            continue;
-          }
-          const tebligatlar = (data.tebligatlar ?? []).map((t: Record<string, unknown>) => ({
-            ...(t as object),
-            ofisId,
-            musteriId: musteri.id,
-            musteriAdi: musteri.firmaAdi,
-          }));
-          islenenKayitSayisi += tebligatlar.length;
-          type TebInput = Parameters<typeof upsertTebligatFromGib>[0];
-          await Promise.all((tebligatlar as TebInput[]).map((t) => upsertTebligatFromGib(t)));
+      // ─── Tüm GİB verileri tek bir bulk-sync çağrısıyla çekilir ───────────
+      // GİB captcha tek-kullanımlık: birden fazla çağrıda aynı captcha kullanılamaz.
+      // Bu nedenle tebligat + beyanname + tahakkuk tek login oturumunda işlenir.
+      if (ofisKimligiHazir) {
+        // syncTipi'yi tek bir bulk-sync endpoint çağrısına dönüştür
+        let bulkTip: "beyanname" | "tahakkuk" | "tebligat" | "tumu";
+        if (yapilacakTebligat && yapilacakBeyanname && yapilacakTahakkuk) {
+          bulkTip = "tumu";
+        } else if (yapilacakTebligat && yapilacakBeyanname) {
+          // tumu yap, tahakkuk zaten tumu içinde
+          bulkTip = "tumu";
+        } else if (yapilacakTebligat) {
+          bulkTip = "tebligat";
+        } else if (yapilacakBeyanname && yapilacakTahakkuk) {
+          bulkTip = "tumu";
+        } else if (yapilacakBeyanname) {
+          bulkTip = "beyanname";
+        } else {
+          bulkTip = "tahakkuk";
         }
-      }
 
-      // ─── Beyanname: ofis IVD hesabıyla, her müşteri VKN'i ayrı sorgu ────
-      if (yapilacakBeyanname && ofisKimligiHazir) {
-        for (const musteri of aktifMusteriler) {
-          const res = await fetch("/api/gib/sync", {
-            method: "POST",
-            headers: await authHeaders(),
-            body: JSON.stringify({
-              ofisId,
-              syncTipi: "beyanname",
-              ivdKullaniciKodu: gibDraftSafe.ivdKullaniciKodu,
-              vknTckn: gibDraftSafe.vknTckn,
-              encryptedIvdSifre: encSifre,
-              musteriVkn: musteri.vknTckn,
-              captchaDk,
-              captchaImageID,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            console.warn(`[GIB Beyanname] ${musteri.firmaAdi}:`, data.error);
-            continue;
-          }
-          const beyannameler = (data.beyannameler ?? []).map((b: Record<string, unknown>) => ({
-            ...(b as object),
+        const res = await fetch("/api/gib/bulk-sync", {
+          method: "POST",
+          headers: await authHeaders(),
+          body: JSON.stringify({
             ofisId,
-            musteriId: musteri.id,
-            musteriAdi: musteri.firmaAdi,
-          }));
-          islenenKayitSayisi += beyannameler.length;
-          type BeyInput = Parameters<typeof upsertBeyannameFromGib>[0];
-          await Promise.all((beyannameler as BeyInput[]).map((b) => upsertBeyannameFromGib(b)));
-        }
-      }
+            captchaDk,
+            captchaImageID,
+            captchaSessionCookie,
+            syncTipi: bulkTip,
+          }),
+        });
+        const data = await res.json();
 
-      // ─── Tahakkuk/Borç: ofis IVD hesabıyla ──────────────────────────────
-      if (yapilacakTahakkuk && ofisKimligiHazir) {
-        for (const musteri of aktifMusteriler) {
-          const res = await fetch("/api/gib/sync", {
-            method: "POST",
-            headers: await authHeaders(),
-            body: JSON.stringify({
-              ofisId,
-              syncTipi: "borc",
-              ivdKullaniciKodu: gibDraftSafe.ivdKullaniciKodu,
-              vknTckn: gibDraftSafe.vknTckn,
-              encryptedIvdSifre: encSifre,
-              musteriVkn: musteri.vknTckn,
-              captchaDk,
-              captchaImageID,
-            }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            console.warn(`[GIB Borç] ${musteri.firmaAdi}:`, data.error);
+        // Captcha yanlış girildi → modal'ı yenile, sync log yazma
+        if (data.captchaGecersiz) {
+          toast.warning("Güvenlik kodu hatalı", "Lütfen resimdeki kodu tekrar girin.");
+          setSyncLoading(false);
+          setCaptchaDk("");
+          setCaptchaImageBase64("");
+          setCaptchaImageID("");
+          setCaptchaSessionCookie("");
+          setCaptchaLoading(true);
+          setCaptchaModal(true);
+          try {
+            const capRes = await fetch("/api/gib/captcha");
+            const capData = await capRes.json();
+            if (capRes.ok) {
+              setCaptchaImageBase64(capData.imageBase64);
+              setCaptchaImageID(capData.imageID);
+              setCaptchaSessionCookie(capData.sessionCookie ?? "");
+            }
+          } finally {
+            setCaptchaLoading(false);
           }
-          // Borç listesi şimdilik sayımda yer almıyor; ilerleyen fazda upsertBorcFromGib eklenecek
+          return;
         }
+
+        if (!res.ok) {
+          throw new Error(data.error ?? "GİB bulk sync başarısız");
+        }
+        if (data.needsCaptcha) {
+          throw new Error("GİB oturumu sona erdi — lütfen captcha'yı yeniden çözün");
+        }
+        islenenKayitSayisi += data.toplamKayit ?? 0;
+        if ((data.hataSayisi ?? 0) > 0) {
+          console.warn("[GİB Bulk Sync] Kısmi hatalar:", data.hatalar);
+        }
+      } else if (yapilacakTebligat || yapilacakBeyanname || yapilacakTahakkuk) {
+        toast.warning("Ofis GİB kimlik bilgileri eksik", "Ayarlar → GİB → IVD Kullanıcı Kodu ve Şifreyi tamamlayın");
       }
     } catch (err) {
       syncDurum = "basarisiz";
@@ -556,6 +572,7 @@ export default function AyarlarPage() {
     setCaptchaDk("");
     setCaptchaImageBase64("");
     setCaptchaImageID("");
+    setCaptchaSessionCookie("");
     setCaptchaLoading(true);
     try {
       const res = await fetch("/api/gib/captcha");
@@ -563,6 +580,7 @@ export default function AyarlarPage() {
       if (!res.ok) throw new Error(data.error ?? "Captcha alınamadı");
       setCaptchaImageBase64(data.imageBase64);
       setCaptchaImageID(data.imageID);
+      setCaptchaSessionCookie(data.sessionCookie ?? "");
     } catch (err) {
       toast.error("GİB captcha alınamadı", err instanceof Error ? err.message : undefined);
     } finally {
@@ -1062,6 +1080,80 @@ export default function AyarlarPage() {
         </nav>
 
         <div className="flex-1">
+          {activeTab === "kurum" && (
+            <div className="space-y-4">
+              <Card>
+                <h3 className="text-sm font-semibold text-slate-800 mb-4">Genel Bilgiler</h3>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <Input
+                    label="Ofis / Firma Unvanı"
+                    value={kurumForm.unvan}
+                    onChange={(e) => setKurumForm((p) => ({ ...p, unvan: e.target.value }))}
+                    placeholder="Mali Müşavirlik Ofisi"
+                  />
+                  <Input
+                    label="Telefon"
+                    value={kurumForm.telefon}
+                    onChange={(e) => setKurumForm((p) => ({ ...p, telefon: e.target.value }))}
+                    placeholder="0212 000 00 00"
+                  />
+                  <Input
+                    label="E-posta"
+                    type="email"
+                    value={kurumForm.email}
+                    onChange={(e) => setKurumForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="ofis@example.com"
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Vergi Dairesi</label>
+                    <select
+                      value={kurumForm.vergiDairesi}
+                      onChange={(e) => setKurumForm((p) => ({ ...p, vergiDairesi: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seçim Yapın</option>
+                      {VERGI_DAIRESI_GRUPLARI.map(({ grup, daireler }) => (
+                        <optgroup key={grup} label={grup}>
+                          {daireler.map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      <option value="Diğer">Diğer</option>
+                    </select>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <h3 className="text-sm font-semibold text-slate-800 mb-1">SGK Bilgileri</h3>
+                <p className="text-xs text-slate-500 mb-3">Sosyal Güvenlik Kurumu kullanıcı bilgileri.</p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mb-4 text-xs text-amber-800">
+                  ⚠️ SGK şifresi şu an Firestore&apos;a şifresiz kaydediliyor. GİB şifreleme altyapısı (AES-256-GCM) ilerleyen sürümde bu alana da uygulanacak.
+                </div>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <Input
+                    label="SGK Kullanıcı Adı"
+                    value={kurumForm.sgkKullaniciAdi}
+                    onChange={(e) => setKurumForm((p) => ({ ...p, sgkKullaniciAdi: e.target.value }))}
+                    placeholder="SGK kullanıcı adınız"
+                  />
+                  <Input
+                    label="SGK Şifresi"
+                    type="password"
+                    value={kurumForm.sgkSifresi}
+                    onChange={(e) => setKurumForm((p) => ({ ...p, sgkSifresi: e.target.value }))}
+                    placeholder="SGK şifreniz"
+                  />
+                </div>
+              </Card>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSaveKurum} loading={kurumSaving}>Kaydet</Button>
+              </div>
+            </div>
+          )}
+
           {activeTab === "kullanicilar" && (
             <div className="space-y-4">
               {/* Aktif kullanicilar */}

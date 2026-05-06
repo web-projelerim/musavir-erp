@@ -37,6 +37,8 @@ import {
 import { deleteStorageFile } from "@/lib/firebase/storage";
 import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
+import { isMusavir } from "@/lib/utils/permissions";
+import { useAuth } from "@/lib/context/AuthContext";
 import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
 const TABS = ["Özet", "Yükümlülükler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
@@ -49,6 +51,8 @@ function formatDosyaBoyutu(bytes: number) {
 export default function MusteriDetayPage({ params }: { params: { id: string } }) {
   const toast = useToast();
   const logAudit = useAuditLog();
+  const { user } = useAuth();
+  const canAdmin = isMusavir(user);
   const [activeTab, setActiveTab] = useState("Özet");
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showMusteriModal, setShowMusteriModal] = useState(false);
@@ -297,6 +301,14 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     });
   };
 
+  const handleGorevNotSil = async (id: string, notId: string) => {
+    const hedef = localGorevler.find((g) => g.id === id);
+    const guncelNotlar = normalizeGorevNotlar(hedef?.notlar).filter((n) => n.id !== notId);
+    applyGorevPatch(id, { notlar: guncelNotlar });
+    if (!isFirebaseConfigured) return;
+    await updateGorev(id, { notlar: guncelNotlar });
+  };
+
   const handleGorevSil = async (id: string) => {
     const gorev = localGorevler.find((g) => g.id === id);
     setLocalGorevler((prev) => prev.filter((g) => g.id !== id));
@@ -412,22 +424,26 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           >
             Görev Ekle
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<Edit className="w-3.5 h-3.5" />}
-            onClick={() => setShowMusteriModal(true)}
-          >
-            Düzenle
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<MoreHorizontal className="w-3.5 h-3.5" />}
-            onClick={handleMusteriPasifeAl}
-          >
-            Pasife Al
-          </Button>
+          {canAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Edit className="w-3.5 h-3.5" />}
+              onClick={() => setShowMusteriModal(true)}
+            >
+              Düzenle
+            </Button>
+          )}
+          {canAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<MoreHorizontal className="w-3.5 h-3.5" />}
+              onClick={handleMusteriPasifeAl}
+            >
+              Pasife Al
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1102,6 +1118,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         onClose={() => setSeciliGorev(null)}
         onDurumGuncelle={handleGorevDurum}
         onNotEkle={handleGorevNotEkle}
+        onNotSil={handleGorevNotSil}
         onGorevGuncelle={handleGorevGuncelle}
         onGorevSil={handleGorevSil}
       />

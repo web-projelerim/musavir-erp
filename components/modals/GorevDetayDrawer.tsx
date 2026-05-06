@@ -28,6 +28,7 @@ interface Props {
   onClose: () => void;
   onDurumGuncelle?: (id: string, durum: GorevDurum) => Promise<void> | void;
   onNotEkle?: (id: string, not: GorevNot) => Promise<void> | void;
+  onNotSil?: (id: string, notId: string) => Promise<void> | void;
   onGorevGuncelle?: (id: string, patch: Partial<Gorev>) => Promise<void> | void;
   onGorevSil?: (id: string) => Promise<void> | void;
 }
@@ -57,6 +58,7 @@ export function GorevDetayDrawer({
   onClose,
   onDurumGuncelle,
   onNotEkle,
+  onNotSil,
   onGorevGuncelle,
   onGorevSil,
 }: Props) {
@@ -117,6 +119,19 @@ export function GorevDetayDrawer({
       console.error(error);
       setNotlar(eskiNotlar);
       toast.error("Not kaydedilemedi", parseFirestoreError(error));
+    }
+  };
+
+  const handleNotSil = async (notId: string) => {
+    const eskiNotlar = notlar;
+    setNotlar((prev) => prev.filter((n) => n.id !== notId));
+    try {
+      await onNotSil?.(gorev.id, notId);
+      toast.success("Not silindi");
+    } catch (error) {
+      console.error(error);
+      setNotlar(eskiNotlar);
+      toast.error("Not silinemedi", parseFirestoreError(error));
     }
   };
 
@@ -306,12 +321,21 @@ export function GorevDetayDrawer({
             {notlar.length > 0 && (
               <div className="space-y-2 mb-3">
                 {notlar.map((gorevNotu) => (
-                  <div key={gorevNotu.id} className="bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                    <p className="text-xs text-slate-700">{gorevNotu.metin}</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {gorevNotu.yazar ? `${gorevNotu.yazar} - ` : ""}
-                      {formatSureGecmis(gorevNotu.tarih)}
-                    </p>
+                  <div key={gorevNotu.id} className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 flex gap-2 items-start">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-700">{gorevNotu.metin}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {gorevNotu.yazar ? `${gorevNotu.yazar} - ` : ""}
+                        {formatSureGecmis(gorevNotu.tarih)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleNotSil(gorevNotu.id)}
+                      className="flex-shrink-0 p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Notu sil"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>

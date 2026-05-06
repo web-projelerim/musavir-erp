@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -181,11 +182,26 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
   return (
     <Modal open={open} onClose={onClose} title="Banka Ekstresi Yükle" size="xl">
       <div className="space-y-4">
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center hover:border-blue-300 hover:bg-blue-50/40">
-          <Upload className="mb-2 h-6 w-6 text-slate-400" />
-          <span className="text-sm font-medium text-slate-700">{fileName || "Banka ekstresi seçin"}</span>
-          <span className="mt-1 text-xs text-slate-500">xlsx, xls, csv veya PDF · Alanlar: tarih, açıklama, tutar, gönderen, IBAN, dekont no</span>
-          <input type="file" accept=".xlsx,.xls,.csv,.pdf" className="hidden" onChange={(event) => handleFile(event.target.files?.[0])} />
+        <label className={cn(
+          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors",
+          loading && rows.length === 0
+            ? "border-blue-300 bg-blue-50/40 cursor-wait"
+            : "border-slate-300 bg-white hover:border-blue-300 hover:bg-blue-50/40"
+        )}>
+          {loading && rows.length === 0 ? (
+            <>
+              <Loader2 className="mb-2 h-6 w-6 text-blue-500 animate-spin" />
+              <span className="text-sm font-medium text-blue-600">Dosya işleniyor...</span>
+              <span className="mt-1 text-xs text-slate-500">Lütfen bekleyin</span>
+            </>
+          ) : (
+            <>
+              <Upload className="mb-2 h-6 w-6 text-slate-400" />
+              <span className="text-sm font-medium text-slate-700">{fileName || "Banka ekstresi seçin"}</span>
+              <span className="mt-1 text-xs text-slate-500">xlsx, xls, csv veya PDF · Alanlar: tarih, açıklama, tutar, gönderen, IBAN, dekont no</span>
+            </>
+          )}
+          <input type="file" accept=".xlsx,.xls,.csv,.pdf" className="hidden" disabled={loading} onChange={(event) => handleFile(event.target.files?.[0])} />
         </label>
 
         {rows.length > 0 && (

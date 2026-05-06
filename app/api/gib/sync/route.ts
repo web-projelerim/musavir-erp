@@ -16,6 +16,7 @@ import {
   fetchBeyannameler,
   fetchBorcListesi,
   fetchMukellefDurumu,
+  restoreCaptchaCookie,
 } from "@/lib/integrations/gib/ivd-client";
 
 type SyncTipi = "tebligat" | "beyanname" | "tahakkuk" | "mukellef_durum" | "tumu";
@@ -27,6 +28,8 @@ interface SyncBody {
   /** GİB captcha çözümü — yeni sistemde zorunlu */
   captchaDk: string;
   captchaImageID: string;
+  /** GİB captcha session cookie — /api/gib/captcha'nın döndürdüğü sessionCookie değeri */
+  captchaSessionCookie?: string;
   /** Yalnızca tebligat sync için — mükellefin kendi IVD bilgileri */
   ivdKullaniciKodu?: string;
   vknTckn?: string;
@@ -76,6 +79,11 @@ export async function POST(req: NextRequest) {
     } catch {
       // Firestore doğrulaması başarısız olursa devam — Firestore kuralları zaten koruyor
     }
+  }
+
+  // Captcha session cookie'yi in-memory store'a restore et (serverless cross-instance).
+  if (body.captchaImageID && body.captchaSessionCookie) {
+    restoreCaptchaCookie(body.captchaImageID, body.captchaSessionCookie);
   }
 
   const { syncTipi, musteriVkn } = body;

@@ -39,8 +39,8 @@ Müşavir, müşteri portföyünü yönetir; beyanname, tebligat, tahakkuk, gör
 | GİB IVD sync (HTTP tabanlı) | ✅ Çalışıyor (GİB'in tepkisine bağlı) |
 | WhatsApp mesaj gönderimi (Meta Cloud API) | ✅ Çalışıyor |
 | Mini takvim (dashboard) | ✅ Çalışıyor |
-| ofisId çok-kiracılı filtreleme | 🔴 Kritik eksik — yapılacak |
-| KullaniciYetki arayüz kontrolü | 🔴 Kritik eksik — yapılacak |
+| ofisId çok-kiracılı filtreleme | ✅ Çalışıyor |
+| KullaniciYetki arayüz kontrolü | ✅ Çalışıyor |
 
 ### 🚫 MVP Dışı (stub kalacak, gelecek faz)
 
@@ -276,9 +276,9 @@ rapor_yonetimi   → Rapor üretebilir/gönderebilir
 ### 4.4 Uygulama Kuralları
 
 1. Route guard (`AuthGuard`) rol seviyesinde kontrol ediyor — **mevcut, çalışıyor**.
-2. Sayfa içi yetki kontrolü için `hasPermission(user, yetki)` helper'ı **henüz yok — yapılacak**.
-3. Firestore güvenlik kuralları (`firestore.rules`) `ofisId` bazlı izolasyonu **enforce etmeli**.
-4. `ofisId` filtresi Firestore sorgusunda (`where("ofisId", "==", ofisId)`) uygulanmalı — **henüz yok**.
+2. Sayfa içi yetki kontrolü için `hasPermission(user, yetki)` helper'ı `lib/utils/permissions.ts` içindedir — **mevcut, çalışıyor**.
+3. Firestore güvenlik kuralları (`firestore.rules`) `ofisId` bazlı izolasyonu **enforce ediyor** — mevcut, çalışıyor.
+4. `ofisId` filtresi Firestore sorgusunda (`where("ofisId", "==", ofisId)`) uygulanıyor — **mevcut, çalışıyor**.
 
 ---
 
@@ -603,16 +603,16 @@ Her liste sayfasında veri yoksa gösterilmeli:
 
 ## 11. Öncelik Sırası (Aktif Geliştirme)
 
-### 🔴 P0 — Güvenlik (Blocker)
-1. **ofisId Firestore filtresi** — Çok-kiracılı izolasyon eksik; tüm ofisler birbirinin verisini okuyabilir
-2. **Firestore Security Rules** — `ofisId` bazlı okuma/yazma kısıtı
+### ✅ P0 — Güvenlik (Tamamlandı)
+1. **ofisId Firestore filtresi** — ✅ `subscribeCollection` + `useAppData` zaten filtreli
+2. **Firestore Security Rules** — ✅ `sameOffice()` helper ile tüm koleksiyonlar korumalı
 
-### 🔴 P1 — Kritik İşlevsellik
-3. **KullaniciYetki kontrolü** — `hasPermission()` helper + sayfa içi guard
-4. **Mükellef paneli risk metresi kaldırma** — Müşteri kendi risk skorunu görmemeli
+### ✅ P1 — Kritik İşlevsellik (Tamamlandı)
+3. **KullaniciYetki kontrolü** — ✅ `hasPermission()` + `isMusavir()` helper; musteriler/tahakkuklar/raporlar/ayarlar sayfaları korumalı
+4. **Mükellef paneli risk metresi kaldırma** — ✅ Panelde zaten gösterilmiyor; sadece PDF rapor için hesaplanıyor
 
 ### 🟡 P2 — Önemli Eksik
-5. **WhatsApp şablon mesaj** — Meta onaylı template'e geçiş (oturum dışı gönderim için)
+5. **WhatsApp şablon mesaj** — ✅ Kod hazır; `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` env var'larını ayarlamak yeterli
 6. **Başarısız WhatsApp retry butonu** — gonderimler sayfasında manuel retry
 7. **Cron/zamanlayıcı** — Günlük GİB sync, vade hatırlatma (Vercel Cron)
 

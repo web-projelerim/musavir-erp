@@ -11,7 +11,7 @@ export default function GirisPage() {
   const router = useRouter();
   const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
   const toast = useToast();
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot">("login");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ad, setAd] = useState("");
@@ -26,6 +26,14 @@ export default function GirisPage() {
       router.replace(user.rol === "mukellef" ? "/panel" : "/dashboard");
     }
   }, [authLoading, router, user]);
+
+  useEffect(() => {
+    const msg = sessionStorage.getItem("auth_error");
+    if (msg) {
+      setError(msg);
+      sessionStorage.removeItem("auth_error");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,19 +102,26 @@ export default function GirisPage() {
     setEmail("");
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError("Şifre sıfırlama için e-posta adresini girin.");
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError("E-posta adresini girin.");
       return;
     }
-
+    setLoading(true);
+    setError(null);
     try {
-      await resetPassword(email);
-      setError(null);
-      toast.success("Şifre sıfırlama e-postası gönderildi", `${email} adresine bağlantı gönderildi. Spam klasörünü de kontrol edin.`);
+      await resetPassword(email.trim());
+      toast.success(
+        "Şifre sıfırlama e-postası gönderildi",
+        `${email.trim()} adresine bağlantı gönderildi. Spam/Junk klasörünü de kontrol edin.`
+      );
+      setAuthMode("login");
     } catch (err) {
       console.error(err);
       setError(parseFirebaseResetError(err));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,15 +185,69 @@ export default function GirisPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-1">
-            {authMode === "login" ? "Giriş Yap" : "Kayıt Ol"}
+            {authMode === "login" ? "Giriş Yap" : authMode === "register" ? "Kayıt Ol" : "Şifre Sıfırla"}
           </h2>
           <p className="text-slate-400 text-sm mb-8">
             {authMode === "login"
               ? "Hesabınıza erişmek için bilgilerinizi girin"
-              : "Yeni mali müşavir hesabı oluşturun"}
+              : authMode === "register"
+              ? "Yeni mali müşavir hesabı oluşturun"
+              : "E-posta adresinize şifre sıfırlama bağlantısı gönderilecek"}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Şifre sıfırlama formu */}
+          {authMode === "forgot" && (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">E-posta Adresi</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoFocus
+                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm
+                             placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  placeholder="ad@musavir.com"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-red-200 leading-relaxed">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold
+                           py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm
+                           disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Sıfırlama Bağlantısı Gönder"
+                )}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setError(null); }}
+                  className="text-sm text-slate-400 hover:text-blue-300"
+                >
+                  ← Girişe dön
+                </button>
+              </div>
+            </form>
+          )}
+
+          <form onSubmit={handleSubmit} className={authMode === "forgot" ? "hidden" : "space-y-4"}>
             {authMode === "register" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -228,7 +297,7 @@ export default function GirisPage() {
                 {authMode === "login" && (
                   <button
                     type="button"
-                    onClick={handleForgotPassword}
+                    onClick={() => { setAuthMode("forgot"); setError(null); }}
                     className="text-xs text-blue-400 hover:text-blue-300"
                   >
                     Şifremi Unuttum
@@ -338,17 +407,19 @@ export default function GirisPage() {
             </button>
           </form>
 
-          <div className="mt-5 text-center">
-            <button
-              type="button"
-              onClick={toggleAuthMode}
-              className="text-sm text-slate-400 hover:text-blue-300"
-            >
-              {authMode === "login"
-                ? "Hesabınız yok mu? Kayıt olun"
-                : "Zaten hesabınız var mı? Giriş yapın"}
-            </button>
-          </div>
+          {authMode !== "forgot" && (
+            <div className="mt-5 text-center">
+              <button
+                type="button"
+                onClick={toggleAuthMode}
+                className="text-sm text-slate-400 hover:text-blue-300"
+              >
+                {authMode === "login"
+                  ? "Hesabınız yok mu? Kayıt olun"
+                  : "Zaten hesabınız var mı? Giriş yapın"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

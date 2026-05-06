@@ -35,15 +35,16 @@ export default function DavetPage({ params }: { params: { token: string } }) {
   // Davet yükleme: Firebase varsa API route'tan, yoksa mock veriden
   useEffect(() => {
     if (!isFirebaseConfigured) {
-      // Demo mod: useAppData'dan al
-      const tokenHash = hashInviteToken(params.token);
-      const found = davetler.find(
-        (item) =>
-          item.tokenHash === tokenHash ||
-          item.davetLinki.endsWith(`/${params.token}`) ||
-          item.davetLinki.includes(params.token)
-      );
-      setDavet(found ?? null);
+      // Demo mod: useAppData'dan al (tokenHash async hesaplanır)
+      hashInviteToken(params.token).then((tokenHash) => {
+        const found = davetler.find(
+          (item) =>
+            item.tokenHash === tokenHash ||
+            item.davetLinki.endsWith(`/${params.token}`) ||
+            item.davetLinki.includes(params.token)
+        );
+        setDavet(found ?? null);
+      });
       return;
     }
 

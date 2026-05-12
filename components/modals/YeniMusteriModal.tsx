@@ -433,21 +433,21 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
               />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Vergi Dairesi</label>
-                <select
+                <input
+                  list="vergi-dairesi-list"
                   value={form.vergiDairesi}
                   onChange={(e) => set("vergiDairesi", e.target.value)}
+                  placeholder="İl veya vergi dairesi adı yazın..."
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Seçim Yapın</option>
-                  {VERGI_DAIRESI_GRUPLARI.map(({ grup, daireler }) => (
-                    <optgroup key={grup} label={grup}>
-                      {daireler.map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </optgroup>
-                  ))}
+                />
+                <datalist id="vergi-dairesi-list">
+                  {VERGI_DAIRESI_GRUPLARI.flatMap(({ grup, daireler }) =>
+                    daireler.map((d) => (
+                      <option key={`${grup}-${d}`} value={d}>{grup} — {d}</option>
+                    ))
+                  )}
                   <option value="Diğer">Diğer</option>
-                </select>
+                </datalist>
               </div>
             </div>
 

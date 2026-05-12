@@ -43,6 +43,12 @@ import type { Rapor } from "@/lib/types";
 
 const AY_ADLARI_FULL = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
+const GONDERIM_DURUM_LABEL: Record<string, string> = {
+  bekliyor: "Bekliyor",
+  gonderildi: "Gönderildi",
+  basarisiz: "Başarısız",
+};
+
 function monthToDonem(value: string): string {
   const [year, month] = value.split("-");
   return `${AY_ADLARI_FULL[Number(month) - 1] ?? month} ${year}`;
@@ -593,7 +599,7 @@ export default function RaporlarPage() {
                     <p className="mt-1 text-xs text-slate-500">{formatTarih(g.createdAt)}</p>
                   </div>
                   <Badge variant={g.durum === "gonderildi" ? "success" : g.durum === "basarisiz" ? "danger" : "neutral"}>
-                    {g.durum}
+                    {GONDERIM_DURUM_LABEL[g.durum] ?? g.durum}
                   </Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">

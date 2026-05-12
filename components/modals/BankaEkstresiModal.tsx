@@ -184,11 +184,11 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
       <div className="space-y-4">
         <label className={cn(
           "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors",
-          loading && rows.length === 0
+          loading
             ? "border-blue-300 bg-blue-50/40 cursor-wait"
             : "border-slate-300 bg-white hover:border-blue-300 hover:bg-blue-50/40"
         )}>
-          {loading && rows.length === 0 ? (
+          {loading ? (
             <>
               <Loader2 className="mb-2 h-6 w-6 text-blue-500 animate-spin" />
               <span className="text-sm font-medium text-blue-600">Dosya işleniyor...</span>

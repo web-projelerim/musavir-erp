@@ -68,6 +68,34 @@ const ROL_LABELS: Record<string, string> = {
   mukellef: "Mükellef",
 };
 
+const SYNC_DURUM_LABEL: Record<string, string> = {
+  basarili: "Başarılı",
+  basarisiz: "Başarısız",
+  bekliyor: "Bekliyor",
+};
+
+const SYNC_TIPI_LABEL: Record<string, string> = {
+  tebligat: "Tebligat",
+  beyanname: "Beyanname",
+  tahakkuk: "Tahakkuk",
+  borc: "Borç",
+  mukellef: "Mükellef",
+  pdf: "PDF",
+  tumu: "Tümü",
+};
+
+const GONDERIM_DURUM_LABEL: Record<string, string> = {
+  bekliyor: "Bekliyor",
+  gonderildi: "Gönderildi",
+  basarisiz: "Başarısız",
+};
+
+const ENTEGRASYON_LOG_DURUM_LABEL: Record<string, string> = {
+  basarili: "Başarılı",
+  basarisiz: "Başarısız",
+  bekliyor: "Bekliyor",
+};
+
 const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   create: "Oluşturma",
   update: "Güncelleme",
@@ -842,14 +870,14 @@ export default function AyarlarPage() {
                   {gibSyncLogs.slice(0, 8).map((log) => (
                     <div key={log.id} className="flex items-center justify-between rounded-lg border border-slate-200 p-3">
                       <div>
-                        <p className="text-xs font-medium text-slate-800 capitalize">{log.syncTipi}</p>
+                        <p className="text-xs font-medium text-slate-800">{SYNC_TIPI_LABEL[log.syncTipi] ?? log.syncTipi}</p>
                         <p className="text-xs text-slate-500">{formatTarih(log.baslamaTarihi)}</p>
                         {log.hataMesaji && (
                           <p className="text-xs text-red-500 mt-0.5 truncate max-w-xs">{log.hataMesaji}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={syncVariant(log.durum)}>{log.durum}</Badge>
+                        <Badge variant={syncVariant(log.durum)}>{SYNC_DURUM_LABEL[log.durum] ?? log.durum}</Badge>
                         <span className="text-xs text-slate-500">{log.islenenKayitSayisi} kayıt</span>
                       </div>
                     </div>
@@ -1353,7 +1381,7 @@ export default function AyarlarPage() {
                         <TableRow key={log.id}>
                           <TableCell><span className="text-xs font-medium text-slate-700">{panelTitle(log.entegrasyon)}</span></TableCell>
                           <TableCell><span className="text-xs text-slate-600">{log.islem}</span></TableCell>
-                          <TableCell><Badge variant={log.durum === "basarili" ? "success" : log.durum === "basarisiz" ? "danger" : "warning"}>{log.durum}</Badge></TableCell>
+                          <TableCell><Badge variant={log.durum === "basarili" ? "success" : log.durum === "basarisiz" ? "danger" : "warning"}>{ENTEGRASYON_LOG_DURUM_LABEL[log.durum] ?? log.durum}</Badge></TableCell>
                           <TableCell className="whitespace-normal"><span className="text-xs text-slate-600">{log.detay}</span></TableCell>
                           <TableCell><span className="text-xs text-slate-500">{formatTarih(log.createdAt)}</span></TableCell>
                         </TableRow>
@@ -1470,7 +1498,7 @@ export default function AyarlarPage() {
                               : "neutral"
                           }
                         >
-                          {g.durum}
+                          {GONDERIM_DURUM_LABEL[g.durum] ?? g.durum}
                         </Badge>
                       </div>
                     );

@@ -132,20 +132,45 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
 
   return rows
     .map((row, index) => {
-      const dateValue = get(row, ["tarih", "islem tarihi", "odeme tarihi", "date"]);
+      const dateValue = get(row, [
+        "tarih", "islem tarihi", "odeme tarihi", "date",
+        "val tarihi", "valor tarihi", "islem tarih",
+        "gerceklesme tarihi", "transfer tarihi",
+      ]);
       const date =
         dateValue instanceof Date
           ? dateValue.toISOString().slice(0, 10)
-          : String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 10);
+          : normalizeDateStr(String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 10));
+
+      // Tutar: önce "alacak" (kredi) kolonuna bak, yoksa "tutar" / "amount" kolonuna bak
+      // Türk bankalarında çift kolon yapısı: borç | alacak
+      const alacakVal = get(row, ["alacak", "alacak tutari", "kredi", "credit", "gelen"]);
+      const tutarVal = get(row, [
+        "tutar", "amount", "islem tutari", "tutar tl",
+        "islem miktari", "miktar",
+      ]);
+      const tutar = numberFrom(alacakVal) || numberFrom(tutarVal);
 
       return {
         id: `row-${index + 1}`,
         tarih: date,
-        aciklama: String(get(row, ["aciklama", "islem aciklamasi", "description"]) ?? ""),
-        tutar: numberFrom(get(row, ["tutar", "alacak", "amount", "islem tutari"])),
-        gonderen: String(get(row, ["gonderen", "ad soyad", "unvan", "sender"]) ?? ""),
-        iban: String(get(row, ["iban"]) ?? ""),
-        dekontNo: String(get(row, ["dekont no", "referans", "reference"]) ?? ""),
+        aciklama: String(get(row, [
+          "aciklama", "islem aciklamasi", "description",
+          "islem detayi", "aciklama detayi", "karsi taraf",
+          "detay", "islem bilgisi", "aciklama bilgisi",
+        ]) ?? ""),
+        tutar,
+        gonderen: String(get(row, [
+          "gonderen", "ad soyad", "unvan", "sender",
+          "gonderen adi", "gonderen unvani", "karsi hesap sahibi",
+          "alici gonderici", "islem yapan",
+        ]) ?? ""),
+        iban: String(get(row, ["iban", "gonderen iban", "karsi hesap iban", "hesap no"]) ?? ""),
+        dekontNo: String(get(row, [
+          "dekont no", "referans", "reference",
+          "islem no", "referans no", "dekont numarasi",
+          "islem referansi", "makbuz no",
+        ]) ?? ""),
       };
     })
     .filter((row) => row.tutar > 0 || row.aciklama);

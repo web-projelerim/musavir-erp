@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -32,7 +32,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
 
   const currentUserFullName = user ? `${user.ad} ${user.soyad}`.trim() : "";
 
-  const [form, setForm] = useState({
+  const defaultForm = {
     baslik: "",
     aciklama: "",
     musteriId: musteriId ?? "",
@@ -40,7 +40,14 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
     terminTarihi: today,
     oncelik: "normal",
     tip: "beyanname",
-  });
+  };
+
+  const [form, setForm] = useState(defaultForm);
+
+  useEffect(() => {
+    if (open) setForm({ ...defaultForm, atananKisi: currentUserFullName });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

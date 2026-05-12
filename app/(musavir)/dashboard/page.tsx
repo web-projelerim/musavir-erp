@@ -62,6 +62,22 @@ const ONCELIK_LABEL: Record<string, string> = {
   kritik: "Kritik",
 };
 
+const SYNC_TIPI_LABEL: Record<string, string> = {
+  tebligat: "Tebligat",
+  beyanname: "Beyanname",
+  tahakkuk: "Tahakkuk",
+  borc: "Borç",
+  mukellef: "Mükellef",
+  pdf: "PDF",
+  tumu: "Tümü",
+};
+
+const SYNC_DURUM_LABEL: Record<string, string> = {
+  basarili: "Başarılı",
+  basarisiz: "Başarısız",
+  bekliyor: "Bekliyor",
+};
+
 const RISK_RENKLER = {
   dusuk: { name: "Düşük", color: "#10b981" },
   orta: { name: "Orta", color: "#f59e0b" },
@@ -592,9 +608,9 @@ export default function DashboardPage() {
                 gibSyncLogs.slice(0, 3).map((log) => (
                   <div key={log.id} className="px-5 py-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-slate-700">{log.syncTipi}</p>
+                      <p className="text-xs font-medium text-slate-700">{SYNC_TIPI_LABEL[log.syncTipi] ?? log.syncTipi}</p>
                       <Badge variant={log.durum === "basarili" ? "success" : log.durum === "basarisiz" ? "danger" : "warning"}>
-                        {log.durum}
+                        {SYNC_DURUM_LABEL[log.durum] ?? log.durum}
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-slate-400">{formatTarih(log.baslamaTarihi)}</p>

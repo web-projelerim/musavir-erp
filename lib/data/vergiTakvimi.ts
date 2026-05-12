@@ -36,15 +36,35 @@ function isBgunu(yil: number, ay: number, gun: number): string {
 export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
   const olaylar: VergiTakvimOlay[] = [];
 
-  // ── Her ayın 26'sı: KDV + Muhtasar ────────────────────────────────────────
+  // ── Her ayın 23'ü: SGK e-Bildirge ─────────────────────────────────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = isBgunu(yil, ay, 23);
+    const ayAdi = AY_ADI[ay];
+
+    olaylar.push({
+      tarih,
+      baslik: `SGK e-Bildirge — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait SGK aylık prim ve hizmet belgesi (e-bildirge) son tarihi`,
+      kategori: "aylik",
+    });
+  }
+
+  // ── Her ayın 26'sı: KDV + KDV-2 + Muhtasar + Damga Vergisi ───────────────
   for (let ay = 0; ay < 12; ay++) {
     const tarih = isBgunu(yil, ay, 26);
     const ayAdi = AY_ADI[ay];
 
     olaylar.push({
       tarih,
-      baslik: `KDV Beyanname — ${ayAdi}`,
+      baslik: `KDV-1 Beyanname — ${ayAdi}`,
       aciklama: `${ayAdi} ${yil} dönemine ait KDV-1 beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `KDV-2 Tevkifat — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait KDV-2 (tevkifat) beyanname ve ödeme son tarihi`,
       kategori: "aylik",
     });
 
@@ -52,6 +72,13 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
       tarih,
       baslik: `Muhtasar Beyanname — ${ayAdi}`,
       aciklama: `${ayAdi} ${yil} dönemine ait Muhtasar ve Prim Hizmet beyanname + ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Damga Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Damga Vergisi beyanname ve ödeme son tarihi (beyan usulü mükellefler)`,
       kategori: "aylik",
     });
   }
@@ -113,6 +140,38 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
     tarih: kvTarih,
     baslik: `Kurumlar Vergisi — ${yil}`,
     aciklama: `${yil} yılı kurumlar vergisi beyanname ve ödeme son tarihi`,
+    kategori: "yillik",
+  });
+
+  // ── MTV (Motorlu Taşıtlar Vergisi) ─────────────────────────────────────────
+  // 1. taksit: Ocak 31
+  olaylar.push({
+    tarih: isBgunu(yil, 0, 31),
+    baslik: `MTV 1. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Motorlu Taşıtlar Vergisi 1. taksit ödeme son tarihi`,
+    kategori: "yillik",
+  });
+  // 2. taksit: Temmuz 31
+  olaylar.push({
+    tarih: isBgunu(yil, 6, 31),
+    baslik: `MTV 2. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Motorlu Taşıtlar Vergisi 2. taksit ödeme son tarihi`,
+    kategori: "yillik",
+  });
+
+  // ── Emlak Vergisi ──────────────────────────────────────────────────────────
+  // 1. taksit: Mayıs 31
+  olaylar.push({
+    tarih: isBgunu(yil, 4, 31),
+    baslik: `Emlak Vergisi 1. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Emlak Vergisi 1. taksit ödeme son tarihi (Mayıs)`,
+    kategori: "yillik",
+  });
+  // 2. taksit: Kasım 30
+  olaylar.push({
+    tarih: isBgunu(yil, 10, 30),
+    baslik: `Emlak Vergisi 2. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Emlak Vergisi 2. taksit ödeme son tarihi (Kasım)`,
     kategori: "yillik",
   });
 

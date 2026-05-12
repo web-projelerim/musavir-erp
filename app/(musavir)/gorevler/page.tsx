@@ -27,6 +27,7 @@ import {
 } from "@/lib/firebase/repositories";
 import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { formatTarih } from "@/lib/utils/format";
 import { useToast } from "@/lib/context/ToastContext";
 import type { Gorev, GorevDurum, GorevNot, GorevTip } from "@/lib/types";
@@ -211,13 +212,64 @@ export default function GorevlerPage() {
     }
   };
 
-  // Hızlı görev ekle (sadece başlık — modal ile devam)
-  const handleQuickAdd = (e: React.FormEvent) => {
+  // Hızlı görev ekle (sadece başlık — direkt kayıt)
+  const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickTitle.trim()) return;
-    setShowYeniModal(true);
-    // Modal açıldığında başlık pre-fill için session'a bırak (modal bağımsız state'i var)
-    setQuickTitle("");
+    const title = quickTitle.trim();
+    if (!title) return;
+    setQuickLoading(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const atanan = user ? `${user.ad} ${user.soyad}`.trim() : "Sistem";
+      let created: Gorev;
+      if (isFirebaseConfigured) {
+        created = await createGorevFirebase({
+          ofisId: getOfisId(user?.ofisId),
+          baslik: title,
+          aciklama: "",
+          musteriId: "",
+          musteriAdi: "Genel",
+          atananKisi: atanan,
+          atayanKisi: atanan,
+          terminTarihi: today,
+          oncelik: "normal",
+          tip: "diger",
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 300));
+        created = {
+          id: `g-${Date.now()}`,
+          ofisId: getOfisId(user?.ofisId),
+          baslik: title,
+          aciklama: "",
+          musteriId: "",
+          musteriAdi: "Genel",
+          atananKisi: atanan,
+          atayanKisi: atanan,
+          terminTarihi: today,
+          oncelik: "normal",
+          durum: "beklemede",
+          tip: "diger",
+          createdAt: new Date().toISOString(),
+        };
+      }
+      await logAudit({
+        action: "create",
+        entityType: "gorev",
+        entityId: created.id,
+        entityLabel: created.baslik,
+        summary: "Hızlı görev oluşturuldu",
+        after: { tip: created.tip, oncelik: created.oncelik },
+      });
+      toast.success("Görev eklendi", `"${title}" görevi oluşturuldu`);
+      setQuickTitle("");
+      quickRef.current?.focus();
+    } catch (error) {
+      console.error(error);
+      toast.error("Görev kaydedilemedi", parseFirestoreError(error));
+    } finally {
+      setQuickLoading(false);
+    }
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -441,13 +493,22 @@ export default function GorevlerPage() {
                   ref={quickRef}
                   value={quickTitle}
                   onChange={e => setQuickTitle(e.target.value)}
-                  placeholder="Görev ekle... (Enter ile detaylı forma geç)"
+                  placeholder="Görev ekle... (Enter ile hızlıca kaydet)"
                   className="flex-1 text-[13.5px] text-slate-600 placeholder:text-slate-400 focus:outline-none bg-transparent font-medium"
                 />
                 {quickTitle && (
-                  <button type="submit" disabled={quickLoading} className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
-                    Ekle
-                  </button>
+                  <>
+                    <button type="submit" disabled={quickLoading} className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                      {quickLoading ? "Ekleniyor..." : "Ekle"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowYeniModal(true)}
+                      className="text-xs font-medium text-slate-500 border border-slate-200 bg-white px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      Detaylı
+                    </button>
+                  </>
                 )}
               </form>
             </div>

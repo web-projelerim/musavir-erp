@@ -36,7 +36,10 @@ export interface Ofis {
   whatsappDurum: "pasif" | "hazirlik" | "aktif";
   gibDurum: "pasif" | "hazirlik" | "aktif";
   sgkKullaniciAdi?: string;
+  /** Plaintext — yalnızca geçici; kaydedilmeden önce şifrelenir */
   sgkSifresi?: string;
+  /** AES-256-GCM şifreli SGK şifresi — Firestore'a bu yazılır */
+  sgkEncryptedSifre?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -217,6 +220,7 @@ export interface Musteri {
   gibIvdKullaniciAdi?: string;
   gibEncryptedIvdSifre?: string;
   bankaGonderenAdlari?: string[];
+  sgkSicilNo?: string;
   // Genişletilmiş mükellef alanları
   sahissaVergiNo?: string;
   eposta1?: string; eposta1Ad?: string;
@@ -506,7 +510,7 @@ export type TahakkukBildirimDurum = "beklemede" | "planlandi" | "gonderildi" | "
 export type TahakkukTuru = "hizmet" | "vergi";
 export type HizmetTuru = "mali_musavirlik" | "beyanname" | "danismanlik" | "diger";
 export type VergiTahakkukTuru = "KDV" | "MUHTASAR" | "GECICI_VERGI" | "KURUMLAR" | "GELIR" | "DAMGA" | "SGK" | "DIGER";
-export type TahakkukKaynakSistem = "manual" | "gib" | "luca";
+export type TahakkukKaynakSistem = "manual" | "gib" | "luca" | "sgk";
 
 export interface Tahakkuk {
   id: string;

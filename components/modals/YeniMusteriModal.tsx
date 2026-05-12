@@ -103,6 +103,7 @@ const EMPTY_FORM = {
   sorumluPersonelId: "",
   varsayilanHizmetUcreti: "",
   adres: "",
+  sgkSicilNo: "",
 };
 
 type Tab = "mukellef" | "kurum" | "bankaci" | "kullanici";
@@ -210,6 +211,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         adres: musteri.adres ?? "",
         sifre: "",
         eTuys: "",
+        sgkSicilNo: musteri.sgkSicilNo ?? "",
       });
     } else {
       const ilkMusavir = kullanicilar.find((u) => u.aktif && u.rol === "musavir");
@@ -300,6 +302,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             varsayilanHizmetUcreti: Number.isFinite(ucret) ? ucret : undefined,
             kdvMukellef: (form.vergiTurleri["kdv1"] ?? "sorumlu_degil") !== "sorumlu_degil",
             muhtasarMukellef: (form.vergiTurleri["muhsgk"] ?? "sorumlu_degil") !== "sorumlu_degil",
+            sgkSicilNo: form.sgkSicilNo || undefined,
             ...extendedFields,
           });
         } else {
@@ -316,6 +319,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             varsayilanHizmetUcreti: Number.isFinite(ucret) ? ucret : undefined,
             kdvMukellef: (form.vergiTurleri["kdv1"] ?? "sorumlu_degil") !== "sorumlu_degil",
             muhtasarMukellef: (form.vergiTurleri["muhsgk"] ?? "sorumlu_degil") !== "sorumlu_degil",
+            sgkSicilNo: form.sgkSicilNo || undefined,
             ...extendedFields,
           });
         }
@@ -449,6 +453,12 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   <option value="Diğer">Diğer</option>
                 </datalist>
               </div>
+              <Input
+                label="SGK İşyeri Sicil No"
+                value={form.sgkSicilNo}
+                onChange={(e) => set("sgkSicilNo", e.target.value)}
+                placeholder="SGK sicil numarası (e-Bildirge sync için)"
+              />
             </div>
 
             {/* İletişim Bilgileri */}

@@ -249,12 +249,86 @@ export default function AyarlarPage() {
     }
     setKurumSaving(true);
     try {
-      await upsertOfis({ ...selectedOfis, ...kurumForm });
+      let encryptedSgkSifre = selectedOfis.sgkEncryptedSifre;
+
+      // SGK şifresi girildiyse şifrele
+      if (kurumForm.sgkSifresi?.trim()) {
+        try {
+          const res = await fetch("/api/gib/secrets", {
+            method: "POST",
+            headers: await authHeaders(),
+            body: JSON.stringify({ sgkSifre: kurumForm.sgkSifresi.trim() }),
+          });
+          const data = await res.json();
+          if (res.ok && data.encrypted?.sgkSifre) {
+            encryptedSgkSifre = data.encrypted.sgkSifre;
+          }
+        } catch {
+          toast.warning("SGK şifresi şifrelenemedi", "Sunucu erişim sorunu");
+        }
+      }
+
+      await upsertOfis({
+        ...selectedOfis,
+        unvan: kurumForm.unvan,
+        vergiDairesi: kurumForm.vergiDairesi,
+        telefon: kurumForm.telefon,
+        email: kurumForm.email,
+        sgkKullaniciAdi: kurumForm.sgkKullaniciAdi,
+        // Plaintext şifreyi hiçbir zaman Firestore'a yazma
+        sgkSifresi: undefined,
+        sgkEncryptedSifre: encryptedSgkSifre,
+      });
+      setKurumForm((p) => ({ ...p, sgkSifresi: "" }));
       toast.success("Kurum bilgileri kaydedildi");
     } catch (err) {
       toast.error("Kurum bilgileri kaydedilemedi", parseFirestoreError(err));
     } finally {
       setKurumSaving(false);
+    }
+  };
+
+  const [sgkSyncLoading, setSgkSyncLoading] = useState(false);
+
+  const handleSgkSync = async () => {
+    if (!selectedOfis?.sgkEncryptedSifre || !selectedOfis?.sgkKullaniciAdi) {
+      toast.warning("SGK kimlik bilgileri eksik", "Lütfen SGK kullanıcı adı ve şifresini kaydedip tekrar deneyin");
+      return;
+    }
+    const musteriListesi = musteriler.filter((m) => m.sgkSicilNo && m.durum === "aktif");
+    if (musteriListesi.length === 0) {
+      toast.warning("SGK sicil numarası olan aktif müşteri bulunamadı");
+      return;
+    }
+    setSgkSyncLoading(true);
+    let basarili = 0;
+    let basarisiz = 0;
+    for (const musteri of musteriListesi) {
+      try {
+        const res = await fetch("/api/sgk/sync", {
+          method: "POST",
+          headers: { ...(await authHeaders()), "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ofisId: selectedOfis.id,
+            musteriId: musteri.id,
+            musteriAdi: musteri.firmaAdi,
+            musteriVkn: musteri.vknTckn,
+            sgkSicilNo: musteri.sgkSicilNo,
+            encryptedSgkSifre: selectedOfis.sgkEncryptedSifre,
+            sgkKullaniciAdi: selectedOfis.sgkKullaniciAdi,
+          }),
+        });
+        if (res.ok) basarili++;
+        else basarisiz++;
+      } catch {
+        basarisiz++;
+      }
+    }
+    setSgkSyncLoading(false);
+    if (basarisiz === 0) {
+      toast.success("SGK senkronizasyonu tamamlandı", `${basarili} müşteri senkronize edildi`);
+    } else {
+      toast.warning(`SGK sync: ${basarili} başarılı, ${basarisiz} başarısız`);
     }
   };
 
@@ -1158,11 +1232,27 @@ export default function AyarlarPage() {
               </Card>
 
               <Card>
-                <h3 className="text-sm font-semibold text-slate-800 mb-1">SGK Bilgileri</h3>
-                <p className="text-xs text-slate-500 mb-3">Sosyal Güvenlik Kurumu kullanıcı bilgileri.</p>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mb-4 text-xs text-amber-800">
-                  ⚠️ SGK şifresi şu an Firestore&apos;a şifresiz kaydediliyor. GİB şifreleme altyapısı (AES-256-GCM) ilerleyen sürümde bu alana da uygulanacak.
+                <div className="flex items-start justify-between mb-1">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-800">SGK Bilgileri</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">e-Bildirge giriş bilgileri — AES-256-GCM ile şifreli saklanır.</p>
+                  </div>
+                  {selectedOfis?.sgkEncryptedSifre && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={sgkSyncLoading}
+                      onClick={handleSgkSync}
+                    >
+                      SGK Senkronize Et
+                    </Button>
+                  )}
                 </div>
+                {selectedOfis?.sgkEncryptedSifre && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 mb-3 text-xs text-emerald-700">
+                    ✓ SGK şifresi şifreli olarak kaydedilmiş
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   <Input
                     label="SGK Kullanıcı Adı"
@@ -1175,7 +1265,7 @@ export default function AyarlarPage() {
                     type="password"
                     value={kurumForm.sgkSifresi}
                     onChange={(e) => setKurumForm((p) => ({ ...p, sgkSifresi: e.target.value }))}
-                    placeholder="SGK şifreniz"
+                    placeholder={selectedOfis?.sgkEncryptedSifre ? "Değiştirmek için yeni şifre girin" : "SGK şifreniz"}
                   />
                 </div>
               </Card>

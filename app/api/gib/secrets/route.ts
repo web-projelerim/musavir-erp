@@ -16,6 +16,7 @@ interface SecretsBody {
   ivdSifre?: string;
   ebeyannameParola?: string;
   ebeyannameSifre?: string;
+  sgkSifre?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
     }
     if (body.ebeyannameSifre?.trim()) {
       result.ebeyannameSifre = gibEncrypt(body.ebeyannameSifre.trim());
+    }
+    if (body.sgkSifre?.trim()) {
+      result.sgkSifre = gibEncrypt(body.sgkSifre.trim());
     }
 
     return NextResponse.json({ ok: true, encrypted: result });

@@ -54,6 +54,10 @@ const TIP_LABEL: Record<GorevTip, string> = {
 
 const TIP_SIRA: GorevTip[] = ["beyanname", "tebligat", "tahsilat", "belge", "kdv2", "diger"];
 
+const ONCELIK_LABEL: Record<string, string> = {
+  dusuk: "Düşük", normal: "Normal", yuksek: "Yüksek", kritik: "Kritik",
+};
+
 // ── Sayfa ─────────────────────────────────────────────────────────────────────
 
 export default function GorevlerPage() {
@@ -449,7 +453,7 @@ export default function GorevlerPage() {
                         <p className="text-xs text-blue-600 font-medium mt-1.5">{gorev.musteriAdi}</p>
                         <div className="flex items-center gap-1 mt-2">
                           <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ${gorev.oncelik === "kritik" ? "text-red-500" : gorev.oncelik === "yuksek" ? "text-amber-500" : "text-slate-400"}`} />
-                          <span className="text-xs text-slate-500 capitalize">{gorev.oncelik}</span>
+                          <span className="text-xs text-slate-500">{ONCELIK_LABEL[gorev.oncelik] ?? gorev.oncelik}</span>
                         </div>
                         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
                           <div className="flex items-center gap-1 text-xs text-slate-400">
@@ -588,7 +592,7 @@ export default function GorevlerPage() {
                               </TableCell>
                               <TableCell>
                                 <Badge variant={gorev.oncelik === "kritik" ? "danger" : gorev.oncelik === "yuksek" ? "warning" : "neutral"}>
-                                  {gorev.oncelik}
+                                  {ONCELIK_LABEL[gorev.oncelik] ?? gorev.oncelik}
                                 </Badge>
                               </TableCell>
                               <TableCell>

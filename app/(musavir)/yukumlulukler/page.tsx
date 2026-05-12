@@ -25,6 +25,11 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
 
+const YUKUMLULUK_DURUM_LABEL: Record<string, string> = {
+  planlandi: "Planlandı", bekliyor: "Bekliyor", hazirlaniyor: "Hazırlanıyor",
+  tamamlandi: "Tamamlandı", gecikti: "Gecikti", pasif: "Pasif",
+};
+
 export default function YukumluluklerPage() {
   const { yukumlulukler, mukellefiyetProfilleri, loading } = useAppData();
   const [durumFilter, setDurumFilter] = useState("tumu");
@@ -117,7 +122,7 @@ export default function YukumluluklerPage() {
                     <p className="text-sm font-semibold text-slate-900">{item.musteriAdi}</p>
                     <p className="mt-1 text-xs text-slate-500">{item.donem}</p>
                   </div>
-                  <Badge variant={yukumlulukVariant(item.durum)}>{item.durum}</Badge>
+                  <Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <MobileField label="Tip">{yukumlulukTipLabel(item.tip)}</MobileField>
@@ -175,7 +180,7 @@ export default function YukumluluklerPage() {
                     <TableCell><span className="text-xs text-slate-700">{formatTarih(item.sonTarih)}</span></TableCell>
                     <TableCell><span className="text-xs text-slate-600">{item.sorumlu}</span></TableCell>
                     <TableCell>
-                      <Badge variant={yukumlulukVariant(item.durum)}>{item.durum}</Badge>
+                      <Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge>
                     </TableCell>
                     <TableCell>
                       {profil ? (

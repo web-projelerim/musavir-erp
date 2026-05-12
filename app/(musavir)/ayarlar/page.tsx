@@ -68,6 +68,10 @@ const ROL_LABELS: Record<string, string> = {
   mukellef: "Mükellef",
 };
 
+const KANAL_LABEL: Record<string, string> = {
+  whatsapp: "WhatsApp", email: "E-posta", panel: "Panel",
+};
+
 const SYNC_DURUM_LABEL: Record<string, string> = {
   basarili: "Başarılı",
   basarisiz: "Başarısız",
@@ -1440,7 +1444,7 @@ export default function AyarlarPage() {
                                 {musteri?.firmaAdi ?? g.musteriAdi}
                               </span>
                               <Badge variant="neutral" className="text-[10px]">
-                                {g.kanal}
+                                {KANAL_LABEL[g.kanal] ?? g.kanal}
                               </Badge>
                               <span className="text-[10px] text-slate-400">
                                 Deneme: {g.denemeSayisi}/3
@@ -1486,7 +1490,7 @@ export default function AyarlarPage() {
                           <span className="text-xs font-medium text-slate-700">
                             {musteri?.firmaAdi ?? g.musteriAdi}
                           </span>
-                          <span className="text-[10px] text-slate-400 ml-2">{g.kanal}</span>
+                          <span className="text-[10px] text-slate-400 ml-2">{KANAL_LABEL[g.kanal] ?? g.kanal}</span>
                         </div>
                         <span className="text-[10px] text-slate-400">{formatTarih(g.createdAt)}</span>
                         <Badge

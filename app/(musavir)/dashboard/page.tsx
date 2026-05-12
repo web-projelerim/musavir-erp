@@ -62,6 +62,10 @@ const ONCELIK_LABEL: Record<string, string> = {
   kritik: "Kritik",
 };
 
+const BEYAN_TUR_LABEL: Record<string, string> = {
+  KDV: "KDV", MUHTAS: "Muhtasar", KURUM: "Kurumlar", GELIR: "Gelir", GECICI: "Geçici", DIGER: "Diğer",
+};
+
 const SYNC_TIPI_LABEL: Record<string, string> = {
   tebligat: "Tebligat",
   beyanname: "Beyanname",
@@ -645,7 +649,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <MobileField label="Beyan Türü">
-                  <Badge variant="info">{b.tur}</Badge>
+                  <Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge>
                 </MobileField>
                 <MobileField label="Son Tarih">
                   <span className="font-semibold text-slate-800">{formatTarih(b.sonTarih)}</span>
@@ -675,7 +679,7 @@ export default function DashboardPage() {
                   <span className="font-medium text-slate-800 text-xs">{b.musteriAdi}</span>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="info">{b.tur}</Badge>
+                  <Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge>
                 </TableCell>
                 <TableCell>
                   <span className="text-xs text-slate-600">{b.donem}</span>

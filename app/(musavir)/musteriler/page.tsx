@@ -94,6 +94,12 @@ const TUR_LABEL: Record<SorumlulukTur, string> = {
   tahsilat:  "Tahsilat",
 };
 
+const MUSTERI_DURUM_LABEL: Record<string, string> = {
+  aktif:     "Aktif",
+  pasif:     "Pasif",
+  beklemede: "Beklemede",
+};
+
 type MusteriSortField = "firmaAdi" | "yaklasanSorumluluk";
 
 // ─── Sayfa ──────────────────────────────────────────────────────────────────
@@ -334,7 +340,7 @@ export default function MusterilerPage() {
                       <p className="text-xs font-mono text-slate-400 mt-0.5">{m.vknTckn}</p>
                     </div>
                     <Badge variant={m.durum === "aktif" ? "success" : "neutral"} className="ml-2 flex-shrink-0">
-                      {m.durum}
+                      {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
                     </Badge>
                   </div>
 
@@ -498,7 +504,7 @@ export default function MusterilerPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={m.durum === "aktif" ? "success" : m.durum === "pasif" ? "neutral" : "warning"}>
-                          {m.durum}
+                          {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
                         </Badge>
                       </TableCell>
                       <TableCell>

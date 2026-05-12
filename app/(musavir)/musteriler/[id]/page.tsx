@@ -43,6 +43,26 @@ import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat,
 
 const TABS = ["Özet", "Yükümlülükler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
+const MUSTERI_DURUM_LABEL: Record<string, string> = {
+  aktif: "Aktif", pasif: "Pasif", beklemede: "Beklemede",
+};
+const BEYAN_TUR_LABEL: Record<string, string> = {
+  KDV: "KDV", MUHTAS: "Muhtasar", KURUM: "Kurumlar", GELIR: "Gelir", GECICI: "Geçici", DIGER: "Diğer",
+};
+const GOREV_TIP_LABEL: Record<string, string> = {
+  beyanname: "Beyanname", tebligat: "Tebligat", tahsilat: "Tahsilat", belge: "Belge", kdv2: "KDV2", diger: "Diğer",
+};
+const GOREV_ONCELIK_LABEL: Record<string, string> = {
+  dusuk: "Düşük", normal: "Normal", yuksek: "Yüksek", kritik: "Kritik",
+};
+const YUKUMLULUK_DURUM_LABEL: Record<string, string> = {
+  planlandi: "Planlandı", bekliyor: "Bekliyor", hazirlaniyor: "Hazırlanıyor",
+  tamamlandi: "Tamamlandı", gecikti: "Gecikti", pasif: "Pasif",
+};
+const KANAL_LABEL: Record<string, string> = {
+  whatsapp: "WhatsApp", email: "E-posta", panel: "Panel",
+};
+
 function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -387,7 +407,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
               {musteri.vknTckn}
             </span>
-            <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{musteri.durum}</Badge>
+            <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{MUSTERI_DURUM_LABEL[musteri.durum] ?? musteri.durum}</Badge>
             <TahsilatBadge durum={musteri.tahsilatDurumu} />
           </div>
         </div>
@@ -695,10 +715,10 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                 gorevler.map((g) => (
                   <TableRow key={g.id} onClick={() => setSeciliGorev(g)} className="cursor-pointer">
                     <TableCell><span className="text-xs font-medium text-slate-800">{g.baslik}</span></TableCell>
-                    <TableCell><Badge variant="info">{g.tip}</Badge></TableCell>
+                    <TableCell><Badge variant="info">{GOREV_TIP_LABEL[g.tip] ?? g.tip}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={g.oncelik === "kritik" ? "danger" : g.oncelik === "yuksek" ? "warning" : "neutral"}>
-                        {g.oncelik}
+                        {GOREV_ONCELIK_LABEL[g.oncelik] ?? g.oncelik}
                       </Badge>
                     </TableCell>
                     <TableCell><span className="text-xs text-slate-600">{g.atananKisi}</span></TableCell>
@@ -841,7 +861,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                     <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
                     <TableCell><span className="text-xs text-slate-700">{formatTarih(item.sonTarih)}</span></TableCell>
                     <TableCell><span className="text-xs text-slate-600">{item.sorumlu}</span></TableCell>
-                    <TableCell><Badge variant={yukumlulukVariant(item.durum)}>{item.durum}</Badge></TableCell>
+                    <TableCell><Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge></TableCell>
                     <TableCell className="whitespace-normal">
                       <span className="text-xs text-slate-500">{item.aciklama ?? "-"}</span>
                     </TableCell>
@@ -872,7 +892,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               ) : (
                 beyanlar.map((b) => (
                   <TableRow key={b.id}>
-                    <TableCell><Badge variant="info">{b.tur}</Badge></TableCell>
+                    <TableCell><Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge></TableCell>
                     <TableCell><span className="text-xs text-slate-600">{b.donem}</span></TableCell>
                     <TableCell><span className="text-xs font-medium text-slate-700">{formatTarih(b.sonTarih)}</span></TableCell>
                     <TableCell>
@@ -932,7 +952,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                       ) : <span className="text-xs text-slate-400">—</span>}
                     </TableCell>
                     <TableCell>
-                      {r.kanal ? <Badge variant="neutral">{r.kanal}</Badge> : <span className="text-xs text-slate-400">—</span>}
+                      {r.kanal ? <Badge variant="neutral">{KANAL_LABEL[r.kanal] ?? r.kanal}</Badge> : <span className="text-xs text-slate-400">—</span>}
                     </TableCell>
                     <TableCell><RaporDurumBadge durum={r.durum} /></TableCell>
                   </TableRow>

@@ -43,6 +43,10 @@ import type { Rapor } from "@/lib/types";
 
 const AY_ADLARI_FULL = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
+const KANAL_LABEL: Record<string, string> = {
+  whatsapp: "WhatsApp", email: "E-posta", panel: "Panel",
+};
+
 const GONDERIM_DURUM_LABEL: Record<string, string> = {
   bekliyor: "Bekliyor",
   gonderildi: "Gönderildi",
@@ -422,7 +426,7 @@ export default function RaporlarPage() {
                 <MobileField label="Kanal">
                   {r.kanal ? (
                     <Badge variant={r.kanal === "whatsapp" ? "success" : "info"}>
-                      {r.kanal}
+                      {KANAL_LABEL[r.kanal] ?? r.kanal}
                     </Badge>
                   ) : (
                     "—"
@@ -604,7 +608,7 @@ export default function RaporlarPage() {
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <MobileField label="Kanal">
-                    <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{g.kanal}</Badge>
+                    <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{KANAL_LABEL[g.kanal] ?? g.kanal}</Badge>
                   </MobileField>
                   <MobileField label="Şablon">{g.sablonId ?? "—"}</MobileField>
                   <MobileField label="Deneme">{g.denemeSayisi}</MobileField>
@@ -640,7 +644,7 @@ export default function RaporlarPage() {
                       <span className="text-xs font-medium text-slate-800">{g.musteriAdi}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{g.kanal}</Badge>
+                      <Badge variant={g.kanal === "whatsapp" ? "success" : "info"}>{KANAL_LABEL[g.kanal] ?? g.kanal}</Badge>
                     </TableCell>
                     <TableCell>
                       <span className="text-xs text-slate-600">{g.sablonId ?? "—"}</span>

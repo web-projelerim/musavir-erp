@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
-import { subscribeNotlarByCreator, subscribeNotlarByEmail, tikleNot } from "@/lib/firebase/firestore";
+import { subscribeNotlarByCreator, subscribeNotlarByEmail, tikleNot, untikleNot } from "@/lib/firebase/firestore";
 import { createNot, deleteNot } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
 import type { Not, NotRenk } from "@/lib/types";
@@ -266,15 +266,19 @@ export function NotesFab() {
 
                   const handleTikle = async () => {
                     if (!user?.email || !isFirebaseConfigured) return;
-                    if (benimTikim) return; // zaten tiklenmiş
                     try {
-                      await tikleNot(not.id, {
-                        email: user.email,
-                        ad: `${user.ad} ${user.soyad}`.trim(),
-                        tarih: new Date().toISOString(),
-                      });
+                      if (benimTikim) {
+                        // Kendi tikini kaldır
+                        await untikleNot(not.id, tikleyenler, user.email);
+                      } else {
+                        await tikleNot(not.id, {
+                          email: user.email,
+                          ad: `${user.ad} ${user.soyad}`.trim(),
+                          tarih: new Date().toISOString(),
+                        });
+                      }
                     } catch {
-                      toast.error("Onay kaydedilemedi");
+                      toast.error(benimTikim ? "Onay kaldırılamadı" : "Onay kaydedilemedi");
                     }
                   };
 
@@ -315,16 +319,15 @@ export function NotesFab() {
                           <span className="text-[10px] text-slate-400">{formatZaman(not.createdAt)}</span>
                         </div>
 
-                        {/* Tik butonu */}
+                        {/* Tik butonu — sadece kendi tikini toggle edebilir */}
                         <button
                           type="button"
                           onClick={handleTikle}
-                          disabled={benimTikim}
-                          title={benimTikim ? "Onayladınız" : "Onayladım"}
+                          title={benimTikim ? "Onayınızı kaldırmak için tıklayın" : "Onayladım"}
                           className={cn(
                             "flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-full border transition-colors",
                             benimTikim
-                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600"
                               : "border-slate-300 text-slate-300 hover:border-emerald-400 hover:text-emerald-500 hover:bg-emerald-50"
                           )}
                         >

@@ -1,4 +1,5 @@
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
@@ -177,8 +178,6 @@ export async function countCollection(collectionName: CollectionName) {
 
 /**
  * Bir nota tikleyen ekler (arrayUnion ile idempotent).
- * Aynı email zaten tiklemişse Firestore yine de düzgün davranır
- * (ancak array-contains duplicate objeler ekleyebilir — tarih değişirse yeni eleman).
  */
 export async function tikleNot(
   notId: string,
@@ -188,6 +187,25 @@ export async function tikleNot(
   await updateDoc(doc(firestoreDb, COLLECTIONS.notlar, notId), {
     tikleyenler: arrayUnion(tikleyen),
   });
+}
+
+/**
+ * Kullanıcının kendi tikini nottan kaldırır.
+ * email eşleşen tüm tikleyenler kaldırılır (tarih fark etmeksizin).
+ */
+export async function untikleNot(
+  notId: string,
+  mevcutTikleyenler: { email: string; ad: string; tarih: string }[],
+  email: string
+): Promise<void> {
+  if (!firestoreDb) return;
+  const kaldirilacaklar = mevcutTikleyenler.filter((t) => t.email === email);
+  if (kaldirilacaklar.length === 0) return;
+  const ref = doc(firestoreDb, COLLECTIONS.notlar, notId);
+  // arrayRemove her öğeyi tek tek kaldır (Firestore deep equality gerektirir)
+  for (const t of kaldirilacaklar) {
+    await updateDoc(ref, { tikleyenler: arrayRemove(t) });
+  }
 }
 
 /**

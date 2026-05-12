@@ -18,15 +18,23 @@ import {
   TableHeadCell,
   TableRow,
 } from "@/components/ui/Table";
-import { calculateTahakkukDurum, tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
+import { calculateTahakkukDurum, tahakkukKalemLabel, tahakkukTuruLabel, vergiTuruLabel } from "@/lib/domain/tahakkuk";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 import { lucaCSVIndir } from "@/lib/reports/lucaExport";
 import { useToast } from "@/lib/context/ToastContext";
 import { hasPermission } from "@/lib/utils/permissions";
 import { PageLoading } from "@/components/ui/PageLoading";
-import type { BankaEkstreSatiri, Tahakkuk } from "@/lib/types";
+import type { BankaEkstreSatiri, Tahakkuk, VergiTahakkukTuru } from "@/lib/types";
 import { formatPara, formatTarih } from "@/lib/utils/format";
+
+const BILDIRIM_DURUM_LABEL: Record<string, string> = {
+  beklemede: "Beklemede",
+  planlandi: "Planlandı",
+  gonderildi: "Gönderildi",
+  basarisiz: "Başarısız",
+  kapali: "Kapalı",
+};
 
 export default function TahakkuklarPage() {
   const { user } = useAuth();
@@ -45,7 +53,7 @@ export default function TahakkuklarPage() {
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBankaModal, setShowBankaModal] = useState(false);
   const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tahakkuklar);
-  const [filterTur, setFilterTur] = useState<"tumu" | "vergi">("tumu");
+  const [filterVergiTuru, setFilterVergiTuru] = useState<"tumu" | VergiTahakkukTuru>("tumu");
   const [filterDurum, setFilterDurum] = useState<"tumu" | "bekliyor" | "kismi" | "odendi" | "gecikti">("tumu");
   const [filterKaynak, setFilterKaynak] = useState<"tumu" | "manuel" | "otomatik">("tumu");
 
@@ -72,7 +80,7 @@ export default function TahakkuklarPage() {
     (item) => item.sablonId === "tahakkuk" && item.durum === "bekliyor"
   ).length;
   const filtered = vergiNormalized.filter((item) => {
-    if (filterTur !== "tumu" && item.tahakkukTuru !== filterTur) return false;
+    if (filterVergiTuru !== "tumu" && item.vergiTuru !== filterVergiTuru) return false;
     if (filterDurum !== "tumu" && item.durum !== filterDurum) return false;
     if (filterKaynak === "otomatik" && !item.otomatikTuretilmis) return false;
     if (filterKaynak === "manuel" && item.otomatikTuretilmis) return false;
@@ -142,12 +150,19 @@ export default function TahakkuklarPage() {
 
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-4">
           <select
-            value={filterTur}
-            onChange={(event) => setFilterTur(event.target.value as typeof filterTur)}
+            value={filterVergiTuru}
+            onChange={(event) => setFilterVergiTuru(event.target.value as typeof filterVergiTuru)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
           >
-            <option value="tumu">Tüm vergi kategorileri</option>
-            <option value="vergi">Vergi tahakkuku</option>
+            <option value="tumu">Tüm vergi türleri</option>
+            <option value="KDV">KDV</option>
+            <option value="MUHTASAR">Muhtasar</option>
+            <option value="GECICI_VERGI">Geçici Vergi</option>
+            <option value="KURUMLAR">Kurumlar Vergisi</option>
+            <option value="GELIR">Gelir Vergisi</option>
+            <option value="DAMGA">Damga Vergisi</option>
+            <option value="SGK">SGK</option>
+            <option value="DIGER">Diğer</option>
           </select>
           <select
             value={filterDurum}
@@ -251,7 +266,7 @@ export default function TahakkuklarPage() {
                                 : "neutral"
                         }
                       >
-                        {item.bildirimDurumu}
+                        {BILDIRIM_DURUM_LABEL[item.bildirimDurumu] ?? item.bildirimDurumu}
                       </Badge>
                     </TableCell>
                   </TableRow>

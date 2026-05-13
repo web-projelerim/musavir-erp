@@ -378,7 +378,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             </div>
 
             {/* Kimlik */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Ünvan veya Ad Soyad"
                 value={form.firmaAdi}
@@ -531,7 +531,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* Vergi Türleri */}
             <div>
               <SectionHeader>Vergi Türleri</SectionHeader>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
                 {VERGI_TURLERI.map((vt) => (
                   <div key={vt.key} className="flex flex-col gap-1">
                     <span className="text-xs font-medium text-slate-600">{vt.label}</span>
@@ -570,7 +570,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* E-Defter */}
             <div>
               <SectionHeader>E-Defter</SectionHeader>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">E-Defter</label>
                   <div className="relative">
@@ -596,7 +596,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             </div>
 
             {/* Nace Kodu + Müdür Görev/Yetki Süresi */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <SectionHeader>Nace Kodu</SectionHeader>
                 <div>
@@ -626,7 +626,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
               <SectionHeader>Mali Mühür</SectionHeader>
               <div className="space-y-2">
                 {([1, 2, 3] as const).map((n) => (
-                  <div key={n} className="grid grid-cols-2 gap-4">
+                  <div key={n} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center gap-2 border border-slate-300 rounded-lg px-3 min-h-[44px]">
                       <CreditCard className="h-4 w-4 text-slate-400 shrink-0" />
                       <input
@@ -652,7 +652,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* Panel Giriş Ayarları */}
             <div>
               <SectionHeader>Panel Giriş Ayarları</SectionHeader>
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs font-medium text-slate-600 mb-2">Paneline Giriş Yapabilsin Mi?</p>
                   <div className="flex gap-4">
@@ -728,7 +728,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* Diğer Bilgiler */}
             <div>
               <SectionHeader>Diğer Bilgiler</SectionHeader>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Alt Mükellef{" "}

@@ -416,111 +416,160 @@ export default function MusterilerPage() {
       {/* Tablo görünümü */}
       {view === "tablo" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <SortHeader field="firmaAdi" label="Firma" />
-                <TableHeadCell>VKN/TCKN</TableHeadCell>
-                <SortHeader field="yaklasanSorumluluk" label="Yaklaşan Sorumluluk" />
-                <TableHeadCell>Hizmet Tahakkuku</TableHeadCell>
-                <TableHeadCell>Tahsilat</TableHeadCell>
-                <TableHeadCell>Görev Durumu</TableHeadCell>
-                <TableHeadCell>Son Tebligat</TableHeadCell>
-                <TableHeadCell>Sorumlu</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell></TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {filteredKayitlar.length === 0 ? (
-                <TableEmpty colSpan={10} message="Arama kriterlerine uyan müşteri bulunamadı" />
-              ) : (
-                filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
-                  const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;
-                  const hizmet = hizmetTahakkukMap.get(m.id);
-                  return (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-semibold text-slate-800 text-sm">{m.firmaAdi}</p>
-                          <p className="text-slate-400 text-xs mt-0.5">{m.yetkiliAd}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
-                          {m.vknTckn}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {sorumluluk.tarih ? (
+          {/* Mobil kart listesi */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredKayitlar.length === 0 ? (
+              <p className="text-sm text-slate-400 p-5 text-center">Arama kriterlerine uyan müşteri bulunamadı</p>
+            ) : filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
+              const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : Calendar;
+              const hizmet = hizmetTahakkukMap.get(m.id);
+              return (
+                <Link
+                  key={m.id}
+                  href={`/musteriler/${m.id}`}
+                  className="block px-4 py-3 hover:bg-slate-50 active:bg-slate-100"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{m.firmaAdi}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{m.yetkiliAd} · {m.vknTckn}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Badge variant={m.durum === "aktif" ? "success" : m.durum === "pasif" ? "neutral" : "warning"}>
+                        {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
+                      </Badge>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                    <TahsilatBadge durum={m.tahsilatDurumu} />
+                    {sorumluluk.tarih && sorumluluk.tur && (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${TUR_RENK[sorumluluk.tur]}`}>
+                        <Icon className="w-3 h-3" />
+                        {formatTarih(sorumluluk.tarih)}
+                      </span>
+                    )}
+                    {hizmet && hizmet.adet > 0 && (
+                      <span className={`text-xs font-semibold ${hizmet.gecikmisMi ? "text-red-600" : "text-blue-600"}`}>
+                        {formatPara(hizmet.toplam)}
+                      </span>
+                    )}
+                    {m.sorumluPersonel && (
+                      <span className="text-xs text-slate-400">{m.sorumluPersonel}</span>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          {/* Masaüstü tablo */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <SortHeader field="firmaAdi" label="Firma" />
+                  <TableHeadCell>VKN/TCKN</TableHeadCell>
+                  <SortHeader field="yaklasanSorumluluk" label="Yaklaşan Sorumluluk" />
+                  <TableHeadCell>Hizmet Tahakkuku</TableHeadCell>
+                  <TableHeadCell>Tahsilat</TableHeadCell>
+                  <TableHeadCell>Görev Durumu</TableHeadCell>
+                  <TableHeadCell>Son Tebligat</TableHeadCell>
+                  <TableHeadCell>Sorumlu</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                  <TableHeadCell></TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {filteredKayitlar.length === 0 ? (
+                  <TableEmpty colSpan={10} message="Arama kriterlerine uyan müşteri bulunamadı" />
+                ) : (
+                  filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
+                    const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;
+                    const hizmet = hizmetTahakkukMap.get(m.id);
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell>
                           <div>
-                            <div className="flex items-center gap-1.5">
-                              {Icon && sorumluluk.tur && (
-                                <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center ${TUR_RENK[sorumluluk.tur]}`}>
-                                  <Icon className="w-3 h-3" />
-                                </span>
-                              )}
-                              <p className="text-xs font-semibold text-slate-800">{formatTarih(sorumluluk.tarih)}</p>
+                            <p className="font-semibold text-slate-800 text-sm">{m.firmaAdi}</p>
+                            <p className="text-slate-400 text-xs mt-0.5">{m.yetkiliAd}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
+                            {m.vknTckn}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {sorumluluk.tarih ? (
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                {Icon && sorumluluk.tur && (
+                                  <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center ${TUR_RENK[sorumluluk.tur]}`}>
+                                    <Icon className="w-3 h-3" />
+                                  </span>
+                                )}
+                                <p className="text-xs font-semibold text-slate-800">{formatTarih(sorumluluk.tarih)}</p>
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-0.5 pl-6 truncate max-w-[160px]">
+                                {sorumluluk.etiket}
+                              </p>
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-0.5 pl-6 truncate max-w-[160px]">
-                              {sorumluluk.etiket}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-emerald-600 font-medium">Sorumluluk yok</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {hizmet && hizmet.adet > 0 ? (
-                          <div>
-                            <p className={`text-xs font-semibold ${hizmet.gecikmisMi ? "text-red-600" : "text-blue-600"}`}>
-                              {formatPara(hizmet.toplam)}
-                            </p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              {hizmet.adet} tahakkuk{hizmet.gecikmisMi ? " · gecikmiş" : ""}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <TahsilatBadge durum={m.tahsilatDurumu} />
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-xs font-medium ${m.gorevDurumu === "Temiz" ? "text-emerald-600" : "text-slate-600"}`}>
-                          {m.gorevDurumu}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {m.sonTebligat ? (
-                          <span className="text-xs text-amber-600 font-medium">{formatTarih(m.sonTebligat)}</span>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-slate-600">{m.sorumluPersonel}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={m.durum === "aktif" ? "success" : m.durum === "pasif" ? "neutral" : "warning"}>
-                          {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          href={`/musteriler/${m.id}`}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          Detay <ChevronRight className="w-3 h-3" />
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                          ) : (
+                            <span className="text-xs text-emerald-600 font-medium">Sorumluluk yok</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {hizmet && hizmet.adet > 0 ? (
+                            <div>
+                              <p className={`text-xs font-semibold ${hizmet.gecikmisMi ? "text-red-600" : "text-blue-600"}`}>
+                                {formatPara(hizmet.toplam)}
+                              </p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                {hizmet.adet} tahakkuk{hizmet.gecikmisMi ? " · gecikmiş" : ""}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <TahsilatBadge durum={m.tahsilatDurumu} />
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-medium ${m.gorevDurumu === "Temiz" ? "text-emerald-600" : "text-slate-600"}`}>
+                            {m.gorevDurumu}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {m.sonTebligat ? (
+                            <span className="text-xs text-amber-600 font-medium">{formatTarih(m.sonTebligat)}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-slate-600">{m.sorumluPersonel}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={m.durum === "aktif" ? "success" : m.durum === "pasif" ? "neutral" : "warning"}>
+                            {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            href={`/musteriler/${m.id}`}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            Detay <ChevronRight className="w-3 h-3" />
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

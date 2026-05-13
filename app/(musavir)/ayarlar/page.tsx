@@ -1167,9 +1167,11 @@ export default function AyarlarPage() {
     <div>
       <PageHeader title="Ayarlar" subtitle="Sistem, entegrasyon ve operasyon ayarları" />
 
-      <div className="flex gap-6">
-        <nav className="w-52 flex-shrink-0">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+      {/* Mobilde yatay scroll tab, masaüstünde yan sidebar */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+        <nav className="lg:w-52 lg:flex-shrink-0">
+          {/* Masaüstü: dikey liste */}
+          <div className="hidden lg:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -1183,9 +1185,26 @@ export default function AyarlarPage() {
               </button>
             ))}
           </div>
+          {/* Mobil: yatay kaydırmalı tab şeridi */}
+          <div className="lg:hidden -mx-4 border-b border-slate-200 overflow-x-auto scrollbar-none">
+            <div className="flex px-4">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500"
+                  }`}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </nav>
 
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {activeTab === "kurum" && (
             <div className="space-y-4">
               <Card>

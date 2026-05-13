@@ -120,23 +120,23 @@ export default function MukellefPanelPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Mükellef üst bar */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <Building2 className="w-4 h-4 text-white" />
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">MusavirERP</p>
-              <p className="text-xs text-slate-500">Mükellef Portalı</p>
+              <p className="text-xs text-slate-500 hidden sm:block">Mükellef Portalı</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="text-right hidden sm:block">
               <p className="text-sm font-semibold text-slate-800">{musteri.yetkiliAd}</p>
               <p className="text-xs text-slate-500">{musteri.firmaAdi}</p>
             </div>
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-blue-700 text-xs font-bold">
                 {musteri.yetkiliAd.split(" ").map((n) => n[0]).join("")}
               </span>
@@ -156,20 +156,20 @@ export default function MukellefPanelPage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-5 sm:px-6 sm:py-8">
         {/* Firma özeti */}
-        <div className="mb-6">
-          <div className="flex items-start justify-between">
+        <div className="mb-5 sm:mb-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
-              <div className="flex items-center gap-3 mt-1.5">
-                <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <span className="font-mono text-xs sm:text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                   VKN: {musteri.vknTckn}
                 </span>
-                <Badge variant="success">Müşavirlik Durumu: Aktif</Badge>
+                <Badge variant="success">Aktif</Badge>
               </div>
             </div>
-            <div className="text-right">
+            <div className="sm:text-right">
               <p className="text-xs text-slate-500">Mali Müşaviriniz</p>
               <p className="text-sm font-semibold text-slate-800">{musteri.sorumluPersonel || "Mali Müşaviriniz"}</p>
             </div>

@@ -353,65 +353,101 @@ export default function KDV2Page() {
         <div className="px-5 py-4 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-800">Tüm KDV2 Kayıtları</h3>
         </div>
-        <Table>
-          <TableHead>
-            <tr>
-              <TableHeadCell>Belge Tarihi</TableHeadCell>
-              <TableHeadCell>Müşteri</TableHeadCell>
-              <TableHeadCell>Belge No</TableHeadCell>
-              <TableHeadCell>KDV Matrahı</TableHeadCell>
-              <TableHeadCell>KDV Oranı</TableHeadCell>
-              <TableHeadCell>KDV Tutarı</TableHeadCell>
-              <TableHeadCell>KDV2 Tutarı</TableHeadCell>
-              <TableHeadCell>Açıklama</TableHeadCell>
-              <TableHeadCell>İşlem</TableHeadCell>
-            </tr>
-          </TableHead>
-          <TableBody>
-            {kayitlar.length === 0 ? (
-              <TableEmpty colSpan={9} />
-            ) : (
-              kayitlar.map((k) => (
-                <TableRow key={k.id}>
-                  <TableCell><span className="text-xs text-slate-600">{formatTarih(k.belgeTarihi)}</span></TableCell>
-                  <TableCell><span className="text-xs font-medium text-slate-800">{k.musteriAdi ?? "Genel Kayıt"}</span></TableCell>
-                  <TableCell><span className="text-xs font-mono text-slate-600">{k.belgeNo}</span></TableCell>
-                  <TableCell><span className="text-xs font-medium text-slate-800">{formatPara(k.kdvMatrahi)}</span></TableCell>
-                  <TableCell><span className="text-xs text-slate-600">%{k.kdvOrani}</span></TableCell>
-                  <TableCell><span className="text-xs text-slate-800">{formatPara(k.kdvTutari)}</span></TableCell>
-                  <TableCell><span className="text-xs font-bold text-blue-700">{formatPara(k.kdv2Tutari)}</span></TableCell>
-                  <TableCell>
-                    {k.aciklama ? (
-                      <span className="text-xs text-slate-500">{k.aciklama}</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(k)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Düzenle"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(k)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Sil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        {/* Mobil */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {kayitlar.length === 0 ? (
+            <p className="text-xs text-slate-400 p-5">Henüz KDV2 kaydı yok</p>
+          ) : kayitlar.map((k) => (
+            <div key={k.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{k.musteriAdi ?? "Genel Kayıt"}</p>
+                  <p className="text-xs font-mono text-slate-500">{k.belgeNo}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button type="button" onClick={() => handleEdit(k)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+                  <button type="button" onClick={() => handleDelete(k)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5">
+                <span className="text-xs text-slate-500">{formatTarih(k.belgeTarihi)}</span>
+                <span className="text-xs text-slate-600">%{k.kdvOrani} KDV</span>
+                <span className="text-xs text-slate-600">Matrah: {formatPara(k.kdvMatrahi)}</span>
+                <span className="text-xs text-slate-600">KDV: {formatPara(k.kdvTutari)}</span>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between">
+                <span className="text-xs font-bold text-blue-700">KDV2: {formatPara(k.kdv2Tutari)}</span>
+                {k.aciklama && <span className="text-xs text-slate-400 truncate ml-2">{k.aciklama}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Masaüstü */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHead>
+              <tr>
+                <TableHeadCell>Belge Tarihi</TableHeadCell>
+                <TableHeadCell>Müşteri</TableHeadCell>
+                <TableHeadCell>Belge No</TableHeadCell>
+                <TableHeadCell>KDV Matrahı</TableHeadCell>
+                <TableHeadCell>KDV Oranı</TableHeadCell>
+                <TableHeadCell>KDV Tutarı</TableHeadCell>
+                <TableHeadCell>KDV2 Tutarı</TableHeadCell>
+                <TableHeadCell>Açıklama</TableHeadCell>
+                <TableHeadCell>İşlem</TableHeadCell>
+              </tr>
+            </TableHead>
+            <TableBody>
+              {kayitlar.length === 0 ? (
+                <TableEmpty colSpan={9} />
+              ) : (
+                kayitlar.map((k) => (
+                  <TableRow key={k.id}>
+                    <TableCell><span className="text-xs text-slate-600">{formatTarih(k.belgeTarihi)}</span></TableCell>
+                    <TableCell><span className="text-xs font-medium text-slate-800">{k.musteriAdi ?? "Genel Kayıt"}</span></TableCell>
+                    <TableCell><span className="text-xs font-mono text-slate-600">{k.belgeNo}</span></TableCell>
+                    <TableCell><span className="text-xs font-medium text-slate-800">{formatPara(k.kdvMatrahi)}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">%{k.kdvOrani}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-800">{formatPara(k.kdvTutari)}</span></TableCell>
+                    <TableCell><span className="text-xs font-bold text-blue-700">{formatPara(k.kdv2Tutari)}</span></TableCell>
+                    <TableCell>
+                      {k.aciklama ? (
+                        <span className="text-xs text-slate-500">{k.aciklama}</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(k)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Düzenle"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(k)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

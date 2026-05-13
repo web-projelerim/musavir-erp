@@ -377,8 +377,8 @@ export default function GorevlerPage() {
           </div>
 
           {/* Sağ taraf: arama + öncelik filtresi */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 min-w-[200px]">
+          <div className="flex flex-1 items-center gap-2 flex-wrap">
+            <div className="flex flex-1 items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 min-w-0">
               <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               <input
                 type="text"

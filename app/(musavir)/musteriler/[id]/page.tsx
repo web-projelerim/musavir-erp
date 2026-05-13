@@ -393,77 +393,79 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   return (
     <div>
       {/* Başlık */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <Link
-            href="/musteriler"
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 mb-3"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Müşteri Listesi
-          </Link>
-          <h1 className="text-xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              {musteri.vknTckn}
-            </span>
-            <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{MUSTERI_DURUM_LABEL[musteri.durum] ?? musteri.durum}</Badge>
-            <TahsilatBadge durum={musteri.tahsilatDurumu} />
+      <div className="mb-6">
+        <Link
+          href="/musteriler"
+          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 mb-3"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Müşteri Listesi
+        </Link>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                {musteri.vknTckn}
+              </span>
+              <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{MUSTERI_DURUM_LABEL[musteri.durum] ?? musteri.durum}</Badge>
+              <TahsilatBadge durum={musteri.tahsilatDurumu} />
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<UserPlus className="w-3.5 h-3.5" />}
-            onClick={() => setShowDavetModal(true)}
-          >
-            {aktifDavet ? "Daveti Göster" : "Portal Daveti"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<CreditCard className="w-3.5 h-3.5" />}
-            onClick={() => setShowTahakkukModal(true)}
-          >
-            Tahakkuk
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<MessageCircle className="w-3.5 h-3.5" />}
-            onClick={() => setShowWaModal(true)}
-          >
-            WhatsApp
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<Plus className="w-3.5 h-3.5" />}
-            onClick={() => setShowGorevModal(true)}
-          >
-            Görev Ekle
-          </Button>
-          {canAdmin && (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              icon={<Edit className="w-3.5 h-3.5" />}
-              onClick={() => setShowMusteriModal(true)}
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => setShowGorevModal(true)}
             >
-              Düzenle
+              Görev
             </Button>
-          )}
-          {canAdmin && (
             <Button
               variant="outline"
               size="sm"
-              icon={<MoreHorizontal className="w-3.5 h-3.5" />}
-              onClick={handleMusteriPasifeAl}
+              icon={<MessageCircle className="w-3.5 h-3.5" />}
+              onClick={() => setShowWaModal(true)}
             >
-              Pasife Al
+              WA
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<CreditCard className="w-3.5 h-3.5" />}
+              onClick={() => setShowTahakkukModal(true)}
+            >
+              Tahakkuk
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<UserPlus className="w-3.5 h-3.5" />}
+              onClick={() => setShowDavetModal(true)}
+            >
+              {aktifDavet ? "Davet" : "Davet Et"}
+            </Button>
+            {canAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Edit className="w-3.5 h-3.5" />}
+                onClick={() => setShowMusteriModal(true)}
+              >
+                Düzenle
+              </Button>
+            )}
+            {canAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<MoreHorizontal className="w-3.5 h-3.5" />}
+                onClick={handleMusteriPasifeAl}
+              >
+                Pasife Al
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -503,14 +505,14 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </Card>
       </div>
 
-      {/* Tab navigasyon */}
-      <div className="border-b border-slate-200 mb-6">
-        <nav className="flex gap-0">
+      {/* Tab navigasyon — yatay kaydırmalı mobilde */}
+      <div className="border-b border-slate-200 mb-6 -mx-4 sm:mx-0">
+        <nav className="flex overflow-x-auto scrollbar-none px-4 sm:px-0">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`flex-shrink-0 px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
@@ -528,7 +530,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <h3 className="text-sm font-semibold text-slate-800 mb-4">Firma Bilgileri</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { label: "Yetkili Kişi", value: musteri.yetkiliAd },
                   { label: "E-posta", value: musteri.email },
@@ -696,39 +698,61 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
 
       {activeTab === "Görevler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Başlık</TableHeadCell>
-                <TableHeadCell>Tür</TableHeadCell>
-                <TableHeadCell>Öncelik</TableHeadCell>
-                <TableHeadCell>Atanan</TableHeadCell>
-                <TableHeadCell>Termin</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell>İşlem</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {gorevler.length === 0 ? (
-                <TableEmpty colSpan={8} />
-              ) : (
-                gorevler.map((g) => (
-                  <TableRow key={g.id} onClick={() => setSeciliGorev(g)} className="cursor-pointer">
-                    <TableCell><span className="text-xs font-medium text-slate-800">{g.baslik}</span></TableCell>
-                    <TableCell><Badge variant="info">{GOREV_TIP_LABEL[g.tip] ?? g.tip}</Badge></TableCell>
-                    <TableCell>
-                      <Badge variant={g.oncelik === "kritik" ? "danger" : g.oncelik === "yuksek" ? "warning" : "neutral"}>
-                        {GOREV_ONCELIK_LABEL[g.oncelik] ?? g.oncelik}
-                      </Badge>
-                    </TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{g.atananKisi}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-700">{formatTarih(g.terminTarihi)}</span></TableCell>
-                    <TableCell><GorevDurumBadge durum={g.durum} /></TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {gorevler.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Görev bulunamadı</p>
+            ) : gorevler.map((g) => (
+              <button key={g.id} type="button" onClick={() => setSeciliGorev(g)} className="w-full text-left px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-800">{g.baslik}</p>
+                  <GorevDurumBadge durum={g.durum} />
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <Badge variant="info">{GOREV_TIP_LABEL[g.tip] ?? g.tip}</Badge>
+                  <Badge variant={g.oncelik === "kritik" ? "danger" : g.oncelik === "yuksek" ? "warning" : "neutral"}>
+                    {GOREV_ONCELIK_LABEL[g.oncelik] ?? g.oncelik}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">{g.atananKisi} · {formatTarih(g.terminTarihi)}</p>
+              </button>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Başlık</TableHeadCell>
+                  <TableHeadCell>Tür</TableHeadCell>
+                  <TableHeadCell>Öncelik</TableHeadCell>
+                  <TableHeadCell>Atanan</TableHeadCell>
+                  <TableHeadCell>Termin</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {gorevler.length === 0 ? (
+                  <TableEmpty colSpan={6} />
+                ) : (
+                  gorevler.map((g) => (
+                    <TableRow key={g.id} onClick={() => setSeciliGorev(g)} className="cursor-pointer">
+                      <TableCell><span className="text-xs font-medium text-slate-800">{g.baslik}</span></TableCell>
+                      <TableCell><Badge variant="info">{GOREV_TIP_LABEL[g.tip] ?? g.tip}</Badge></TableCell>
+                      <TableCell>
+                        <Badge variant={g.oncelik === "kritik" ? "danger" : g.oncelik === "yuksek" ? "warning" : "neutral"}>
+                          {GOREV_ONCELIK_LABEL[g.oncelik] ?? g.oncelik}
+                        </Badge>
+                      </TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{g.atananKisi}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-700">{formatTarih(g.terminTarihi)}</span></TableCell>
+                      <TableCell><GorevDurumBadge durum={g.durum} /></TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -747,219 +771,358 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               Belge Yükle
             </Button>
           </div>
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Dosya</TableHeadCell>
-                <TableHeadCell>Kategori</TableHeadCell>
-                <TableHeadCell>Boyut</TableHeadCell>
-                <TableHeadCell>Yükleyen</TableHeadCell>
-                <TableHeadCell>Tarih</TableHeadCell>
-                <TableHeadCell>Görünürlük</TableHeadCell>
-                <TableHeadCell>İşlem</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {belgeler.length === 0 ? (
-                <TableEmpty colSpan={7} message="Henüz belge yüklenmedi" />
-              ) : (
-                belgeler.map((belge) => (
-                  <TableRow key={belge.id}>
-                    <TableCell>
-                      <div>
-                        <p className="text-xs font-medium text-slate-800">{belge.dosyaAdi}</p>
-                        {belge.notlar && <p className="text-xs text-slate-400 mt-0.5">{belge.notlar}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell><Badge variant="neutral">{belge.kategori}</Badge></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{formatDosyaBoyutu(belge.boyut)}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{belge.yukleyen}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{formatTarih(belge.createdAt)}</span></TableCell>
-                    <TableCell>
-                      <Badge variant={belge.gorunurluk === "mukellef" ? "success" : "neutral"}>
-                        {belge.gorunurluk === "mukellef" ? "Mükellef" : "Ofis"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <a
-                          href={belge.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          title="Aç"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleBelgeSil(belge)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
-                          title="Sil"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {belgeler.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Henüz belge yüklenmedi</p>
+            ) : belgeler.map((belge) => (
+              <div key={belge.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-800 truncate">{belge.dosyaAdi}</p>
+                  {belge.notlar && <p className="text-xs text-slate-400 mt-0.5 truncate">{belge.notlar}</p>}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <Badge variant="neutral">{belge.kategori}</Badge>
+                    <Badge variant={belge.gorunurluk === "mukellef" ? "success" : "neutral"}>
+                      {belge.gorunurluk === "mukellef" ? "Mükellef" : "Ofis"}
+                    </Badge>
+                    <span className="text-xs text-slate-400">{formatTarih(belge.createdAt)}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{belge.yukleyen} · {formatDosyaBoyutu(belge.boyut)}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <a
+                    href={belge.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleBelgeSil(belge)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Dosya</TableHeadCell>
+                  <TableHeadCell>Kategori</TableHeadCell>
+                  <TableHeadCell>Boyut</TableHeadCell>
+                  <TableHeadCell>Yükleyen</TableHeadCell>
+                  <TableHeadCell>Tarih</TableHeadCell>
+                  <TableHeadCell>Görünürlük</TableHeadCell>
+                  <TableHeadCell>İşlem</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {belgeler.length === 0 ? (
+                  <TableEmpty colSpan={7} message="Henüz belge yüklenmedi" />
+                ) : (
+                  belgeler.map((belge) => (
+                    <TableRow key={belge.id}>
+                      <TableCell>
+                        <div>
+                          <p className="text-xs font-medium text-slate-800">{belge.dosyaAdi}</p>
+                          {belge.notlar && <p className="text-xs text-slate-400 mt-0.5">{belge.notlar}</p>}
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="neutral">{belge.kategori}</Badge></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{formatDosyaBoyutu(belge.boyut)}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{belge.yukleyen}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{formatTarih(belge.createdAt)}</span></TableCell>
+                      <TableCell>
+                        <Badge variant={belge.gorunurluk === "mukellef" ? "success" : "neutral"}>
+                          {belge.gorunurluk === "mukellef" ? "Mükellef" : "Ofis"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={belge.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            title="Aç"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleBelgeSil(belge)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {activeTab === "Tebligatlar" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Tarih</TableHeadCell>
-                <TableHeadCell>Başlık</TableHeadCell>
-                <TableHeadCell>Tür</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {tebligatlar.length === 0 ? (
-                <TableEmpty colSpan={4} />
-              ) : (
-                tebligatlar.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell><span className="text-xs text-slate-600">{formatTarih(t.tarih)}</span></TableCell>
-                    <TableCell><span className="text-xs font-medium text-slate-800">{t.baslik}</span></TableCell>
-                    <TableCell><Badge variant="neutral">{t.tur}</Badge></TableCell>
-                    <TableCell><TebligatBadge durum={t.durum} /></TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {tebligatlar.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Tebligat bulunamadı</p>
+            ) : tebligatlar.map((t) => (
+              <div key={t.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-800 line-clamp-2">{t.baslik}</p>
+                  <TebligatBadge durum={t.durum} />
+                </div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  <Badge variant="neutral">{t.tur}</Badge>
+                  <span className="text-xs text-slate-400">{formatTarih(t.tarih)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Tarih</TableHeadCell>
+                  <TableHeadCell>Başlık</TableHeadCell>
+                  <TableHeadCell>Tür</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {tebligatlar.length === 0 ? (
+                  <TableEmpty colSpan={4} />
+                ) : (
+                  tebligatlar.map((t) => (
+                    <TableRow key={t.id}>
+                      <TableCell><span className="text-xs text-slate-600">{formatTarih(t.tarih)}</span></TableCell>
+                      <TableCell><span className="text-xs font-medium text-slate-800">{t.baslik}</span></TableCell>
+                      <TableCell><Badge variant="neutral">{t.tur}</Badge></TableCell>
+                      <TableCell><TebligatBadge durum={t.durum} /></TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {activeTab === "Yükümlülükler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Tip</TableHeadCell>
-                <TableHeadCell>Dönem</TableHeadCell>
-                <TableHeadCell>Son Tarih</TableHeadCell>
-                <TableHeadCell>Sorumlu</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell>Açıklama</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {yukumlulukler.length === 0 ? (
-                <TableEmpty colSpan={6} message="Yükümlülük kaydı bulunamadı" />
-              ) : (
-                yukumlulukler.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell><Badge variant="neutral">{yukumlulukTipLabel(item.tip)}</Badge></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-700">{formatTarih(item.sonTarih)}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{item.sorumlu}</span></TableCell>
-                    <TableCell><Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge></TableCell>
-                    <TableCell className="whitespace-normal">
-                      <span className="text-xs text-slate-500">{item.aciklama ?? "-"}</span>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {yukumlulukler.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Yükümlülük kaydı bulunamadı</p>
+            ) : yukumlulukler.map((item) => (
+              <div key={item.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <Badge variant="neutral">{yukumlulukTipLabel(item.tip)}</Badge>
+                  <Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                  <span className="text-xs text-slate-600">{item.donem}</span>
+                  <span className="text-xs text-slate-500">Son: {formatTarih(item.sonTarih)}</span>
+                  <span className="text-xs text-slate-500">{item.sorumlu}</span>
+                </div>
+                {item.aciklama && <p className="text-xs text-slate-400 mt-1">{item.aciklama}</p>}
+              </div>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Tip</TableHeadCell>
+                  <TableHeadCell>Dönem</TableHeadCell>
+                  <TableHeadCell>Son Tarih</TableHeadCell>
+                  <TableHeadCell>Sorumlu</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                  <TableHeadCell>Açıklama</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {yukumlulukler.length === 0 ? (
+                  <TableEmpty colSpan={6} message="Yükümlülük kaydı bulunamadı" />
+                ) : (
+                  yukumlulukler.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell><Badge variant="neutral">{yukumlulukTipLabel(item.tip)}</Badge></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-700">{formatTarih(item.sonTarih)}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{item.sorumlu}</span></TableCell>
+                      <TableCell><Badge variant={yukumlulukVariant(item.durum)}>{YUKUMLULUK_DURUM_LABEL[item.durum] ?? item.durum}</Badge></TableCell>
+                      <TableCell className="whitespace-normal">
+                        <span className="text-xs text-slate-500">{item.aciklama ?? "-"}</span>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {activeTab === "Beyannameler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Tür</TableHeadCell>
-                <TableHeadCell>Dönem</TableHeadCell>
-                <TableHeadCell>Son Tarih</TableHeadCell>
-                <TableHeadCell>Vergi Tutarı</TableHeadCell>
-                <TableHeadCell>Sorumlu</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {beyanlar.length === 0 ? (
-                <TableEmpty colSpan={8} />
-              ) : (
-                beyanlar.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell><Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{b.donem}</span></TableCell>
-                    <TableCell><span className="text-xs font-medium text-slate-700">{formatTarih(b.sonTarih)}</span></TableCell>
-                    <TableCell>
-                      {b.vergiTutari ? (
-                        <span className="text-xs font-medium text-slate-800">{formatPara(b.vergiTutari)}</span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{b.sorumlu}</span></TableCell>
-                    <TableCell><BeyannameBadge durum={b.durum} /></TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {b.durum !== "verildi" && (
-                          <Button size="sm" variant="outline" className="text-xs" onClick={() => handleBeyanDurum(b.id, "verildi")}>
-                            Verildi
-                          </Button>
-                        )}
-                        {b.durum !== "gecikti" && (
-                          <Button size="sm" variant="ghost" className="text-xs text-red-600" onClick={() => handleBeyanDurum(b.id, "gecikti")}>
-                            Gecikti
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {beyanlar.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Beyanname bulunamadı</p>
+            ) : beyanlar.map((b) => (
+              <div key={b.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge>
+                    <span className="text-xs text-slate-600">{b.donem}</span>
+                  </div>
+                  <BeyannameBadge durum={b.durum} />
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                  <span className="text-xs text-slate-500">Son: {formatTarih(b.sonTarih)}</span>
+                  {b.vergiTutari && <span className="text-xs font-medium text-slate-700">{formatPara(b.vergiTutari)}</span>}
+                  <span className="text-xs text-slate-400">{b.sorumlu}</span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  {b.durum !== "verildi" && (
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => handleBeyanDurum(b.id, "verildi")}>Verildi</Button>
+                  )}
+                  {b.durum !== "gecikti" && (
+                    <Button size="sm" variant="ghost" className="text-xs text-red-600" onClick={() => handleBeyanDurum(b.id, "gecikti")}>Gecikti</Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Tür</TableHeadCell>
+                  <TableHeadCell>Dönem</TableHeadCell>
+                  <TableHeadCell>Son Tarih</TableHeadCell>
+                  <TableHeadCell>Vergi Tutarı</TableHeadCell>
+                  <TableHeadCell>Sorumlu</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {beyanlar.length === 0 ? (
+                  <TableEmpty colSpan={8} />
+                ) : (
+                  beyanlar.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell><Badge variant="info">{BEYAN_TUR_LABEL[b.tur] ?? b.tur}</Badge></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{b.donem}</span></TableCell>
+                      <TableCell><span className="text-xs font-medium text-slate-700">{formatTarih(b.sonTarih)}</span></TableCell>
+                      <TableCell>
+                        {b.vergiTutari ? (
+                          <span className="text-xs font-medium text-slate-800">{formatPara(b.vergiTutari)}</span>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                      </TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{b.sorumlu}</span></TableCell>
+                      <TableCell><BeyannameBadge durum={b.durum} /></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {b.durum !== "verildi" && (
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => handleBeyanDurum(b.id, "verildi")}>
+                              Verildi
+                            </Button>
+                          )}
+                          {b.durum !== "gecikti" && (
+                            <Button size="sm" variant="ghost" className="text-xs text-red-600" onClick={() => handleBeyanDurum(b.id, "gecikti")}>
+                              Gecikti
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
       {activeTab === "Raporlar" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Tür</TableHeadCell>
-                <TableHeadCell>Dönem</TableHeadCell>
-                <TableHeadCell>Oluşturma</TableHeadCell>
-                <TableHeadCell>Gönderim</TableHeadCell>
-                <TableHeadCell>Kanal</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
-              {raporlar.length === 0 ? (
-                <TableEmpty colSpan={6} />
-              ) : (
-                raporlar.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell><Badge variant="info">{r.tip.replace("_", " ")}</Badge></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{r.donem}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{formatTarih(r.olusturmaTarihi)}</span></TableCell>
-                    <TableCell>
-                      {r.gonderimTarihi ? (
-                        <span className="text-xs text-slate-600">{formatTarih(r.gonderimTarihi)}</span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      {r.kanal ? <Badge variant="neutral">{KANAL_LABEL[r.kanal] ?? r.kanal}</Badge> : <span className="text-xs text-slate-400">—</span>}
-                    </TableCell>
-                    <TableCell><RaporDurumBadge durum={r.durum} /></TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {/* Mobil */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {raporlar.length === 0 ? (
+              <p className="text-xs text-slate-400 p-5">Rapor bulunamadı</p>
+            ) : raporlar.map((r) => (
+              <div key={r.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="info">{r.tip.replace("_", " ")}</Badge>
+                    <span className="text-xs text-slate-600">{r.donem}</span>
+                  </div>
+                  <RaporDurumBadge durum={r.durum} />
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                  <span className="text-xs text-slate-500">Oluşturma: {formatTarih(r.olusturmaTarihi)}</span>
+                  {r.gonderimTarihi && <span className="text-xs text-slate-500">Gönderim: {formatTarih(r.gonderimTarihi)}</span>}
+                  {r.kanal && <Badge variant="neutral">{KANAL_LABEL[r.kanal] ?? r.kanal}</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Masaüstü */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Tür</TableHeadCell>
+                  <TableHeadCell>Dönem</TableHeadCell>
+                  <TableHeadCell>Oluşturma</TableHeadCell>
+                  <TableHeadCell>Gönderim</TableHeadCell>
+                  <TableHeadCell>Kanal</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {raporlar.length === 0 ? (
+                  <TableEmpty colSpan={6} />
+                ) : (
+                  raporlar.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell><Badge variant="info">{r.tip.replace("_", " ")}</Badge></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{r.donem}</span></TableCell>
+                      <TableCell><span className="text-xs text-slate-600">{formatTarih(r.olusturmaTarihi)}</span></TableCell>
+                      <TableCell>
+                        {r.gonderimTarihi ? (
+                          <span className="text-xs text-slate-600">{formatTarih(r.gonderimTarihi)}</span>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {r.kanal ? <Badge variant="neutral">{KANAL_LABEL[r.kanal] ?? r.kanal}</Badge> : <span className="text-xs text-slate-400">—</span>}
+                      </TableCell>
+                      <TableCell><RaporDurumBadge durum={r.durum} /></TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 
@@ -977,70 +1140,105 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               Tahsilat Ekle
             </Button>
           </div>
-        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-          <Table>
-            <TableHead>
-              <tr>
-                <TableHeadCell>Dönem</TableHeadCell>
-                <TableHeadCell>Tutar</TableHeadCell>
-                <TableHeadCell>Vade Tarihi</TableHeadCell>
-                <TableHeadCell>Ödeme Tarihi</TableHeadCell>
-                <TableHeadCell>Durum</TableHeadCell>
-                <TableHeadCell>Notlar</TableHeadCell>
-                <TableHeadCell>İşlem</TableHeadCell>
-              </tr>
-            </TableHead>
-            <TableBody>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+            {/* Mobil */}
+            <div className="md:hidden divide-y divide-slate-100">
               {tahsilatlar.length === 0 ? (
-                <TableEmpty colSpan={6} />
-              ) : (
-                tahsilatlar.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell><span className="text-xs text-slate-600">{t.donem}</span></TableCell>
-                    <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(t.tutar)}</span></TableCell>
-                    <TableCell><span className="text-xs text-slate-600">{formatTarih(t.vadeTarihi)}</span></TableCell>
-                    <TableCell>
-                      {t.odemeTarihi ? (
-                        <span className="text-xs text-emerald-600">{formatTarih(t.odemeTarihi)}</span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </TableCell>
-                    <TableCell><TahsilatBadge durum={t.durum} /></TableCell>
-                    <TableCell>
-                      {t.notlar ? (
-                        <span className="text-xs text-slate-500">{t.notlar}</span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs"
-                          onClick={() => {
-                            setSeciliTahsilat(t);
-                            setShowTahsilatModal(true);
-                          }}
-                        >
-                          Ödeme Kaydet
-                        </Button>
-                        {t.durum !== "odendi" && (
-                          <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "odendi")}>
-                            Ödendi
-                          </Button>
-                        )}
-                        {t.durum !== "kismi" && (
-                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "kismi")}>
-                            Kısmi
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                <p className="text-xs text-slate-400 p-5">Tahsilat kaydı bulunamadı</p>
+              ) : tahsilatlar.map((t) => (
+                <div key={t.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-sm font-semibold text-slate-800">{formatPara(t.tutar)}</span>
+                      <span className="text-xs text-slate-500 ml-2">{t.donem}</span>
+                    </div>
+                    <TahsilatBadge durum={t.durum} />
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    <span className="text-xs text-slate-500">Vade: {formatTarih(t.vadeTarihi)}</span>
+                    {t.odemeTarihi && <span className="text-xs text-emerald-600">Ödeme: {formatTarih(t.odemeTarihi)}</span>}
+                    {t.notlar && <span className="text-xs text-slate-400">{t.notlar}</span>}
+                  </div>
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    <Button size="sm" variant="outline" className="text-xs" onClick={() => { setSeciliTahsilat(t); setShowTahsilatModal(true); }}>
+                      Ödeme Kaydet
+                    </Button>
+                    {t.durum !== "odendi" && (
+                      <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "odendi")}>Ödendi</Button>
+                    )}
+                    {t.durum !== "kismi" && (
+                      <Button size="sm" variant="ghost" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "kismi")}>Kısmi</Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Masaüstü */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHead>
+                  <tr>
+                    <TableHeadCell>Dönem</TableHeadCell>
+                    <TableHeadCell>Tutar</TableHeadCell>
+                    <TableHeadCell>Vade Tarihi</TableHeadCell>
+                    <TableHeadCell>Ödeme Tarihi</TableHeadCell>
+                    <TableHeadCell>Durum</TableHeadCell>
+                    <TableHeadCell>Notlar</TableHeadCell>
+                    <TableHeadCell>İşlem</TableHeadCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {tahsilatlar.length === 0 ? (
+                    <TableEmpty colSpan={6} />
+                  ) : (
+                    tahsilatlar.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell><span className="text-xs text-slate-600">{t.donem}</span></TableCell>
+                        <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(t.tutar)}</span></TableCell>
+                        <TableCell><span className="text-xs text-slate-600">{formatTarih(t.vadeTarihi)}</span></TableCell>
+                        <TableCell>
+                          {t.odemeTarihi ? (
+                            <span className="text-xs text-emerald-600">{formatTarih(t.odemeTarihi)}</span>
+                          ) : <span className="text-xs text-slate-400">—</span>}
+                        </TableCell>
+                        <TableCell><TahsilatBadge durum={t.durum} /></TableCell>
+                        <TableCell>
+                          {t.notlar ? (
+                            <span className="text-xs text-slate-500">{t.notlar}</span>
+                          ) : <span className="text-xs text-slate-400">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => {
+                                setSeciliTahsilat(t);
+                                setShowTahsilatModal(true);
+                              }}
+                            >
+                              Ödeme Kaydet
+                            </Button>
+                            {t.durum !== "odendi" && (
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "odendi")}>
+                                Ödendi
+                              </Button>
+                            )}
+                            {t.durum !== "kismi" && (
+                              <Button size="sm" variant="ghost" className="text-xs" onClick={() => handleTahsilatDurum(t.id, "kismi")}>
+                                Kısmi
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1056,58 +1254,98 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             </Button>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-            <Table>
-              <TableHead>
-                <tr>
-                  <TableHeadCell>Dönem</TableHeadCell>
-                  <TableHeadCell>Kalem</TableHeadCell>
-                  <TableHeadCell>Tutar</TableHeadCell>
-                  <TableHeadCell>Ödenen</TableHeadCell>
-                  <TableHeadCell>Vade</TableHeadCell>
-                  <TableHeadCell>Durum</TableHeadCell>
-                  <TableHeadCell>Bildirim</TableHeadCell>
-                </tr>
-              </TableHead>
-              <TableBody>
-                {tahakkuklar.length === 0 ? (
-                  <TableEmpty colSpan={7} message="Tahakkuk bulunamadı" />
-                ) : (
-                  tahakkuklar.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <Badge variant={item.tahakkukTuru === "vergi" ? "warning" : "neutral"}>
-                            {tahakkukTuruLabel(item.tahakkukTuru)}
-                          </Badge>
-                          <span className="text-[11px] text-slate-500">{tahakkukKalemLabel(item)}</span>
-                          {item.otomatikTuretilmis && (
-                            <span className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span></TableCell>
-                      <TableCell><span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span></TableCell>
-                      <TableCell><span className="text-xs text-slate-600">{formatTarih(item.vadeTarihi)}</span></TableCell>
-                      <TableCell>
-                        <TahsilatBadge
-                          durum={
-                            item.durum === "odendi"
-                              ? "odendi"
-                              : item.durum === "kismi"
-                                ? "kismi"
-                                : item.durum === "gecikti"
-                                  ? "gecikti"
-                                  : "bekliyor"
-                          }
-                        />
-                      </TableCell>
-                      <TableCell><Badge variant="info">{item.bildirimDurumu}</Badge></TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            {/* Mobil */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {tahakkuklar.length === 0 ? (
+                <p className="text-xs text-slate-400 p-5">Tahakkuk bulunamadı</p>
+              ) : tahakkuklar.map((item) => (
+                <div key={item.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant={item.tahakkukTuru === "vergi" ? "warning" : "neutral"}>
+                        {tahakkukTuruLabel(item.tahakkukTuru)}
+                      </Badge>
+                      <span className="text-xs text-slate-600">{item.donem}</span>
+                    </div>
+                    <TahsilatBadge
+                      durum={
+                        item.durum === "odendi" ? "odendi"
+                          : item.durum === "kismi" ? "kismi"
+                          : item.durum === "gecikti" ? "gecikti"
+                          : "bekliyor"
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">{tahakkukKalemLabel(item)}</p>
+                  {item.otomatikTuretilmis && (
+                    <p className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</p>
+                  )}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    <span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span>
+                    <span className="text-xs text-slate-500">Ödenen: {formatPara(item.odenenTutar ?? 0)}</span>
+                    <span className="text-xs text-slate-500">Vade: {formatTarih(item.vadeTarihi)}</span>
+                  </div>
+                  <div className="mt-1.5">
+                    <Badge variant="info">{item.bildirimDurumu}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Masaüstü */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHead>
+                  <tr>
+                    <TableHeadCell>Dönem</TableHeadCell>
+                    <TableHeadCell>Kalem</TableHeadCell>
+                    <TableHeadCell>Tutar</TableHeadCell>
+                    <TableHeadCell>Ödenen</TableHeadCell>
+                    <TableHeadCell>Vade</TableHeadCell>
+                    <TableHeadCell>Durum</TableHeadCell>
+                    <TableHeadCell>Bildirim</TableHeadCell>
+                  </tr>
+                </TableHead>
+                <TableBody>
+                  {tahakkuklar.length === 0 ? (
+                    <TableEmpty colSpan={7} message="Tahakkuk bulunamadı" />
+                  ) : (
+                    tahakkuklar.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell><span className="text-xs text-slate-600">{item.donem}</span></TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={item.tahakkukTuru === "vergi" ? "warning" : "neutral"}>
+                              {tahakkukTuruLabel(item.tahakkukTuru)}
+                            </Badge>
+                            <span className="text-[11px] text-slate-500">{tahakkukKalemLabel(item)}</span>
+                            {item.otomatikTuretilmis && (
+                              <span className="text-[11px] text-blue-500">Beyannameden otomatik türetildi</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span></TableCell>
+                        <TableCell><span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span></TableCell>
+                        <TableCell><span className="text-xs text-slate-600">{formatTarih(item.vadeTarihi)}</span></TableCell>
+                        <TableCell>
+                          <TahsilatBadge
+                            durum={
+                              item.durum === "odendi"
+                                ? "odendi"
+                                : item.durum === "kismi"
+                                  ? "kismi"
+                                  : item.durum === "gecikti"
+                                    ? "gecikti"
+                                    : "bekliyor"
+                            }
+                          />
+                        </TableCell>
+                        <TableCell><Badge variant="info">{item.bildirimDurumu}</Badge></TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </div>
       )}

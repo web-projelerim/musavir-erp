@@ -38,6 +38,7 @@ import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatTarih } from "@/lib/utils/format";
 import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
+import { FirebaseError } from "firebase/app";
 import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErrors";
 import type {
   AuditAction,
@@ -851,9 +852,11 @@ export default function AyarlarPage() {
     setSifreDegistirmeLoading(true);
     try {
       await changePassword(mevcutSifre, yeniSifre);
+      // Şifre başarıyla değiştirildi — önce UI'ı temizle, sonra audit log yaz
       toast.success("Şifre değiştirildi", "Yeni şifrenizle giriş yapabilirsiniz.");
       setSifreDegistirme({ mevcutSifre: "", yeniSifre: "", yeniSifreTekrar: "" });
-      await createAuditLog({
+      // Audit log hatası ana akışı bozmasın — ayrı try/catch
+      createAuditLog({
         actorId: user?.id ?? "",
         actorName: user ? `${user.ad} ${user.soyad}`.trim() : "Bilinmeyen",
         actorRole: user?.rol ?? "musavir",
@@ -862,17 +865,18 @@ export default function AyarlarPage() {
         entityId: user?.id ?? "",
         entityLabel: user?.email,
         summary: "Şifre değiştirildi",
-      });
+      }).catch((e) => console.warn("[Audit] Şifre log hatası:", e));
     } catch (err) {
-      const mesaj = err instanceof Error ? err.message : "Bilinmeyen hata";
-      if (mesaj.includes("auth/wrong-password") || mesaj.includes("auth/invalid-credential")) {
+      // Firebase hata kodunu .code üzerinden kontrol et — mesaj string'e göre daha stabil
+      const kod = err instanceof FirebaseError ? err.code : "";
+      if (kod === "auth/wrong-password" || kod === "auth/invalid-credential") {
         setSifreDegistirmeHata("Mevcut şifreniz hatalı.");
-      } else if (mesaj.includes("auth/too-many-requests")) {
+      } else if (kod === "auth/too-many-requests") {
         setSifreDegistirmeHata("Çok fazla başarısız deneme. Lütfen bir süre bekleyin.");
-      } else if (mesaj.includes("auth/requires-recent-login")) {
+      } else if (kod === "auth/requires-recent-login") {
         setSifreDegistirmeHata("Güvenlik nedeniyle oturumu kapatıp tekrar giriş yapın, ardından tekrar deneyin.");
       } else {
-        setSifreDegistirmeHata(mesaj);
+        setSifreDegistirmeHata(err instanceof Error ? err.message : "Bilinmeyen hata");
       }
     } finally {
       setSifreDegistirmeLoading(false);
@@ -1237,7 +1241,7 @@ export default function AyarlarPage() {
             {TABS.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); setSifreDegistirmeHata(null); }}
                 className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors ${
                   activeTab === tab.id ? "bg-blue-50 font-medium text-blue-700" : "text-slate-600 hover:bg-slate-50"
                 }`}
@@ -1253,7 +1257,7 @@ export default function AyarlarPage() {
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => { setActiveTab(tab.id); setSifreDegistirmeHata(null); }}
                   className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                     activeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500"
                   }`}
@@ -1582,9 +1586,10 @@ export default function AyarlarPage() {
                     type="password"
                     autoComplete="current-password"
                     value={sifreDegistirme.mevcutSifre}
-                    onChange={(e) =>
-                      setSifreDegistirme((prev) => ({ ...prev, mevcutSifre: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setSifreDegistirme((prev) => ({ ...prev, mevcutSifre: e.target.value }));
+                      setSifreDegistirmeHata(null);
+                    }}
                     disabled={sifreDegistirmeLoading}
                     required
                   />
@@ -1593,9 +1598,10 @@ export default function AyarlarPage() {
                     type="password"
                     autoComplete="new-password"
                     value={sifreDegistirme.yeniSifre}
-                    onChange={(e) =>
-                      setSifreDegistirme((prev) => ({ ...prev, yeniSifre: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setSifreDegistirme((prev) => ({ ...prev, yeniSifre: e.target.value }));
+                      setSifreDegistirmeHata(null);
+                    }}
                     hint="En az 6 karakter"
                     disabled={sifreDegistirmeLoading}
                     required
@@ -1605,9 +1611,10 @@ export default function AyarlarPage() {
                     type="password"
                     autoComplete="new-password"
                     value={sifreDegistirme.yeniSifreTekrar}
-                    onChange={(e) =>
-                      setSifreDegistirme((prev) => ({ ...prev, yeniSifreTekrar: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setSifreDegistirme((prev) => ({ ...prev, yeniSifreTekrar: e.target.value }));
+                      setSifreDegistirmeHata(null);
+                    }}
                     disabled={sifreDegistirmeLoading}
                     required
                   />

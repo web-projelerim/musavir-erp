@@ -10,10 +10,13 @@ import {
 } from "react";
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  updatePassword,
   updateProfile,
   type User as FirebaseUser,
 } from "firebase/auth";
@@ -29,6 +32,8 @@ interface AuthContextValue {
   signUp: (input: SignUpInput) => Promise<User>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  /** Mevcut şifreyi doğrulayıp yeni şifreye günceller. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -238,9 +243,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendPasswordResetEmail(firebaseAuth, email);
   }, []);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    if (!firebaseAuth) throw new Error("Firebase yapılandırılmamış");
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser || !currentUser.email) {
+      throw new Error("Oturum açık değil. Lütfen yeniden giriş yapın.");
+    }
+    // Mevcut şifreyle yeniden doğrulama — güvenlik gereği
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, signIn, signUp, signOut, resetPassword }),
-    [loading, resetPassword, signIn, signOut, signUp, user]
+    () => ({ user, loading, signIn, signUp, signOut, resetPassword, changePassword }),
+    [changePassword, loading, resetPassword, signIn, signOut, signUp, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

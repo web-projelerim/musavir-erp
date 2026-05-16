@@ -162,7 +162,7 @@ function panelTitle(panel: IntegrationPanel) {
 
 export default function AyarlarPage() {
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("kurum");
   const [activeIntegration, setActiveIntegration] = useState<IntegrationPanel>("gib");
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -207,6 +207,15 @@ export default function AyarlarPage() {
   const [captchaSessionCookie, setCaptchaSessionCookie] = useState("");
   const [captchaDk, setCaptchaDk] = useState("");
   const [pendingSyncTipi, setPendingSyncTipi] = useState<GibSyncLog["syncTipi"] | null>(null);
+
+  // Şifre değiştirme formu
+  const [sifreDegistirme, setSifreDegistirme] = useState({
+    mevcutSifre: "",
+    yeniSifre: "",
+    yeniSifreTekrar: "",
+  });
+  const [sifreDegistirmeLoading, setSifreDegistirmeLoading] = useState(false);
+  const [sifreDegistirmeHata, setSifreDegistirmeHata] = useState<string | null>(null);
 
   const sortedAuditLogs = useMemo(
     () => [...auditLogs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 50),
@@ -814,6 +823,59 @@ export default function AyarlarPage() {
       toast.error("WhatsApp ayarları kaydedilemedi", parseFirestoreError(err));
     } finally {
       setWaSaving(false);
+    }
+  };
+
+  const handleSifreDegistir = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSifreDegistirmeHata(null);
+
+    const { mevcutSifre, yeniSifre, yeniSifreTekrar } = sifreDegistirme;
+    if (!mevcutSifre) {
+      setSifreDegistirmeHata("Mevcut şifrenizi girin.");
+      return;
+    }
+    if (yeniSifre.length < 6) {
+      setSifreDegistirmeHata("Yeni şifre en az 6 karakter olmalıdır.");
+      return;
+    }
+    if (yeniSifre !== yeniSifreTekrar) {
+      setSifreDegistirmeHata("Yeni şifreler eşleşmiyor.");
+      return;
+    }
+    if (yeniSifre === mevcutSifre) {
+      setSifreDegistirmeHata("Yeni şifre mevcut şifreden farklı olmalıdır.");
+      return;
+    }
+
+    setSifreDegistirmeLoading(true);
+    try {
+      await changePassword(mevcutSifre, yeniSifre);
+      toast.success("Şifre değiştirildi", "Yeni şifrenizle giriş yapabilirsiniz.");
+      setSifreDegistirme({ mevcutSifre: "", yeniSifre: "", yeniSifreTekrar: "" });
+      await createAuditLog({
+        actorId: user?.id ?? "",
+        actorName: user ? `${user.ad} ${user.soyad}`.trim() : "Bilinmeyen",
+        actorRole: user?.rol ?? "musavir",
+        action: "update" as AuditAction,
+        entityType: "sistem",
+        entityId: user?.id ?? "",
+        entityLabel: user?.email,
+        summary: "Şifre değiştirildi",
+      });
+    } catch (err) {
+      const mesaj = err instanceof Error ? err.message : "Bilinmeyen hata";
+      if (mesaj.includes("auth/wrong-password") || mesaj.includes("auth/invalid-credential")) {
+        setSifreDegistirmeHata("Mevcut şifreniz hatalı.");
+      } else if (mesaj.includes("auth/too-many-requests")) {
+        setSifreDegistirmeHata("Çok fazla başarısız deneme. Lütfen bir süre bekleyin.");
+      } else if (mesaj.includes("auth/requires-recent-login")) {
+        setSifreDegistirmeHata("Güvenlik nedeniyle oturumu kapatıp tekrar giriş yapın, ardından tekrar deneyin.");
+      } else {
+        setSifreDegistirmeHata(mesaj);
+      }
+    } finally {
+      setSifreDegistirmeLoading(false);
     }
   };
 
@@ -1508,12 +1570,71 @@ export default function AyarlarPage() {
 
           {activeTab === "guvenlik" && (
             <div className="space-y-4">
+              {/* Şifre Değiştirme */}
               <Card>
-                <h3 className="text-sm font-semibold text-slate-800">Credential Güvenlik Yaklaşımı</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-slate-800">Şifre Değiştir</h3>
+                </div>
+                <form onSubmit={handleSifreDegistir} className="space-y-4 max-w-sm">
+                  <Input
+                    label="Mevcut Şifre"
+                    type="password"
+                    autoComplete="current-password"
+                    value={sifreDegistirme.mevcutSifre}
+                    onChange={(e) =>
+                      setSifreDegistirme((prev) => ({ ...prev, mevcutSifre: e.target.value }))
+                    }
+                    disabled={sifreDegistirmeLoading}
+                    required
+                  />
+                  <Input
+                    label="Yeni Şifre"
+                    type="password"
+                    autoComplete="new-password"
+                    value={sifreDegistirme.yeniSifre}
+                    onChange={(e) =>
+                      setSifreDegistirme((prev) => ({ ...prev, yeniSifre: e.target.value }))
+                    }
+                    hint="En az 6 karakter"
+                    disabled={sifreDegistirmeLoading}
+                    required
+                  />
+                  <Input
+                    label="Yeni Şifre (Tekrar)"
+                    type="password"
+                    autoComplete="new-password"
+                    value={sifreDegistirme.yeniSifreTekrar}
+                    onChange={(e) =>
+                      setSifreDegistirme((prev) => ({ ...prev, yeniSifreTekrar: e.target.value }))
+                    }
+                    disabled={sifreDegistirmeLoading}
+                    required
+                  />
+                  {sifreDegistirmeHata && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <span className="text-xs text-red-700">{sifreDegistirmeHata}</span>
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    loading={sifreDegistirmeLoading}
+                    disabled={sifreDegistirmeLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    Şifreyi Güncelle
+                  </Button>
+                </form>
+              </Card>
+
+              {/* Güvenlik Notları */}
+              <Card>
+                <h3 className="text-sm font-semibold text-slate-800">Güvenlik Notları</h3>
                 <div className="mt-3 space-y-2 text-sm text-slate-600">
-                  <p>1. Secret alanları istemciden Firestore'a düz metin olarak yazılmaz.</p>
-                  <p>2. GİB, Luca, WhatsApp ve SMTP şifreleri bir sonraki backend fazında server-side secret manager ile tutulur.</p>
-                  <p>3. Eklenen ekranlar bilgi toplama ve operasyon akışını netleştirme amaçlı metadata katmanıdır.</p>
+                  <p>• Şifre değiştirmeden önce mevcut şifrenizle kimlik doğrulaması yapılır.</p>
+                  <p>• Şifrenizi unuttuysanız çıkış yaparak "Şifremi Unuttum" bağlantısını kullanın.</p>
+                  <p>• GİB, Luca ve WhatsApp entegrasyon şifreleri AES-256-GCM ile şifrelenerek saklanır — düz metin Firestore'a yazılmaz.</p>
                 </div>
               </Card>
             </div>

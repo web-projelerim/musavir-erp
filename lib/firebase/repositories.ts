@@ -178,6 +178,7 @@ export async function createGorev(input: {
   terminTarihi: string;
   oncelik: Gorev["oncelik"];
   tip: Gorev["tip"];
+  altGorevler?: Gorev["altGorevler"];
 }) {
   const gorev: Gorev = {
     id: createId("g"),
@@ -192,6 +193,7 @@ export async function createGorev(input: {
     oncelik: input.oncelik,
     durum: "beklemede",
     tip: input.tip,
+    altGorevler: input.altGorevler,
     createdAt: new Date().toISOString(),
   };
 

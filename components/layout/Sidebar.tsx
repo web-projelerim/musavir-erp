@@ -17,6 +17,7 @@ import {
   Building2,
   LogOut,
   ScrollText,
+  Send,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -35,6 +36,7 @@ const navItems: {
   { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
+  { label: "Onay Bekleyenler", href: "/onay-bekleyenler", icon: Send, badge: "onay" },
 ];
 
 const bottomItems = [
@@ -49,7 +51,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { gorevler, tebligatlar } = useAppData();
+  const { gorevler, tebligatlar, gonderimler } = useAppData();
   const { user, signOut } = useAuth();
 
   const initials = user ? `${user.ad[0] ?? ""}${user.soyad[0] ?? ""}` : "AM";
@@ -116,6 +118,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               ? gorevler.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal").length
               : item.badge === "tebligatlar"
               ? tebligatlar.filter((t) => t.durum === "yeni").length
+              : item.badge === "onay"
+              ? gonderimler.filter((g) => g.durum === "bekliyor").length
               : typeof item.badge === "number"
               ? item.badge
               : null;

@@ -15,6 +15,15 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer, nextRuntime }) => {
+    // jsPDF, canvg'yi sadece SVG rendering için kullanıyor; metin PDF'imizde gerekmiyor.
+    // canvg eksik core-js bağımlılığı sebebiyle bundle hatası veriyor → boş stub'la.
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      canvg: false,
+      html2canvas: false,
+      dompurify: false,
+    };
+
     if (!isServer) {
       // Browser bundle: Node.js built-in'leri boş modül olarak çöz
       config.resolve.fallback = {

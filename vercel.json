@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/vade-hatirlatma",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/vergi-takvimi-sync",
+      "schedule": "0 6 * * *"
     }
   ]
 }

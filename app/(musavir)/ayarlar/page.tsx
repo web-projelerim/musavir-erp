@@ -188,6 +188,16 @@ export default function AyarlarPage() {
   const [gibDraft, setGibDraft] = useState<GibEntegrasyonAyari | null>(null);
   const [lucaDraft, setLucaDraft] = useState<LucaEntegrasyonAyari | null>(null);
   const [waDraft, setWaDraft] = useState({ businessPhoneNumberId: "", accessTokenGirildi: false });
+  // Otomatik gönderim ayarları — varsayılan: hepsi onay-bekle (false), global açık
+  const [waAuto, setWaAuto] = useState({
+    global: true,
+    tahakkuk: false,
+    vade: false,
+    belge: false,
+    davet: false,
+    beyanname: false,
+    rapor: false,
+  });
   const [waSaving, setWaSaving] = useState(false);
   const [gibSecrets, setGibSecrets] = useState({
     ivdSifre: "",
@@ -235,6 +245,15 @@ export default function AyarlarPage() {
     const wa = whatsappEntegrasyonAyarlari[0];
     if (wa) {
       setWaDraft({ businessPhoneNumberId: wa.businessPhoneNumberId ?? "", accessTokenGirildi: wa.accessTokenSet });
+      setWaAuto({
+        global: wa.otomatikGonderimGloballeAcik ?? true,
+        tahakkuk: wa.tahakkukMesajiOtomatikGonder ?? false,
+        vade: wa.vadeHatirlatmaOtomatikGonder ?? false,
+        belge: wa.belgeEksikOtomatikGonder ?? false,
+        davet: wa.davetMesajiOtomatikGonder ?? false,
+        beyanname: wa.beyannameMesajiOtomatikGonder ?? false,
+        rapor: wa.raporMesajiOtomatikGonder ?? false,
+      });
     }
   }, [whatsappEntegrasyonAyarlari]);
 
@@ -806,6 +825,16 @@ export default function AyarlarPage() {
       vadeHatirlatmaAktif: existing?.vadeHatirlatmaAktif ?? true,
       belgeEksikAktif: existing?.belgeEksikAktif ?? false,
       davetMesajiAktif: existing?.davetMesajiAktif ?? true,
+      beyannameMesajiAktif: existing?.beyannameMesajiAktif ?? true,
+      raporMesajiAktif: existing?.raporMesajiAktif ?? true,
+      // Otomatik gönderim / onay-bekle ayarları (waAuto state'ten gelir)
+      tahakkukMesajiOtomatikGonder: waAuto.tahakkuk,
+      vadeHatirlatmaOtomatikGonder: waAuto.vade,
+      belgeEksikOtomatikGonder: waAuto.belge,
+      davetMesajiOtomatikGonder: waAuto.davet,
+      beyannameMesajiOtomatikGonder: waAuto.beyanname,
+      raporMesajiOtomatikGonder: waAuto.rapor,
+      otomatikGonderimGloballeAcik: waAuto.global,
       secretStorageMode: "not_configured",
       updatedBy: user?.id ?? "musavir",
     };
@@ -1169,6 +1198,92 @@ export default function AyarlarPage() {
               <span className="text-xs text-amber-600">
                 Token ekledikten sonra sunucuyu yeniden başlatın
               </span>
+            </div>
+          </div>
+
+          {/* Mesaj türü bazında otomatik gönderim ayarları */}
+          <div className="mt-5 rounded-xl border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800">Otomatik Gönderim Ayarları</h4>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Her mesaj türü için: <strong>Otomatik</strong> = sistem onayınız olmadan gönderir.
+                  <strong> Onay Bekle</strong> = mesaj kuyruğa düşer, siz onaylayana kadar gitmez.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                <input
+                  type="checkbox"
+                  checked={waAuto.global}
+                  onChange={(e) => setWaAuto((p) => ({ ...p, global: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs font-medium text-slate-700">Otomatik gönderim açık</span>
+              </label>
+            </div>
+
+            {!waAuto.global && (
+              <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                🛑 Global anahtar kapalı — hiçbir mesaj otomatik gitmez, hepsi onay bekleyenler kuyruğuna düşer.
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { key: "tahakkuk" as const, etiket: "Tahakkuk Bildirimi", aciklama: "Yeni tahakkuk oluşturulunca müşteriye bilgi mesajı" },
+                { key: "vade" as const, etiket: "Vade Hatırlatma", aciklama: "Vade tarihinden 3 gün önce hatırlatma" },
+                { key: "belge" as const, etiket: "Eksik Belge Bildirimi", aciklama: "Belge eksikse müşteriden talep mesajı" },
+                { key: "davet" as const, etiket: "Mükellef Daveti", aciklama: "Yeni mükellefe panel davet mesajı" },
+                { key: "beyanname" as const, etiket: "Beyanname Hatırlatma", aciklama: "Beyanname son tarihi yaklaştığında" },
+                { key: "rapor" as const, etiket: "Rapor Gönderimi", aciklama: "Hazır rapor müşteriye sunulduğunda" },
+              ].map((tur) => {
+                const otomatik = waAuto[tur.key];
+                const disabled = !waAuto.global;
+                return (
+                  <div
+                    key={tur.key}
+                    className={`rounded-lg border px-3 py-2.5 ${
+                      disabled ? "border-slate-200 bg-slate-50 opacity-60" : otomatik ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-800">{tur.etiket}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-500 leading-snug">{tur.aciklama}</p>
+                      </div>
+                      <Badge variant={disabled ? "neutral" : otomatik ? "success" : "warning"}>
+                        {disabled ? "Pasif" : otomatik ? "Otomatik" : "Onay Bekle"}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex gap-1">
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setWaAuto((p) => ({ ...p, [tur.key]: true }))}
+                        className={`flex-1 rounded px-2 py-1 text-[11px] font-medium border ${
+                          otomatik && !disabled
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                        } ${disabled ? "cursor-not-allowed" : ""}`}
+                      >
+                        Otomatik
+                      </button>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => setWaAuto((p) => ({ ...p, [tur.key]: false }))}
+                        className={`flex-1 rounded px-2 py-1 text-[11px] font-medium border ${
+                          !otomatik && !disabled
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                        } ${disabled ? "cursor-not-allowed" : ""}`}
+                      >
+                        Onay Bekle
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

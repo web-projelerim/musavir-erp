@@ -46,6 +46,7 @@ export const COLLECTIONS = {
   emailEntegrasyonAyarlari: "emailEntegrasyonAyarlari",
   entegrasyonLoglari: "entegrasyonLoglari",
   notlar: "notlar",
+  gibSozlesmeleri: "gibSozlesmeleri",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

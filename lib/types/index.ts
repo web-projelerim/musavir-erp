@@ -114,6 +114,18 @@ export interface WhatsAppEntegrasyonAyari {
   vadeHatirlatmaAktif: boolean;
   belgeEksikAktif: boolean;
   davetMesajiAktif: boolean;
+  // Mesaj türü bazında otomatik gönderim / onay-bekle ayarı.
+  // false (varsayılan) = müşavir onayı bekler; true = otomatik gönderilir
+  tahakkukMesajiOtomatikGonder?: boolean;
+  vadeHatirlatmaOtomatikGonder?: boolean;
+  belgeEksikOtomatikGonder?: boolean;
+  davetMesajiOtomatikGonder?: boolean;
+  beyannameMesajiAktif?: boolean;
+  beyannameMesajiOtomatikGonder?: boolean;
+  raporMesajiAktif?: boolean;
+  raporMesajiOtomatikGonder?: boolean;
+  // Global anahtar: false ise hiçbir otomatik gönderim olmaz (acil durdurma)
+  otomatikGonderimGloballeAcik?: boolean;
   secretStorageMode: SecretStorageMode;
   sonTestTarihi?: string;
   sonHata?: string;
@@ -221,6 +233,15 @@ export interface Musteri {
   gibEncryptedIvdSifre?: string;
   bankaGonderenAdlari?: string[];
   sgkSicilNo?: string;
+  // Kurum bilgileri (resmi sistem erişimleri)
+  kurumVergiDairesi?: string;
+  sgkKullaniciAdi?: string;
+  sgkSifresi?: string; // TODO(faz-2): şifreli sakla (lib/integrations/gib/encrypt.ts gibi)
+  ebildirgKullaniciAdi?: string;
+  ebildirgSifresi?: string;
+  edevletKullaniciAdi?: string;
+  edevletSifresi?: string;
+  gibSifresi?: string; // gibIvdKullaniciAdi ile birlikte plaintext (geçici; şifreli versiyonu gibEncryptedIvdSifre)
   // Genişletilmiş mükellef alanları
   sahissaVergiNo?: string;
   eposta1?: string; eposta1Ad?: string;
@@ -305,6 +326,14 @@ export type GorevTip =
   | "kdv2"
   | "diger";
 
+export interface AltGorev {
+  id: string;
+  baslik: string;
+  tamamlandi: boolean;
+  tamamlanmaTarihi?: string;
+  tahminiSure?: number; // dakika
+}
+
 export interface GorevNot {
   id: string;
   metin: string;
@@ -327,6 +356,7 @@ export interface Gorev {
   tip: GorevTip;
   tamamlanmaTarihi?: string;
   notlar?: GorevNot[] | string;
+  altGorevler?: AltGorev[];
   createdAt: string;
 }
 
@@ -525,8 +555,15 @@ export interface Tahakkuk {
   resmiTahakkukFisNo?: string;
   kaynakSistem?: TahakkukKaynakSistem;
   otomatikTuretilmis?: boolean;
-  tutar: number;
+  tutar: number; // Brüt tutar (KDV dahil)
   odenenTutar?: number;
+  // Türmob hesabı (opsiyonel — eski kayıtlarda undefined olabilir)
+  netTutar?: number;
+  kdvTutar?: number;
+  kdvOrani?: number;
+  stopajTutar?: number;
+  stopajOrani?: number;
+  tahsilEdilecek?: number;
   vadeTarihi: string;
   durum: TahakkukDurum;
   bildirimDurumu: TahakkukBildirimDurum;
@@ -535,6 +572,30 @@ export interface Tahakkuk {
   createdBy: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+// ─── GİB Sözleşmeleri (Beyanname ve YMM) ─────────────────────────────────────
+export type SozlesmeTuru = "beyanname" | "ymm";
+export type SozlesmeDurum = "gecerli" | "sonlanmis" | "iptal";
+
+export interface GibSozlesme {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  vknTckn: string;
+  sozlesmeTuru: SozlesmeTuru;
+  sozlesmeNo: string;
+  basTarihi: string; // YYYY-MM-DD
+  bitTarihi?: string;
+  aylikUcret?: number; // Brüt aylık (KDV dahil)
+  kdvOrani?: number;
+  durum: SozlesmeDurum;
+  kaynak: "gib" | "manual";
+  kaynakSistem?: string; // İVD modülü adı
+  pdfUrl?: string;
+  syncTarihi: string;
+  createdAt: string;
 }
 
 export type OdemeDurum = "eslesti" | "onay_bekliyor" | "eslesmedi" | "iptal";

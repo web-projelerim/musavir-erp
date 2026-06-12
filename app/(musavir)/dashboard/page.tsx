@@ -91,6 +91,16 @@ const RISK_RENKLER = {
 
 const AY_ADLARI = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 
+/** Risk skoruna göre kırmızı tonu + opsiyonel yanıp-sönen animasyon */
+function riskTonu(skor: number): { bg: string; border: string; text: string; pulse: string } {
+  if (skor >= 90) return { bg: "bg-red-200", border: "border-red-400", text: "text-red-900", pulse: "animate-pulse" };
+  if (skor >= 80) return { bg: "bg-red-100", border: "border-red-300", text: "text-red-900", pulse: "" };
+  if (skor >= 70) return { bg: "bg-red-50", border: "border-red-200", text: "text-red-800", pulse: "" };
+  if (skor >= 60) return { bg: "bg-orange-50", border: "border-orange-200", text: "text-orange-800", pulse: "" };
+  if (skor >= 50) return { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-800", pulse: "" };
+  return { bg: "", border: "", text: "text-slate-800", pulse: "" };
+}
+
 function ayKey(tarih: string) {
   const date = new Date(tarih);
   if (Number.isNaN(date.getTime())) return tarih.slice(0, 7);
@@ -109,6 +119,7 @@ export default function DashboardPage() {
   const [dismissedGazete, setDismissedGazete] = useState<string[]>([]);
   const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
+  const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
   const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs, loading } = useAppData();
 
   useEffect(() => {
@@ -153,6 +164,47 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setGazeteYukleniyor(false));
+  }, []);
+
+  // GİB resmi vergi takvimi — yıl bazlı cache (24 saat)
+  useEffect(() => {
+    const yil = new Date().getFullYear();
+    const cacheKey = `gib_takvim_${yil}`;
+    const cacheTsKey = `gib_takvim_${yil}_ts`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      const ts = Number(localStorage.getItem(cacheTsKey) ?? 0);
+      const yas = Date.now() - ts;
+      if (cached && yas < 24 * 60 * 60 * 1000) {
+        setGibTakvimOlaylari(JSON.parse(cached));
+        return;
+      }
+    } catch {}
+
+    void (async () => {
+      const headers = await authHeaders();
+      // Önce Firestore cache'i dene (cron'un yazdığı, ucuz okuma)
+      const getRes = await fetch(`/api/vergi-takvimi/sync?yil=${yil}`, { method: "GET", headers });
+      const getData = await getRes.json().catch(() => null) as
+        | { ok: boolean; olaylar?: Array<{ tarih: string; baslik: string; aciklama: string }> }
+        | null;
+      if (getData?.ok && Array.isArray(getData.olaylar) && getData.olaylar.length > 0) {
+        return getData;
+      }
+      // Firestore boşsa → canlı GİB sync (Gemini çağrısı)
+      const postRes = await fetch(`/api/vergi-takvimi/sync?yil=${yil}`, { method: "POST", headers });
+      return postRes.json();
+    })()
+      .then((data: { ok: boolean; olaylar?: Array<{ tarih: string; baslik: string; aciklama: string }> } | null) => {
+        if (data?.ok && Array.isArray(data.olaylar) && data.olaylar.length > 0) {
+          setGibTakvimOlaylari(data.olaylar);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(data.olaylar));
+            localStorage.setItem(cacheTsKey, String(Date.now()));
+          } catch {}
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const bekleyenGorevler = gorevler.filter(
@@ -247,8 +299,23 @@ export default function DashboardPage() {
   const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
     const olaylar: TakvimOlay[] = [];
 
-    // GİB vergi takvimi (sabit — gib.gov.tr/vergi-takvimi baz alınarak)
+    // GİB vergi takvimi — statik + (varsa) API'den çekilen GİB resmi takvimi
+    // Tarih+başlık eşleşen kalemleri dedup et (API > statik)
+    const seen = new Set<string>();
+    for (const v of gibTakvimOlaylari) {
+      const key = `${v.tarih}|${v.baslik.toLowerCase().slice(0, 40)}`;
+      seen.add(key);
+      olaylar.push({
+        tarih: v.tarih,
+        renk: "purple",
+        etiket: v.baslik,
+        tur: "vergi",
+        aciklama: v.aciklama,
+      });
+    }
     for (const v of getVergiTakvimiIkiYil()) {
+      const key = `${v.tarih}|${v.baslik.toLowerCase().slice(0, 40)}`;
+      if (seen.has(key)) continue;
       olaylar.push({
         tarih: v.tarih,
         renk: "purple",
@@ -289,7 +356,7 @@ export default function DashboardPage() {
       });
     }
     return olaylar;
-  }, [beyannameler, gorevler, tahsilatlar]);
+  }, [beyannameler, gorevler, tahsilatlar, gibTakvimOlaylari]);
 
   if (loading) return <PageLoading />;
 
@@ -467,12 +534,16 @@ export default function DashboardPage() {
           <MobileList empty={kritikRiskler.length === 0}>
             {kritikRiskler.map((risk) => {
               const m = risk.musteri;
+              const tone = riskTonu(risk.skor);
               return (
-                <MobileCard key={m.id}>
+                <MobileCard key={m.id} className={`${tone.bg} ${tone.border} ${tone.pulse}`}>
                   <div className="flex items-start justify-between gap-3">
                     <Link href={`/musteriler/${m.id}`} className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900">{m.firmaAdi}</p>
-                      <p className="mt-1 text-xs font-mono text-slate-400">{m.vknTckn}</p>
+                      <p className={`text-sm font-semibold ${tone.text}`}>
+                        {risk.skor >= 90 && "🚨 "}
+                        {m.firmaAdi}
+                      </p>
+                      <p className="mt-1 text-xs font-mono text-slate-500">{m.vknTckn}</p>
                     </Link>
                     <TahsilatBadge durum={m.tahsilatDurumu} />
                   </div>
@@ -500,12 +571,16 @@ export default function DashboardPage() {
             <TableBody>
               {kritikRiskler.map((risk) => {
                 const m = risk.musteri;
+                const tone = riskTonu(risk.skor);
                 return (
-                <TableRow key={m.id}>
+                <TableRow key={m.id} className={`${tone.bg} ${tone.pulse}`}>
                   <TableCell>
                     <Link href={`/musteriler/${m.id}`} className="group">
-                      <p className="font-medium text-slate-800 text-xs group-hover:text-blue-600 transition-colors">{m.firmaAdi}</p>
-                      <p className="text-slate-400 text-xs font-mono mt-0.5">{m.vknTckn}</p>
+                      <p className={`font-medium text-xs group-hover:text-blue-600 transition-colors ${tone.text}`}>
+                        {risk.skor >= 90 && "🚨 "}
+                        {m.firmaAdi}
+                      </p>
+                      <p className="text-slate-500 text-xs font-mono mt-0.5">{m.vknTckn}</p>
                     </Link>
                   </TableCell>
                   <TableCell>

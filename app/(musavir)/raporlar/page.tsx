@@ -80,7 +80,9 @@ export default function RaporlarPage() {
   const [showRaporModal, setShowRaporModal] = useState(false);
   const [raporModalTip, setRaporModalTip] = useState("operasyon");
   const [secilenMusteriId, setSecilenMusteriId] = useState("");
+  const [donemTipi, setDonemTipi] = useState<"aylik" | "yillik">("aylik");
   const [secilenDonem, setSecilenDonem] = useState(currentMonthValue);
+  const [secilenYil, setSecilenYil] = useState(String(new Date().getFullYear()));
   const {
     raporlar: loadedRaporlar,
     musteriler,
@@ -137,7 +139,7 @@ export default function RaporlarPage() {
   };
 
   const finalizeRapor = async (rapor: Rapor) => {
-    const pdfBlob = buildReportPdfBlob(getRaporPayload(rapor));
+    const pdfBlob = await buildReportPdfBlob(getRaporPayload(rapor));
 
     if (isFirebaseConfigured) {
       const upload = await uploadRaporPdf(rapor.musteriId, rapor.id, pdfBlob);
@@ -709,19 +711,65 @@ export default function RaporlarPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Dönem</label>
-            <input
-              type="month"
-              value={secilenDonem}
-              onChange={(e) => setSecilenDonem(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Dönem Tipi</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDonemTipi("aylik")}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+                  donemTipi === "aylik"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Aylık
+              </button>
+              <button
+                type="button"
+                onClick={() => setDonemTipi("yillik")}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium ${
+                  donemTipi === "yillik"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Yıllık
+              </button>
+            </div>
           </div>
+          {donemTipi === "aylik" ? (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Ay</label>
+              <input
+                type="month"
+                value={secilenDonem}
+                onChange={(e) => setSecilenDonem(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Yıl</label>
+              <input
+                type="number"
+                min="2020"
+                max="2100"
+                step="1"
+                value={secilenYil}
+                onChange={(e) => setSecilenYil(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">Tüm yılın özet raporu üretilir (Ocak–Aralık)</p>
+            </div>
+          )}
           <div className="flex gap-2 justify-end pt-1">
             <Button variant="secondary" onClick={() => setShowRaporModal(false)}>İptal</Button>
             <Button
-              onClick={() => handleRaporUret(raporModalTip, secilenMusteriId, monthToDonem(secilenDonem))}
-              disabled={!secilenMusteriId || !secilenDonem}
+              onClick={() => {
+                const donem = donemTipi === "aylik" ? monthToDonem(secilenDonem) : `Yıllık ${secilenYil}`;
+                handleRaporUret(raporModalTip, secilenMusteriId, donem);
+              }}
+              disabled={!secilenMusteriId || (donemTipi === "aylik" ? !secilenDonem : !secilenYil)}
             >
               Üret
             </Button>

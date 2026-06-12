@@ -103,14 +103,44 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
       const rawRows = await parseBankaEkstresiFile(file);
       // Yalnızca vergi tahakkuklarıyla eşleştir — hizmet tahakkukları müşteriler sayfasındadır
       const vergiTahakkuklar = tahakkuklar.filter((t) => t.tahakkukTuru === "vergi");
-      setRows(matchBankaSatirlari(rawRows, musteriler, vergiTahakkuklar));
+      const parsed = matchBankaSatirlari(rawRows, musteriler, vergiTahakkuklar);
+      setRows(parsed);
       setFileName(file.name);
+      if (parsed.length === 0) {
+        toast.warning(
+          "Hiç satır okunamadı",
+          "Dosya formatı tanınmadı. Aşağıdan manuel satır ekleyebilirsiniz."
+        );
+      } else {
+        toast.success(
+          `${parsed.length} satır okundu`,
+          `${parsed.filter((r) => r.durum === "eslesti").length} otomatik eşleşme`
+        );
+      }
     } catch (error) {
       console.error(error);
-      toast.error("Banka ekstresi okunamadı");
+      toast.error("Banka ekstresi okunamadı", error instanceof Error ? error.message : undefined);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManuelSatirEkle = () => {
+    const yeniId = `manuel-${Date.now()}`;
+    setRows((prev) => [
+      ...prev,
+      {
+        id: yeniId,
+        tarih: new Date().toISOString().slice(0, 10),
+        aciklama: "",
+        tutar: 0,
+        odemeSinifi: "belirsiz",
+        eslesmeSkoru: 0,
+        durum: "eslesmedi",
+        uyarilar: ["Manuel eklenen satır"],
+      },
+    ]);
+    if (!fileName) setFileName(`Manuel kayıt - ${new Date().toLocaleDateString("tr-TR")}`);
   };
 
   const handleSave = async () => {
@@ -181,7 +211,17 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
 
   return (
     <Modal open={open} onClose={onClose} title="Banka Ekstresi Yükle" size="xl">
-      <div className="space-y-4">
+      <div className="space-y-4 relative">
+        {/* İşlem sırasında modal'ı bloklayan overlay */}
+        {loading && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/85 backdrop-blur-sm">
+            <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+            <p className="text-sm font-semibold text-slate-800">
+              {rows.length > 0 ? "Eşleşmeler Firestore'a kaydediliyor..." : "Dosya işleniyor..."}
+            </p>
+            <p className="text-xs text-slate-500">Lütfen bekleyin, sayfayı kapatmayın</p>
+          </div>
+        )}
         <label className={cn(
           "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors",
           loading
@@ -318,11 +358,16 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
           </>
         )}
 
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
-          <Button type="button" loading={loading} disabled={rows.length === 0} onClick={handleSave}>
-            Eşleşmeleri Kaydet
+        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-4">
+          <Button type="button" variant="outline" size="sm" onClick={handleManuelSatirEkle}>
+            + Manuel Satır Ekle
           </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
+            <Button type="button" loading={loading} disabled={rows.length === 0} onClick={handleSave}>
+              Eşleşmeleri Kaydet ({rows.length})
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>

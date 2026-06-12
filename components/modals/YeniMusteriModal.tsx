@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, EyeOff, RefreshCw, ChevronDown, Mail, Phone, CreditCard } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
 import { createMusteri, updateMusteri } from "@/lib/firebase/repositories";
+import { authHeaders } from "@/lib/firebase/client";
 import type { Musteri, User } from "@/lib/types";
 
 interface Props {
@@ -104,6 +105,16 @@ const EMPTY_FORM = {
   varsayilanHizmetUcreti: "",
   adres: "",
   sgkSicilNo: "",
+  // Kurum bilgileri sekmesi
+  kurumVergiDairesi: "",
+  sgkKullaniciAdi: "",
+  sgkSifresi: "",
+  gibKullaniciAdi: "",
+  gibSifresi: "",
+  ebildirgKullaniciAdi: "",
+  ebildirgSifresi: "",
+  edevletKullaniciAdi: "",
+  edevletSifresi: "",
 };
 
 type Tab = "mukellef" | "kurum" | "bankaci" | "kullanici";
@@ -161,8 +172,18 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
       }));
   }, [kullanicilar]);
 
+  // Form RESET sadece modal açılır açılmaz (open: false→true) çalışmalı.
+  // Aksi halde kullanicilar/musteri firestore subscription her güncellendiğinde
+  // useEffect tetiklenir, kullanıcı yazdığı veriler ezilir (bug #4).
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      wasOpen.current = false;
+      return;
+    }
+    if (wasOpen.current) return; // zaten açıktı; reset etme
+    wasOpen.current = true;
+
     if (musteri) {
       const eslesen = kullanicilar.find(
         (u) => u.id === musteri.sorumluPersonelId || `${u.ad} ${u.soyad}` === musteri.sorumluPersonel
@@ -212,6 +233,16 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         sifre: "",
         eTuys: "",
         sgkSicilNo: musteri.sgkSicilNo ?? "",
+        // Kurum bilgileri (şifreler güvenlik için input'a yüklenmez; boş bırakırsa mevcut korunur)
+        kurumVergiDairesi: musteri.kurumVergiDairesi ?? "",
+        sgkKullaniciAdi: musteri.sgkKullaniciAdi ?? "",
+        sgkSifresi: "",
+        ebildirgKullaniciAdi: musteri.ebildirgKullaniciAdi ?? "",
+        ebildirgSifresi: "",
+        edevletKullaniciAdi: musteri.edevletKullaniciAdi ?? "",
+        edevletSifresi: "",
+        gibKullaniciAdi: musteri.gibIvdKullaniciAdi ?? "",
+        gibSifresi: "",
       });
     } else {
       const ilkMusavir = kullanicilar.find((u) => u.aktif && u.rol === "musavir");
@@ -261,6 +292,36 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         ? Number(form.varsayilanHizmetUcreti.replace(",", "."))
         : undefined;
 
+      // Kurum kimlik bilgilerini sunucuda AES-256-GCM ile şifrele (plaintext Firestore'a yazılmaz)
+      let encryptedCreds: Record<string, string> = {};
+      const credPlain = {
+        sgkSifresi: form.sgkSifresi,
+        ebildirgSifresi: form.ebildirgSifresi,
+        edevletSifresi: form.edevletSifresi,
+        gibSifresi: form.gibSifresi,
+      };
+      const hasAnyCred = Object.values(credPlain).some((v) => v && v.trim());
+      if (hasAnyCred) {
+        try {
+          const res = await fetch("/api/secrets/encrypt", {
+            method: "POST",
+            headers: { ...await authHeaders(), "content-type": "application/json" },
+            body: JSON.stringify({ fields: credPlain }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            encryptedCreds = data.encrypted ?? {};
+          } else {
+            const err = await res.json().catch(() => ({}));
+            console.error("[Müşteri] Credential şifreleme başarısız:", err);
+            toast.warning("Şifreler şifrelenemedi", "SECRET_KEY env değişkenini kontrol edin; şifreler kaydedilmedi");
+          }
+        } catch (err) {
+          console.error("[Müşteri] Credential şifreleme istisnası:", err);
+          toast.warning("Şifreler şifrelenemedi", "Bağlantı hatası; şifreler kaydedilmedi");
+        }
+      }
+
       const extendedFields = {
         sahissaVergiNo: form.sahissaVergiNo || undefined,
         aciklama: form.not || undefined,
@@ -285,6 +346,16 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         kapanisTarihi: form.kapanisTarihi || undefined,
         girisMailGonder: form.girisMailGonder,
         kurulusTarihi: form.acilisTarihi || undefined,
+        // Kurum bilgileri — şifreler şifreli formatta saklanır (plaintext asla Firestore'a girmez)
+        kurumVergiDairesi: form.kurumVergiDairesi || undefined,
+        sgkKullaniciAdi: form.sgkKullaniciAdi || undefined,
+        sgkSifresi: encryptedCreds.sgkSifresi || undefined,
+        ebildirgKullaniciAdi: form.ebildirgKullaniciAdi || undefined,
+        ebildirgSifresi: encryptedCreds.ebildirgSifresi || undefined,
+        edevletKullaniciAdi: form.edevletKullaniciAdi || undefined,
+        edevletSifresi: encryptedCreds.edevletSifresi || undefined,
+        gibIvdKullaniciAdi: form.gibKullaniciAdi || undefined,
+        gibSifresi: encryptedCreds.gibSifresi || undefined,
       };
 
       if (isFirebaseConfigured) {
@@ -441,16 +512,17 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   list="vergi-dairesi-list"
                   value={form.vergiDairesi}
                   onChange={(e) => set("vergiDairesi", e.target.value)}
-                  placeholder="İl veya vergi dairesi adı yazın..."
+                  placeholder="İl veya vergi dairesi adı yazın (ör: Ankara, Bornova, Maltepe)..."
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {/* value="İl - Daire" formatı kullanıcı il yazınca filtrelemeye olanak verir */}
                 <datalist id="vergi-dairesi-list">
                   {VERGI_DAIRESI_GRUPLARI.flatMap(({ grup, daireler }) =>
                     daireler.map((d) => (
-                      <option key={`${grup}-${d}`} value={d}>{grup} — {d}</option>
+                      <option key={`${grup}-${d}`} value={`${grup} - ${d}`} />
                     ))
                   )}
-                  <option value="Diğer">Diğer</option>
+                  <option value="Diğer" />
                 </datalist>
               </div>
               <Input
@@ -824,8 +896,104 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
 
         {/* ── Kurum Bilgileri ── */}
         {activeTab === "kurum" && (
-          <div className="py-8 text-center text-slate-400 text-sm">
-            Kurum bilgileri yakında eklenecek.
+          <div className="space-y-5">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm text-amber-800">
+              🔒 Şifreler AES-256-GCM ile şifrelenerek saklanır. Düzenleme modunda şifre alanları boş gelir;
+              yeni şifre girmezseniz mevcut şifre korunur. <strong>SECRET_KEY env değişkeni</strong> tanımlı olmalı.
+            </div>
+
+            {/* Vergi Dairesi */}
+            <div>
+              <SectionHeader>Vergi Dairesi & Mükellefiyet</SectionHeader>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Bağlı Olduğu Vergi Dairesi</label>
+                <input
+                  list="vergi-dairesi-list"
+                  value={form.kurumVergiDairesi}
+                  onChange={(e) => set("kurumVergiDairesi", e.target.value)}
+                  placeholder="İl veya vergi dairesi adı yazın (ör: Ankara, Bornova)..."
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* GİB / e-Beyanname */}
+            <div>
+              <SectionHeader>GİB / e-Beyanname Girişi</SectionHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="GİB Kullanıcı Kodu"
+                  value={form.gibKullaniciAdi}
+                  onChange={(e) => set("gibKullaniciAdi", e.target.value)}
+                  placeholder="İVD kullanıcı kodu"
+                />
+                <Input
+                  label="GİB Şifre"
+                  type="password"
+                  value={form.gibSifresi}
+                  onChange={(e) => set("gibSifresi", e.target.value)}
+                  placeholder="İVD şifresi"
+                />
+              </div>
+            </div>
+
+            {/* SGK / e-Bildirge */}
+            <div>
+              <SectionHeader>SGK / e-Bildirge Girişi</SectionHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="SGK Kullanıcı Adı"
+                  value={form.sgkKullaniciAdi}
+                  onChange={(e) => set("sgkKullaniciAdi", e.target.value)}
+                  placeholder="SGK işveren kullanıcı kodu"
+                />
+                <Input
+                  label="SGK Şifre"
+                  type="password"
+                  value={form.sgkSifresi}
+                  onChange={(e) => set("sgkSifresi", e.target.value)}
+                  placeholder="SGK şifresi"
+                />
+                <Input
+                  label="e-Bildirge Kullanıcı Adı"
+                  value={form.ebildirgKullaniciAdi}
+                  onChange={(e) => set("ebildirgKullaniciAdi", e.target.value)}
+                  placeholder="(SGK ile aynıysa boş bırakın)"
+                />
+                <Input
+                  label="e-Bildirge Şifre"
+                  type="password"
+                  value={form.ebildirgSifresi}
+                  onChange={(e) => set("ebildirgSifresi", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* e-Devlet */}
+            <div>
+              <SectionHeader>e-Devlet (Opsiyonel)</SectionHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="e-Devlet TC No"
+                  value={form.edevletKullaniciAdi}
+                  onChange={(e) => set("edevletKullaniciAdi", e.target.value)}
+                  placeholder="TC kimlik no"
+                />
+                <Input
+                  label="e-Devlet Şifre"
+                  type="password"
+                  value={form.edevletSifresi}
+                  onChange={(e) => set("edevletSifresi", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <Button type="button" variant="secondary" onClick={onClose}>İptal</Button>
+              <Button type="submit" loading={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                Kaydet
+              </Button>
+            </div>
           </div>
         )}
 

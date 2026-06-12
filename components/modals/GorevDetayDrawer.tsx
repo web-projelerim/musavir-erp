@@ -314,6 +314,46 @@ export function GorevDetayDrawer({
             </Button>
           </div>
 
+          {/* Alt görevler / Checklist */}
+          {gorev.altGorevler && gorev.altGorevler.length > 0 && (
+            <div className="px-5 py-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  Alt Görevler ({gorev.altGorevler.filter((a) => a.tamamlandi).length}/{gorev.altGorevler.length})
+                </p>
+                <div className="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 transition-all"
+                    style={{ width: `${(gorev.altGorevler.filter((a) => a.tamamlandi).length / gorev.altGorevler.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <ul className="space-y-1.5">
+                {gorev.altGorevler.map((a) => (
+                  <li key={a.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={a.tamamlandi}
+                      onChange={() => {
+                        if (!onGorevGuncelle) return;
+                        const yeni = (gorev.altGorevler ?? []).map((x) =>
+                          x.id === a.id
+                            ? { ...x, tamamlandi: !x.tamamlandi, tamamlanmaTarihi: !x.tamamlandi ? new Date().toISOString() : undefined }
+                            : x
+                        );
+                        void onGorevGuncelle(gorev.id, { altGorevler: yeni });
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className={`flex-1 text-sm ${a.tamamlandi ? "line-through text-slate-400" : "text-slate-800"}`}>
+                      {a.baslik}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="px-5 py-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
               Notlar ({notlar.length})

@@ -2,7 +2,7 @@ import type { Tebligat } from "@/lib/types";
 import { formatTarih } from "@/lib/utils/format";
 import { buildTextPdfBlob } from "@/lib/reports/pdfReport";
 
-export function buildTebligatPdfBlob(tebligat: Tebligat) {
+export function buildTebligatPdfBlob(tebligat: Tebligat): Promise<Blob> {
   return buildTextPdfBlob([
     "MusavirERP",
     "E-Tebligat Dokumu",

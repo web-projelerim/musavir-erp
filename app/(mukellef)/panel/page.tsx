@@ -99,13 +99,13 @@ export default function MukellefPanelPage() {
     kdv2,
   });
 
-  const handleRaporIndir = (rapor: Rapor) => {
+  const handleRaporIndir = async (rapor: Rapor) => {
     if (rapor.pdfUrl) {
       window.open(rapor.pdfUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
-    const blob = buildReportPdfBlob({
+    const blob = await buildReportPdfBlob({
       rapor,
       musteri,
       gorevler: [],

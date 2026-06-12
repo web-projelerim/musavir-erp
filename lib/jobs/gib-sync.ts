@@ -18,6 +18,7 @@ import "server-only";
 import { getAdminDb, adminUpsert } from "@/lib/firebase/admin";
 import { gibDecrypt } from "@/lib/integrations/gib/encrypt";
 import { fetchTebligatlar, fetchBeyannameler, fetchBorcListesi } from "@/lib/integrations/gib/ivd-client";
+import { tebligatBildirimleriOlustur } from "@/lib/domain/tebligatBildirim";
 import type { GibEntegrasyonAyari, Musteri, Beyanname, Tahakkuk, Tebligat } from "@/lib/types";
 
 export interface GibSyncSonuc {
@@ -182,6 +183,12 @@ export async function runGibSync(opts: GibSyncOptions = {}): Promise<GibSyncSonu
           const enriched = { ...t, ofisId: musteri.ofisId ?? envOfisId, musteriId: musteri.id || t.musteriId, musteriAdi: t.musteriAdi || musteri.firmaAdi };
           const id = stableTebligatId(enriched.musteriId, enriched.tarih, enriched.baslik);
           yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...enriched }));
+          // Bildirim + WhatsApp gönderim kuyruğu (karşıt inceleme → kritik)
+          yazmaGorevleri.push(
+            tebligatBildirimleriOlustur({ id, ...enriched } as Tebligat, musteri).catch((e) =>
+              console.error("[gib-sync] tebligatBildirim hatası:", e)
+            )
+          );
         }
         tebligatSayisi += tebligatlar.length;
 
@@ -275,6 +282,12 @@ export async function runGibSync(opts: GibSyncOptions = {}): Promise<GibSyncSonu
             };
             const id = stableTebligatId(enriched.musteriId, enriched.tarih, enriched.baslik);
             yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...enriched }));
+            // Bildirim + WhatsApp gönderim kuyruğu (karşıt inceleme → kritik)
+            yazmaGorevleri.push(
+              tebligatBildirimleriOlustur({ id, ...enriched } as Tebligat, musteri).catch((e) =>
+                console.error("[gib-sync] tebligatBildirim hatası:", e)
+              )
+            );
           }
           tebligatSayisi += tebligatlar.length;
         }

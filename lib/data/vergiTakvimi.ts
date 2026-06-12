@@ -8,7 +8,7 @@ export interface VergiTakvimOlay {
   tarih: string; // YYYY-MM-DD
   baslik: string;
   aciklama: string;
-  kategori: "aylik" | "gecici_vergi" | "yillik";
+  kategori: "aylik" | "gecici_vergi" | "yillik" | "ucaylik" | "bildirim";
 }
 
 const AY_ADI = [
@@ -29,12 +29,93 @@ function isBgunu(yil: number, ay: number, gun: number): string {
   ].join("-");
 }
 
+/** Ayın son gününü hesapla (hafta sonu kaydırmalı) */
+function ayinSonGunu(yil: number, ay: number): string {
+  const sonGun = new Date(yil, ay + 1, 0).getDate();
+  return isBgunu(yil, ay, sonGun);
+}
+
 /**
  * Verilen yıl için standart vergi takvimi olaylarını üretir.
  * Hem mevcut hem de bir sonraki yıl için çağırarak takvimi doldur.
  */
 export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
   const olaylar: VergiTakvimOlay[] = [];
+
+  // ── Her ayın 15'i: ÖTV (2A) Kayıt ve Tescile Tabi Olmayanlar ──────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = isBgunu(yil, ay, 15);
+    const ayAdi = AY_ADI[ay];
+
+    olaylar.push({
+      tarih,
+      baslik: `ÖTV (1) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait ÖTV (I) sayılı liste — petrol ve doğalgaz ürünleri beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `ÖTV (3A) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait ÖTV (III/A) — kolalı gazoz, alkollü içecek beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `ÖTV (3B) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait ÖTV (III/B) — tütün mamulleri beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `ÖTV (4) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait ÖTV (IV) sayılı liste — lüks tüketim malları beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Banka ve Sigorta Muameleleri Vergisi (BSMV) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait BSMV beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Özel İletişim Vergisi (ÖİV) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Özel İletişim Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Kaynak Kullanımı Destekleme Fonu (KKDF) — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait KKDF kesintisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+  }
+
+  // ── Her ayın 20'si: Şans Oyunları + Yangın Sigortası ─────────────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = isBgunu(yil, ay, 20);
+    const ayAdi = AY_ADI[ay];
+
+    olaylar.push({
+      tarih,
+      baslik: `Şans Oyunları Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Şans Oyunları Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Yangın Sigortası Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Yangın Sigortası Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+  }
 
   // ── Her ayın 23'ü: SGK e-Bildirge ─────────────────────────────────────────
   for (let ay = 0; ay < 12; ay++) {
@@ -49,7 +130,7 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
     });
   }
 
-  // ── Her ayın 26'sı: KDV + KDV-2 + Muhtasar + Damga Vergisi ───────────────
+  // ── Her ayın 26'sı: Aylık beyannameler ──────────────────────────────────
   for (let ay = 0; ay < 12; ay++) {
     const tarih = isBgunu(yil, ay, 26);
     const ayAdi = AY_ADI[ay];
@@ -70,7 +151,7 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
 
     olaylar.push({
       tarih,
-      baslik: `Muhtasar Beyanname — ${ayAdi}`,
+      baslik: `Muhtasar Beyanname (MUHSGK) — ${ayAdi}`,
       aciklama: `${ayAdi} ${yil} dönemine ait Muhtasar ve Prim Hizmet beyanname + ödeme son tarihi`,
       kategori: "aylik",
     });
@@ -79,6 +160,76 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
       tarih,
       baslik: `Damga Vergisi — ${ayAdi}`,
       aciklama: `${ayAdi} ${yil} dönemine ait Damga Vergisi beyanname ve ödeme son tarihi (beyan usulü mükellefler)`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Konaklama Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Konaklama Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Turizm Payı — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Turizm Payı beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `Elektrik ve Havagazı Tüketim Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait Elektrik ve Havagazı Tüketim Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+
+    olaylar.push({
+      tarih,
+      baslik: `İlan ve Reklam Vergisi — ${ayAdi}`,
+      aciklama: `${ayAdi} ${yil} dönemine ait İlan ve Reklam Vergisi beyanname ve ödeme son tarihi`,
+      kategori: "aylik",
+    });
+  }
+
+  // ── BA-BS Bildirimi: Her ayın son günü (sonraki ayın 1'i) ──────────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = ayinSonGunu(yil, ay);
+    const onceki = ay === 0 ? "Aralık" : AY_ADI[ay - 1];
+    const onceYil = ay === 0 ? yil - 1 : yil;
+
+    olaylar.push({
+      tarih,
+      baslik: `Ba-Bs Bildirimi — ${onceki} ${onceYil}`,
+      aciklama: `${onceki} ${onceYil} dönemine ait Form Ba (mal/hizmet alımları) ve Form Bs (mal/hizmet satışları) bildirim son tarihi`,
+      kategori: "bildirim",
+    });
+  }
+
+  // ── e-Defter Berat Yükleme: 3 ay sonraki ayın son günü ──────────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const beratYili = ay >= 9 ? yil + 1 : yil;
+    const beratAy = (ay + 3) % 12;
+    const tarih = ayinSonGunu(beratYili, beratAy);
+
+    olaylar.push({
+      tarih,
+      baslik: `e-Defter Berat — ${AY_ADI[ay]} ${yil}`,
+      aciklama: `${AY_ADI[ay]} ${yil} dönemine ait e-Defter beratlarının GİB'e yüklenmesi son tarihi`,
+      kategori: "bildirim",
+    });
+  }
+
+  // ── Dijital Hizmet Vergisi (DHV): Ayın son günü ───────────────────────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = ayinSonGunu(yil, ay);
+    const onceki = ay === 0 ? "Aralık" : AY_ADI[ay - 1];
+    const onceYil = ay === 0 ? yil - 1 : yil;
+
+    olaylar.push({
+      tarih,
+      baslik: `Dijital Hizmet Vergisi (DHV) — ${onceki} ${onceYil}`,
+      aciklama: `${onceki} ${onceYil} dönemine ait Dijital Hizmet Vergisi beyanname ve ödeme son tarihi`,
       kategori: "aylik",
     });
   }
@@ -116,30 +267,66 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
     kategori: "gecici_vergi",
   });
 
+  // ── GEKAP (Geri Kazanım Katılım Payı) — 6 aylık ────────────────────────────
+  olaylar.push({
+    tarih: isBgunu(yil, 6, 31), // Temmuz 31
+    baslik: `GEKAP — ${yil} 1. Dönem (Oca-Haz)`,
+    aciklama: `${yil} Ocak–Haziran dönemine ait Geri Kazanım Katılım Payı beyanname ve ödeme son tarihi`,
+    kategori: "ucaylik",
+  });
+  olaylar.push({
+    tarih: isBgunu(yil + 1, 0, 31), // Sonraki Ocak 31
+    baslik: `GEKAP — ${yil} 2. Dönem (Tem-Ara)`,
+    aciklama: `${yil} Temmuz–Aralık dönemine ait Geri Kazanım Katılım Payı beyanname ve ödeme son tarihi`,
+    kategori: "ucaylik",
+  });
+
   // ── Yıllık vergiler ────────────────────────────────────────────────────────
   // Gelir Vergisi: Mart 31
-  const gvTarih = isBgunu(yil, 2, 31);
   olaylar.push({
-    tarih: gvTarih,
-    baslik: `Gelir Vergisi Beyanname — ${yil}`,
-    aciklama: `${yil} yılı gelir vergisi yıllık beyanname son tarihi (1. taksit ödemesi)`,
+    tarih: isBgunu(yil, 2, 31),
+    baslik: `Yıllık Gelir Vergisi Beyanname — ${yil - 1}`,
+    aciklama: `${yil - 1} yılı yıllık gelir vergisi beyanname son tarihi ve 1. taksit ödemesi`,
     kategori: "yillik",
   });
 
   // Gelir Vergisi 2. Taksit: Temmuz 31
   olaylar.push({
     tarih: isBgunu(yil, 6, 31),
-    baslik: `Gelir Vergisi 2. Taksit — ${yil}`,
-    aciklama: `${yil} yılı gelir vergisi 2. taksit ödeme son tarihi`,
+    baslik: `Gelir Vergisi 2. Taksit — ${yil - 1}`,
+    aciklama: `${yil - 1} yılı gelir vergisi 2. taksit ödeme son tarihi`,
+    kategori: "yillik",
+  });
+
+  // Basit Usul Yıllık Gelir Vergisi: Şubat son günü
+  olaylar.push({
+    tarih: ayinSonGunu(yil, 1),
+    baslik: `Basit Usul Yıllık Gelir Vergisi — ${yil - 1}`,
+    aciklama: `${yil - 1} yılı basit usulde tespit edilen ticari kazançlara ait yıllık gelir vergisi beyanname son tarihi`,
     kategori: "yillik",
   });
 
   // Kurumlar Vergisi: Nisan 30
-  const kvTarih = isBgunu(yil, 3, 30);
   olaylar.push({
-    tarih: kvTarih,
-    baslik: `Kurumlar Vergisi — ${yil}`,
-    aciklama: `${yil} yılı kurumlar vergisi beyanname ve ödeme son tarihi`,
+    tarih: isBgunu(yil, 3, 30),
+    baslik: `Kurumlar Vergisi Beyanname — ${yil - 1}`,
+    aciklama: `${yil - 1} yılı kurumlar vergisi beyanname ve ödeme son tarihi`,
+    kategori: "yillik",
+  });
+
+  // Münferit / Özel Beyanname (Dar Mükellef): Mart 31 + Nisan 30
+  olaylar.push({
+    tarih: isBgunu(yil, 2, 31),
+    baslik: `Dar Mükellef Münferit Beyanname — ${yil - 1}`,
+    aciklama: `${yil - 1} dönemine ait dar mükelleflerin münferit beyanname son tarihi`,
+    kategori: "yillik",
+  });
+
+  // ── Yıllık Damga Vergisi (Yıllık Beyan Usulü) ────────────────────────────
+  olaylar.push({
+    tarih: isBgunu(yil, 0, 31),
+    baslik: `Yıllık Damga Vergisi Beyanname — ${yil - 1}`,
+    aciklama: `${yil - 1} yılına ait sürekli mükellefiyet kapsamındaki yıllık damga vergisi beyanname son tarihi`,
     kategori: "yillik",
   });
 
@@ -172,6 +359,42 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
     tarih: isBgunu(yil, 10, 30),
     baslik: `Emlak Vergisi 2. Taksit — ${yil}`,
     aciklama: `${yil} yılı Emlak Vergisi 2. taksit ödeme son tarihi (Kasım)`,
+    kategori: "yillik",
+  });
+
+  // ── Çevre Temizlik Vergisi ─────────────────────────────────────────────────
+  olaylar.push({
+    tarih: isBgunu(yil, 4, 31),
+    baslik: `Çevre Temizlik Vergisi 1. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Çevre Temizlik Vergisi 1. taksit ödeme son tarihi (Mayıs)`,
+    kategori: "yillik",
+  });
+  olaylar.push({
+    tarih: isBgunu(yil, 10, 30),
+    baslik: `Çevre Temizlik Vergisi 2. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Çevre Temizlik Vergisi 2. taksit ödeme son tarihi (Kasım)`,
+    kategori: "yillik",
+  });
+
+  // ── Veraset ve İntikal Vergisi ────────────────────────────────────────────
+  olaylar.push({
+    tarih: ayinSonGunu(yil, 4), // Mayıs sonu
+    baslik: `Veraset ve İntikal Vergisi 1. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Veraset ve İntikal Vergisi 1. taksit ödeme son tarihi`,
+    kategori: "yillik",
+  });
+  olaylar.push({
+    tarih: ayinSonGunu(yil, 10), // Kasım sonu
+    baslik: `Veraset ve İntikal Vergisi 2. Taksit — ${yil}`,
+    aciklama: `${yil} yılı Veraset ve İntikal Vergisi 2. taksit ödeme son tarihi`,
+    kategori: "yillik",
+  });
+
+  // ── Yıllık Harçlar (Trafik / Yargı / Noter) ──────────────────────────────
+  olaylar.push({
+    tarih: isBgunu(yil, 0, 31),
+    baslik: `Yıllık Harçlar — ${yil}`,
+    aciklama: `${yil} yılı için yıllık harçların (trafik, noter vb.) ödeme son tarihi`,
     kategori: "yillik",
   });
 

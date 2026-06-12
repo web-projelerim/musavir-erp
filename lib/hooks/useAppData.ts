@@ -35,6 +35,7 @@ import type {
   User,
   WhatsAppEntegrasyonAyari,
   Yukumluluk,
+  GibSozlesme,
 } from "@/lib/types";
 
 export function useAppData() {
@@ -76,6 +77,7 @@ export function useAppData() {
   const emailEntegrasyonAyarlari = useCollectionData<EmailEntegrasyonAyari>(COLLECTIONS.emailEntegrasyonAyarlari, [], enabled, ofisId);
   const entegrasyonLoglari = useCollectionData<EntegrasyonLog>(COLLECTIONS.entegrasyonLoglari, [], enabled, ofisId);
   const notlar = useCollectionData<Not>(COLLECTIONS.notlar, [], enabled, ofisId);
+  const gibSozlesmeleri = useCollectionData<GibSozlesme>(COLLECTIONS.gibSozlesmeleri, [], enabled, ofisId);
 
   const normalizedBeyannameler = beyannameler.data;
   const normalizedTahakkuklar = useMemo(
@@ -112,6 +114,7 @@ export function useAppData() {
     emailEntegrasyonAyarlari: emailEntegrasyonAyarlari.data,
     entegrasyonLoglari: entegrasyonLoglari.data,
     notlar: notlar.data,
+    gibSozlesmeleri: gibSozlesmeleri.data,
     source: musteriler.source,
     loading:
       musteriler.loading ||

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/Table";
 import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { YeniMusteriModal } from "@/components/modals/YeniMusteriModal";
+import { SozlesmeModal } from "@/components/modals/SozlesmeModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
 import { TahsilatModal } from "@/components/modals/TahsilatModal";
@@ -39,9 +40,9 @@ import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import { isMusavir } from "@/lib/utils/permissions";
 import { useAuth } from "@/lib/context/AuthContext";
-import type { Belge, BeyannameDurum, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
+import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
-const TABS = ["Özet", "Yükümlülükler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+const TABS = ["Özet", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
 const MUSTERI_DURUM_LABEL: Record<string, string> = {
   aktif: "Aktif", pasif: "Pasif", beklemede: "Beklemede",
@@ -81,6 +82,8 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBelgeModal, setShowBelgeModal] = useState(false);
   const [showDavetModal, setShowDavetModal] = useState(false);
+  const [showSozlesmeModal, setShowSozlesmeModal] = useState(false);
+  const [seciliSozlesme, setSeciliSozlesme] = useState<GibSozlesme | null>(null);
   const [seciliGorev, setSeciliGorev] = useState<Gorev | null>(null);
   const [seciliTahsilat, setSeciliTahsilat] = useState<Tahsilat | null>(null);
   const {
@@ -95,6 +98,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     odemeler: tumOdemeler,
     belgeler: tumBelgeler,
     yukumlulukler: tumYukumlulukler,
+    gibSozlesmeleri: tumSozlesmeler,
     davetler,
     auditLogs,
     source,
@@ -154,6 +158,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const odemeler = localOdemeler.filter((o) => o.musteriId === musteri.id);
   const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id);
   const yukumlulukler = tumYukumlulukler.filter((item) => item.musteriId === musteri.id);
+  const sozlesmeler = tumSozlesmeler.filter((s) => s.musteriId === musteri.id);
   const aktifDavet = davetler.find((d) => d.musteriId === musteri.id && d.durum === "bekliyor");
   const musteriAudit = auditLogs
     .filter((log) => log.entityId === musteri.id || log.after?.musteriId === musteri.id || log.entityLabel === musteri.firmaAdi)
@@ -980,6 +985,56 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
+      {activeTab === "Sözleşmeler" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">GİB Sözleşmeleri</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Beyanname ve YMM sözleşmeleri — aylık tahakkuklar otomatik türetilir</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="info">{sozlesmeler.length} sözleşme</Badge>
+              <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => { setSeciliSozlesme(null); setShowSozlesmeModal(true); }}>
+                Yeni Sözleşme
+              </Button>
+            </div>
+          </div>
+          {sozlesmeler.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-slate-500">Bu müşteri için kayıtlı sözleşme yok</p>
+              <p className="mt-1 text-xs text-slate-400">+ Yeni Sözleşme butonuyla manuel ekleyebilirsiniz</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeadCell>Sözleşme No</TableHeadCell>
+                  <TableHeadCell>Tür</TableHeadCell>
+                  <TableHeadCell>Başlangıç</TableHeadCell>
+                  <TableHeadCell>Bitiş</TableHeadCell>
+                  <TableHeadCell>Aylık Ücret</TableHeadCell>
+                  <TableHeadCell>Durum</TableHeadCell>
+                  <TableHeadCell>PDF</TableHeadCell>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {sozlesmeler.map((s) => (
+                  <TableRow key={s.id} onClick={() => { setSeciliSozlesme(s); setShowSozlesmeModal(true); }}>
+                    <TableCell><span className="text-xs font-mono text-slate-700">{s.sozlesmeNo}</span></TableCell>
+                    <TableCell><Badge variant={s.sozlesmeTuru === "ymm" ? "warning" : "info"}>{s.sozlesmeTuru === "ymm" ? "YMM" : "Beyanname"}</Badge></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">{formatTarih(s.basTarihi)}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">{s.bitTarihi ? formatTarih(s.bitTarihi) : "Süresiz"}</span></TableCell>
+                    <TableCell><span className="text-xs font-semibold text-slate-900">{s.aylikUcret ? formatPara(s.aylikUcret) : "—"}</span></TableCell>
+                    <TableCell><Badge variant={s.durum === "gecerli" ? "success" : s.durum === "iptal" ? "danger" : "neutral"}>{s.durum}</Badge></TableCell>
+                    <TableCell>{s.pdfUrl ? <a href={s.pdfUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">PDF</a> : <span className="text-xs text-slate-400">—</span>}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+
       {activeTab === "Beyannameler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           {/* Mobil */}
@@ -1410,6 +1465,13 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         musteriId={musteri.id}
         defaultTahakkukTuru="hizmet"
         onSaved={(item) => setLocalTahakkuklar((prev) => [item, ...prev])}
+      />
+      <SozlesmeModal
+        open={showSozlesmeModal}
+        onClose={() => { setShowSozlesmeModal(false); setSeciliSozlesme(null); }}
+        musteri={musteri}
+        sozlesme={seciliSozlesme ?? undefined}
+        onSaved={() => { /* firestore subscription otomatik günceller */ }}
       />
     </div>
   );

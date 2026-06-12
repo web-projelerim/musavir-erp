@@ -172,7 +172,7 @@ export default function TebligatlarPage() {
     await executeGibSync();
   };
 
-  const handleTebligatPdf = (tebligat: Tebligat) => {
+  const handleTebligatPdf = async (tebligat: Tebligat) => {
     const belgePdf = belgeler.find(
       (belge) =>
         belge.musteriId === tebligat.musteriId &&
@@ -181,13 +181,20 @@ export default function TebligatlarPage() {
     );
     const pdfUrl = tebligat.pdfUrl || belgePdf?.url;
 
+    // GİB PDF varsa kendi viewer sayfamızda aç (CORS sorunsuz proxy üzerinden)
+    if (tebligat.pdfUrl) {
+      window.location.href = `/tebligatlar/${tebligat.id}`;
+      return;
+    }
+
     if (pdfUrl && pdfUrl !== "#") {
       window.open(pdfUrl, "_blank", "noopener,noreferrer");
       toast.success("Tebligat PDF'i açıldı");
       return;
     }
 
-    downloadPdfBlob(buildTebligatPdfBlob(tebligat), tebligatPdfFileName(tebligat));
+    const blob = await buildTebligatPdfBlob(tebligat);
+    downloadPdfBlob(blob, tebligatPdfFileName(tebligat));
     toast.info("Takip PDF'i indirildi", "GİB PDF referansı bulunmadığı için sistem dökümanı üretildi");
   };
 

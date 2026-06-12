@@ -34,29 +34,35 @@ function get(row: Record<string, unknown>, aliases: string[]) {
 }
 
 function normalizeDateStr(raw: string): string {
-  const dmy = raw.match(/^(\d{2})[./](\d{2})[./](\d{4})$/);
+  const dmy = raw.match(/^(\d{2})[./-](\d{2})[./-](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // YYYY/MM/DD veya YYYY.MM.DD
+  const ymd = raw.match(/^(\d{4})[./-](\d{2})[./-](\d{2})$/);
+  if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
   return new Date().toISOString().slice(0, 10);
 }
 
 function parsePdfLines(lines: string[]): RawBankaSatiri[] {
   const results: RawBankaSatiri[] = [];
-  // Tarih: GG.AA.YYYY, GG/AA/YYYY veya YYYY-AA-GG
-  const dateRe = /(\d{2}[./]\d{2}[./]\d{4}|\d{4}-\d{2}-\d{2})/;
-  // Tutar: Türk formatı 1.234,56 veya 1234,56 — virgüllü ondalık zorunlu
-  const amountRe = /\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/g;
+  // Tarih: GG.AA.YYYY, GG/AA/YYYY, GG-AA-YYYY veya YYYY-AA-GG
+  const dateRe = /(\d{2}[./-]\d{2}[./-]\d{4}|\d{4}-\d{2}-\d{2})/;
+  // Tutar: TR formatı (1.234,56) veya US formatı (1,234.56) veya sade (1234,56 / 1234.56)
+  const amountReTR = /\b(\d{1,3}(?:\.\d{3})*,\d{2})\b/g;
+  const amountReUS = /\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/g;
+  const amountReSade = /\b(\d+[.,]\d{2})\b/g;
 
   for (const line of lines) {
     const dateMatch = line.match(dateRe);
     if (!dateMatch) continue;
 
-    // Tüm olası tutarları bul, en büyüğünü al (genellikle işlem tutarı)
-    const amountMatches = Array.from(line.matchAll(amountRe));
+    // Önce TR formatını dene, yoksa US, yoksa sade
+    let amountMatches = Array.from(line.matchAll(amountReTR));
+    if (amountMatches.length === 0) amountMatches = Array.from(line.matchAll(amountReUS));
+    if (amountMatches.length === 0) amountMatches = Array.from(line.matchAll(amountReSade));
+
     const amounts = amountMatches.map((m) => numberFrom(m[1]));
-    if (amounts.length === 0) continue;
-    const tutar = Math.max(...amounts);
-    if (tutar <= 0) continue;
+    const tutar = amounts.length > 0 ? Math.max(...amounts) : 0;
 
     // Açıklama: tarih ve tüm tutar eşleşmeleri çıkarıldıktan sonra kalan
     let aciklama = line.replace(dateRe, "");
@@ -65,11 +71,19 @@ function parsePdfLines(lines: string[]): RawBankaSatiri[] {
     }
     aciklama = aciklama.replace(/\s+/g, " ").trim();
 
+    // Tutar 0 olsa bile satırı tut (kullanıcı manuel düzeltebilir),
+    // ancak en azından açıklama veya tutar olmalı
+    if (tutar <= 0 && !aciklama) continue;
+
+    // Olası dekont numarası: 6+ haneli rakam dizisi (tarih ve tutar dışında)
+    const dekontMatch = aciklama.match(/\b\d{6,}\b/);
+
     results.push({
       id: `pdf-${results.length + 1}`,
       tarih: normalizeDateStr(dateMatch[1]),
       aciklama,
       tutar,
+      dekontNo: dekontMatch?.[0],
     });
   }
   return results;
@@ -120,6 +134,71 @@ async function parseBankaPdfFile(file: File): Promise<RawBankaSatiri[]> {
   return parsePdfLines(allLines);
 }
 
+const TARIH_ALIASES = [
+  "tarih", "islem tarihi", "odeme tarihi", "date",
+  "val tarihi", "valor tarihi", "islem tarih",
+  "gerceklesme tarihi", "transfer tarihi", "valor",
+  "islem zamani", "vade tarihi", "kayit tarihi",
+];
+const ALACAK_ALIASES = ["alacak", "alacak tutari", "kredi", "credit", "gelen", "gelir"];
+const TUTAR_ALIASES = [
+  "tutar", "amount", "islem tutari", "tutar tl",
+  "islem miktari", "miktar", "miktar tl", "bakiye degisimi",
+];
+const ACIKLAMA_ALIASES = [
+  "aciklama", "islem aciklamasi", "description",
+  "islem detayi", "aciklama detayi", "karsi taraf",
+  "detay", "islem bilgisi", "aciklama bilgisi",
+  "islem tipi", "islem turu", "konu",
+];
+const GONDEREN_ALIASES = [
+  "gonderen", "ad soyad", "unvan", "sender",
+  "gonderen adi", "gonderen unvani", "karsi hesap sahibi",
+  "alici gonderici", "islem yapan", "karsi taraf adi",
+];
+const IBAN_ALIASES = ["iban", "gonderen iban", "karsi hesap iban", "hesap no", "karsi iban"];
+const DEKONT_ALIASES = [
+  "dekont no", "referans", "reference",
+  "islem no", "referans no", "dekont numarasi",
+  "islem referansi", "makbuz no", "transaction id",
+];
+
+/** Header alias listesi içeren string mi? */
+function headerMatch(key: string, aliases: string[]): boolean {
+  return aliases.includes(normalize(key));
+}
+
+/**
+ * Excel'in ilk birkaç satırı genelde banka logosu/metadata içerir.
+ * Gerçek başlık satırını bulmak için ilk 30 satırı tara: en çok bilinen başlığı
+ * içeren satırı header kabul et.
+ */
+function detectHeaderRow(aoa: unknown[][]): number {
+  let bestRow = 0;
+  let bestScore = -1;
+  const maxScan = Math.min(aoa.length, 30);
+  for (let i = 0; i < maxScan; i++) {
+    const row = aoa[i] ?? [];
+    let score = 0;
+    for (const cell of row) {
+      const s = normalize(cell);
+      if (!s) continue;
+      if (headerMatch(s, TARIH_ALIASES)) score += 3;
+      if (headerMatch(s, ALACAK_ALIASES)) score += 3;
+      if (headerMatch(s, TUTAR_ALIASES)) score += 2;
+      if (headerMatch(s, ACIKLAMA_ALIASES)) score += 2;
+      if (headerMatch(s, GONDEREN_ALIASES)) score += 1;
+      if (headerMatch(s, IBAN_ALIASES)) score += 1;
+      if (headerMatch(s, DEKONT_ALIASES)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = i;
+    }
+  }
+  return bestScore >= 3 ? bestRow : 0;
+}
+
 export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri[]> {
   if (file.name.toLowerCase().endsWith(".pdf")) {
     return parseBankaPdfFile(file);
@@ -128,52 +207,46 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
 
-  return rows
+  // Önce raw 2D array olarak oku, başlık satırını dinamik tespit et
+  const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false });
+  const headerIdx = detectHeaderRow(aoa);
+  const headerRow = (aoa[headerIdx] ?? []).map((h) => String(h ?? "").trim());
+  const dataRows = aoa.slice(headerIdx + 1);
+
+  const objectRows = dataRows.map((arr) => {
+    const obj: Record<string, unknown> = {};
+    for (let i = 0; i < headerRow.length; i++) {
+      const key = headerRow[i];
+      if (!key) continue;
+      obj[key] = arr[i];
+    }
+    return obj;
+  });
+
+  return objectRows
     .map((row, index) => {
-      const dateValue = get(row, [
-        "tarih", "islem tarihi", "odeme tarihi", "date",
-        "val tarihi", "valor tarihi", "islem tarih",
-        "gerceklesme tarihi", "transfer tarihi",
-      ]);
+      const dateValue = get(row, TARIH_ALIASES);
       const date =
         dateValue instanceof Date
           ? dateValue.toISOString().slice(0, 10)
-          : normalizeDateStr(String(dateValue || new Date().toISOString().slice(0, 10)).slice(0, 10));
+          : normalizeDateStr(String(dateValue || "").trim().slice(0, 10));
 
-      // Tutar: önce "alacak" (kredi) kolonuna bak, yoksa "tutar" / "amount" kolonuna bak
-      // Türk bankalarında çift kolon yapısı: borç | alacak
-      const alacakVal = get(row, ["alacak", "alacak tutari", "kredi", "credit", "gelen"]);
-      const tutarVal = get(row, [
-        "tutar", "amount", "islem tutari", "tutar tl",
-        "islem miktari", "miktar",
-      ]);
+      const alacakVal = get(row, ALACAK_ALIASES);
+      const tutarVal = get(row, TUTAR_ALIASES);
       const tutar = numberFrom(alacakVal) || numberFrom(tutarVal);
 
       return {
         id: `row-${index + 1}`,
         tarih: date,
-        aciklama: String(get(row, [
-          "aciklama", "islem aciklamasi", "description",
-          "islem detayi", "aciklama detayi", "karsi taraf",
-          "detay", "islem bilgisi", "aciklama bilgisi",
-        ]) ?? ""),
+        aciklama: String(get(row, ACIKLAMA_ALIASES) ?? "").trim(),
         tutar,
-        gonderen: String(get(row, [
-          "gonderen", "ad soyad", "unvan", "sender",
-          "gonderen adi", "gonderen unvani", "karsi hesap sahibi",
-          "alici gonderici", "islem yapan",
-        ]) ?? ""),
-        iban: String(get(row, ["iban", "gonderen iban", "karsi hesap iban", "hesap no"]) ?? ""),
-        dekontNo: String(get(row, [
-          "dekont no", "referans", "reference",
-          "islem no", "referans no", "dekont numarasi",
-          "islem referansi", "makbuz no",
-        ]) ?? ""),
+        gonderen: String(get(row, GONDEREN_ALIASES) ?? "").trim(),
+        iban: String(get(row, IBAN_ALIASES) ?? "").trim(),
+        dekontNo: String(get(row, DEKONT_ALIASES) ?? "").trim(),
       };
     })
-    .filter((row) => row.tutar > 0 || row.aciklama);
+    .filter((row) => row.tutar > 0 || row.aciklama || row.gonderen);
 }
 
 function scoreMusteri(raw: RawBankaSatiri, musteri: Musteri) {

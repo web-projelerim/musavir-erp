@@ -204,7 +204,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bilinmeyen hata";
-    console.error("[Resmi Gazete Özetle]", err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[Resmi Gazete Özetle] HATA:", message, "\n", stack);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

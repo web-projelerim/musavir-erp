@@ -13,6 +13,8 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGonderimKaydi, createTahakkuk } from "@/lib/firebase/repositories";
 import { buildTahakkukPanelLink, buildTahakkukWhatsAppMessage } from "@/lib/domain/tahakkuk";
 import { getOfisId } from "@/lib/domain/office";
+import { otomatikGonderimKarari } from "@/lib/domain/otomatikGonderim";
+import { sendWhatsAppMessages } from "@/lib/integrations/whatsapp/provider";
 import type { HizmetTuru, Tahakkuk, TahakkukKaynakSistem, TahakkukTuru, VergiTahakkukTuru } from "@/lib/types";
 
 interface Props {
@@ -27,7 +29,8 @@ interface Props {
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, onSaved }: Props) {
-  const { musteriler } = useAppData();
+  const { musteriler, whatsappEntegrasyonAyarlari } = useAppData();
+  const whatsappAyar = whatsappEntegrasyonAyarlari[0];
   const { user } = useAuth();
   const toast = useToast();
   const logAudit = useAuditLog();
@@ -42,10 +45,14 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
     donem: defaultDonem,
     tahakkukTuru: initialTur as TahakkukTuru,
     hizmetTuru: "mali_musavirlik" as HizmetTuru,
+    hizmetTuruDiger: "",
     vergiTuru: "KDV" as VergiTahakkukTuru,
     resmiTahakkukFisNo: "",
     kaynakSistem: "manual" as TahakkukKaynakSistem,
     tutar: String(defaultMusteri?.varsayilanHizmetUcreti ?? ""),
+    kdvOrani: "20",
+    stopajUygula: true,
+    stopajOrani: "20",
     vadeTarihi: today(),
     aciklama: "",
     whatsappPlanla: true,
@@ -53,6 +60,19 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
   const [loading, setLoading] = useState(false);
 
   const selectedMusteri = musteriler.find((m) => m.id === form.musteriId);
+
+  // Türmob hesabı: Brüt KDV dahil → Net (matrah), KDV, Stopaj, Tahsil edilecek
+  const hesap = useMemo(() => {
+    const brut = Number(form.tutar) || 0;
+    const kdvOran = Number(form.kdvOrani) || 0;
+    const stopajOran = form.stopajUygula ? Number(form.stopajOrani) || 0 : 0;
+    if (brut <= 0) return null;
+    const net = brut / (1 + kdvOran / 100);
+    const kdv = brut - net;
+    const stopaj = net * (stopajOran / 100);
+    const tahsil = brut - stopaj;
+    return { brut, net, kdv, stopaj, tahsil, kdvOran, stopajOran };
+  }, [form.tutar, form.kdvOrani, form.stopajUygula, form.stopajOrani]);
 
   const f = (field: keyof typeof form) => ({
     value: form[field] as string,
@@ -72,6 +92,11 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
     setLoading(true);
     try {
       let saved: Tahakkuk;
+      // "diğer" seçildiyse açıklamaya hizmet türü serbest metnini ekle
+      const aciklamaFinal = form.tahakkukTuru === "hizmet" && form.hizmetTuru === "diger" && form.hizmetTuruDiger
+        ? `${form.hizmetTuruDiger}${form.aciklama ? " — " + form.aciklama : ""}`
+        : form.aciklama || undefined;
+
       const payload = {
         ofisId: getOfisId(user?.ofisId),
         musteriId: selectedMusteri.id,
@@ -84,32 +109,66 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
         kaynakSistem: form.tahakkukTuru === "vergi" ? form.kaynakSistem : undefined,
         tutar,
         odenenTutar: 0,
+        netTutar: hesap?.net,
+        kdvTutar: hesap?.kdv,
+        kdvOrani: hesap?.kdvOran,
+        stopajTutar: hesap?.stopaj,
+        stopajOrani: hesap?.stopajOran,
+        tahsilEdilecek: hesap?.tahsil,
         vadeTarihi: form.vadeTarihi,
         durum: "bekliyor" as const,
         bildirimDurumu: form.whatsappPlanla ? ("planlandi" as const) : ("kapali" as const),
         panelLinki,
-        aciklama: form.aciklama || undefined,
+        aciklama: aciklamaFinal,
         createdBy: user?.id ?? "system",
       };
 
       if (isFirebaseConfigured) {
         saved = await createTahakkuk(payload);
         if (form.whatsappPlanla) {
-          await createGonderimKaydi({
-            ofisId: getOfisId(user?.ofisId),
-            kanal: "whatsapp",
-            musteriId: selectedMusteri.id,
-            musteriAdi: selectedMusteri.firmaAdi,
-            sablonId: "tahakkuk",
-            icerikRef: saved.id,
-            mesaj: buildTahakkukWhatsAppMessage({
-              firmaAdi: selectedMusteri.firmaAdi,
-              donem: form.donem,
-              tutar,
-              panelLinki,
-            }),
-            durum: "bekliyor",
+          const karar = otomatikGonderimKarari(whatsappAyar, "tahakkuk");
+          const mesaj = buildTahakkukWhatsAppMessage({
+            firmaAdi: selectedMusteri.firmaAdi,
+            donem: form.donem,
+            tutar,
+            panelLinki,
           });
+
+          if (karar === "pasif") {
+            // Ayarlardan pasif edilmiş — gönderim oluşturma
+            toast.info("Bildirim pasif", "Tahakkuk bildirimi ayarlardan kapalı; mesaj oluşturulmadı");
+          } else if (karar === "otomatik") {
+            // Direkt gönder
+            const sonuclar = await sendWhatsAppMessages([
+              { musteriId: selectedMusteri.id, musteriAdi: selectedMusteri.firmaAdi, phone: selectedMusteri.gsm1 || selectedMusteri.telefon || "", body: mesaj },
+            ]).catch(() => [] as Array<{ basarili: boolean; hataMesaji?: string }>);
+            const basarili = sonuclar[0]?.basarili === true;
+            await createGonderimKaydi({
+              ofisId: getOfisId(user?.ofisId),
+              kanal: "whatsapp",
+              musteriId: selectedMusteri.id,
+              musteriAdi: selectedMusteri.firmaAdi,
+              sablonId: "tahakkuk",
+              icerikRef: saved.id,
+              mesaj,
+              durum: basarili ? "gonderildi" : "basarisiz",
+              hataMesaji: basarili ? undefined : sonuclar[0]?.hataMesaji,
+            });
+            if (basarili) toast.success("WhatsApp gönderildi otomatik olarak");
+            else toast.warning("WhatsApp gönderilemedi", sonuclar[0]?.hataMesaji);
+          } else {
+            // Onay bekle — kuyrukta kalır
+            await createGonderimKaydi({
+              ofisId: getOfisId(user?.ofisId),
+              kanal: "whatsapp",
+              musteriId: selectedMusteri.id,
+              musteriAdi: selectedMusteri.firmaAdi,
+              sablonId: "tahakkuk",
+              icerikRef: saved.id,
+              mesaj,
+              durum: "bekliyor",
+            });
+          }
         }
       } else {
         saved = { id: `tk-${Date.now()}`, ...payload, createdAt: new Date().toISOString() };
@@ -149,25 +208,27 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
           <Input label="Dönem" {...f("donem")} required />
           <Input label="Vade Tarihi" type="date" {...f("vadeTarihi")} required />
         </div>
-        <Select
-          label="Tahakkuk Tipi"
-          value={form.tahakkukTuru}
-          disabled={Boolean(defaultTahakkukTuru)}
-          onChange={(event) =>
-            setForm((prev) => ({
-              ...prev,
-              tahakkukTuru: event.target.value as TahakkukTuru,
-              tutar:
-                event.target.value === "hizmet"
-                  ? String(selectedMusteri?.varsayilanHizmetUcreti ?? prev.tutar)
-                  : prev.tutar,
-            }))
-          }
-          options={[
-            { value: "hizmet", label: "Ofis Hizmet Tahakkuku" },
-            { value: "vergi", label: "Resmi Vergi Tahakkuku" },
-          ]}
-        />
+        {/* Tahakkuk tipi sadece dışarıdan zorlanmamışsa görünür (müşteri içinden açılınca gizli) */}
+        {!defaultTahakkukTuru && (
+          <Select
+            label="Tahakkuk Tipi"
+            value={form.tahakkukTuru}
+            onChange={(event) =>
+              setForm((prev) => ({
+                ...prev,
+                tahakkukTuru: event.target.value as TahakkukTuru,
+                tutar:
+                  event.target.value === "hizmet"
+                    ? String(selectedMusteri?.varsayilanHizmetUcreti ?? prev.tutar)
+                    : prev.tutar,
+              }))
+            }
+            options={[
+              { value: "hizmet", label: "Ofis Hizmet Tahakkuku" },
+              { value: "vergi", label: "Resmi Vergi Tahakkuku" },
+            ]}
+          />
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {form.tahakkukTuru === "hizmet" ? (
             <Select
@@ -198,8 +259,77 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
               ]}
             />
           )}
-          <Input label="Tutar" type="number" min="0" step="0.01" {...f("tutar")} required />
+          <Input label="Brüt Tutar (KDV dahil)" type="number" min="0" step="0.01" {...f("tutar")} required />
         </div>
+
+        {/* "Diğer" hizmet türü için serbest metin */}
+        {form.tahakkukTuru === "hizmet" && form.hizmetTuru === "diger" && (
+          <Input
+            label="Hizmet Adı (Diğer)"
+            placeholder="Örn: Bordro hazırlama, KDV iadesi, fizibilite raporu..."
+            value={form.hizmetTuruDiger}
+            onChange={(e) => setForm((prev) => ({ ...prev, hizmetTuruDiger: e.target.value }))}
+          />
+        )}
+
+        {/* KDV oranı + stopaj seçimi */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Select
+            label="KDV Oranı"
+            value={form.kdvOrani}
+            onChange={(e) => setForm((p) => ({ ...p, kdvOrani: e.target.value }))}
+            options={[
+              { value: "0", label: "%0 (İstisna)" },
+              { value: "1", label: "%1" },
+              { value: "10", label: "%10" },
+              { value: "20", label: "%20" },
+            ]}
+          />
+          <Select
+            label="Stopaj"
+            value={form.stopajUygula ? "uygula" : "uygulama"}
+            onChange={(e) => setForm((p) => ({ ...p, stopajUygula: e.target.value === "uygula" }))}
+            options={[
+              { value: "uygula", label: "Uygulanacak" },
+              { value: "uygulama", label: "Uygulanmayacak" },
+            ]}
+          />
+          <Select
+            label="Stopaj Oranı"
+            value={form.stopajOrani}
+            disabled={!form.stopajUygula}
+            onChange={(e) => setForm((p) => ({ ...p, stopajOrani: e.target.value }))}
+            options={[
+              { value: "10", label: "%10" },
+              { value: "20", label: "%20 (SMMM)" },
+            ]}
+          />
+        </div>
+
+        {/* Türmob hesap kartı */}
+        {hesap && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-xs font-semibold text-emerald-800 mb-2">Türmob Hesabı (KDV dahil tutardan)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <p className="text-slate-500">Net (Matrah)</p>
+                <p className="font-bold text-slate-900">{hesap.net.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</p>
+              </div>
+              <div>
+                <p className="text-slate-500">KDV (%{hesap.kdvOran})</p>
+                <p className="font-bold text-slate-900">{hesap.kdv.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Stopaj (%{hesap.stopajOran})</p>
+                <p className="font-bold text-red-600">- {hesap.stopaj.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</p>
+              </div>
+              <div>
+                <p className="text-slate-500">Tahsil Edilecek</p>
+                <p className="font-bold text-emerald-700">{hesap.tahsil.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</p>
+              </div>
+            </div>
+          </div>
+        )}
         {form.tahakkukTuru === "vergi" && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input label="Resmi Tahakkuk Fiş No" {...f("resmiTahakkukFisNo")} />

@@ -12,6 +12,7 @@
     "seed:firebase": "npx tsx scripts/seed-firebase.ts"
   },
   "dependencies": {
+    "@fontsource/roboto": "^5.2.10",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -30,6 +31,7 @@
     "date-fns": "^3.6.0",
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.400.0",
     "next": "14.2.5",
     "node-cron": "^4.2.1",

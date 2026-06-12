@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
@@ -12,7 +12,8 @@ import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGorev } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
-import type { Gorev, GorevOncelik, GorevTip } from "@/lib/types";
+import type { AltGorev, Gorev, GorevOncelik, GorevTip } from "@/lib/types";
+import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -32,22 +33,41 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
 
   const currentUserFullName = user ? `${user.ad} ${user.soyad}`.trim() : "";
 
-  const defaultForm = {
+  const bosForm = () => ({
     baslik: "",
     aciklama: "",
     musteriId: musteriId ?? "",
     atananKisi: currentUserFullName,
-    terminTarihi: today,
+    terminTarihi: new Date().toISOString().split("T")[0],
     oncelik: "normal",
     tip: "beyanname",
+  });
+
+  const [form, setForm] = useState(bosForm);
+  const [altGorevler, setAltGorevler] = useState<AltGorev[]>([]);
+  const [yeniAltGorev, setYeniAltGorev] = useState("");
+
+  const altGorevEkle = () => {
+    if (!yeniAltGorev.trim()) return;
+    setAltGorevler((prev) => [
+      ...prev,
+      { id: `ag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, baslik: yeniAltGorev.trim(), tamamlandi: false },
+    ]);
+    setYeniAltGorev("");
   };
 
-  const [form, setForm] = useState(defaultForm);
+  const altGorevSil = (id: string) =>
+    setAltGorevler((prev) => prev.filter((a) => a.id !== id));
 
+  // Modal her açıldığında VEYA müşteri/kullanıcı değiştiğinde formu sıfırla
   useEffect(() => {
-    if (open) setForm({ ...defaultForm, atananKisi: currentUserFullName });
+    if (open) {
+      setForm(bosForm());
+      setAltGorevler([]);
+      setYeniAltGorev("");
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, musteriId, currentUserFullName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +94,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           terminTarihi: form.terminTarihi,
           oncelik: form.oncelik as GorevOncelik,
           tip: form.tip as GorevTip,
+          altGorevler: altGorevler.length > 0 ? altGorevler : undefined,
         });
       } else {
         await new Promise((r) => setTimeout(r, 700));
@@ -90,6 +111,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           oncelik: form.oncelik as GorevOncelik,
           durum: "beklemede",
           tip: form.tip as GorevTip,
+          altGorevler: altGorevler.length > 0 ? altGorevler : undefined,
           createdAt: new Date().toISOString(),
         };
       }
@@ -107,6 +129,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
         },
       });
       toast.success("Görev oluşturuldu", `"${form.baslik}" görevi atandı`);
+      setForm(bosForm()); // form'u temizle ki bir sonraki açılışta eski veri görünmesin
       onCreated?.(createdGorev);
       onClose();
       onSuccess?.();
@@ -128,20 +151,6 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
     { value: "", label: "— Müşteri seçin (isteğe bağlı) —" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
-
-  // Gerçek kullanıcılardan atanan kişi listesi (musavir + personel)
-  const atananOptions = useMemo(() => {
-    const ofisKullanicilari = kullanicilar
-      .filter((u) => u.rol === "musavir" || u.rol === "personel")
-      .map((u) => ({ value: `${u.ad} ${u.soyad}`.trim(), label: `${u.ad} ${u.soyad}`.trim() }));
-    // Mevcut kullanıcı listede yoksa ekle (demo mod için)
-    if (currentUserFullName && !ofisKullanicilari.some((o) => o.value === currentUserFullName)) {
-      ofisKullanicilari.unshift({ value: currentUserFullName, label: currentUserFullName });
-    }
-    return ofisKullanicilari.length > 0
-      ? ofisKullanicilari
-      : [{ value: currentUserFullName || "Sistem", label: currentUserFullName || "Sistem" }];
-  }, [kullanicilar, currentUserFullName]);
 
   return (
     <Modal open={open} onClose={onClose} title="Yeni Görev Oluştur" size="md">
@@ -187,13 +196,50 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
             ]}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Termin Tarihi" type="date" {...f("terminTarihi")} required />
-          <Select
-            label="Atanan Kişi"
-            {...f("atananKisi")}
-            options={atananOptions}
-          />
+        <Input label="Termin Tarihi" type="date" {...f("terminTarihi")} required />
+
+        {/* Alt görevler / Checklist */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            Alt Görevler <span className="font-normal text-slate-400 text-xs">(opsiyonel — checklist)</span>
+          </label>
+          {altGorevler.length > 0 && (
+            <ul className="mb-2 space-y-1.5">
+              {altGorevler.map((a, idx) => (
+                <li key={a.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <span className="text-xs text-slate-400 w-5">{idx + 1}.</span>
+                  <span className="flex-1 text-sm text-slate-800 truncate">{a.baslik}</span>
+                  <button type="button" onClick={() => altGorevSil(a.id)} className="text-red-500 hover:text-red-700">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={yeniAltGorev}
+              onChange={(e) => setYeniAltGorev(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  altGorevEkle();
+                }
+              }}
+              placeholder="Örn: Belgeleri topla, Müşteri onayı al, Kontrol et..."
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={altGorevEkle}
+              disabled={!yeniAltGorev.trim()}
+              className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Ekle
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">

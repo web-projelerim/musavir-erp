@@ -159,15 +159,6 @@ export async function POST(req: NextRequest) {
 
   const geminiApiKey = process.env.GEMINI_API_KEY;
 
-  if (!geminiApiKey) {
-    // STUB — MVP dışı: GEMINI_API_KEY env yoksa simülasyon modu (200 döner, ok:false)
-    return NextResponse.json({
-      ok: false,
-      stub: true,
-      mesaj: "GEMINI_API_KEY env değişkeni tanımlanmamış. Resmi Gazete AI özeti pasif.",
-    });
-  }
-
   try {
     const rssRes = await fetch(RSS_URL, {
       next: { revalidate: 0 },
@@ -183,11 +174,43 @@ export async function POST(req: NextRequest) {
     const ilgiliMaddeler = tumMaddeler.filter(maliMuşavirlikIlgili);
 
     if (ilgiliMaddeler.length === 0) {
+      // Mali müşavirlik filtresi eşleşmedi — tüm maddelerin ilk 5'ini göster
+      const sonMaddeler: GazeteOzetMadde[] = tumMaddeler.slice(0, 5).map((m) => ({
+        baslik: m.baslik,
+        aiOzet: m.aciklama || "Detay için kaynak linke tıklayın.",
+        maliMusavirEtkisi: "",
+        aksiyonGerekiyor: false,
+        maliMusavirEtkiPuani: 10,
+        kaynakLink: m.link,
+        yayinTarihi: m.tarih,
+      }));
       return NextResponse.json({
         ok: true,
-        mesaj: "Bu sayıda mali müşavirlikle ilgili madde bulunamadı.",
+        maddeler: sonMaddeler,
         ilgiliMaddeSayisi: 0,
         toplamMaddeSayisi: tumMaddeler.length,
+        tarih: new Date().toISOString(),
+      });
+    }
+
+    if (!geminiApiKey) {
+      // Gemini API key yok — RSS maddelerini AI özeti olmadan doğrudan döndür
+      const maddeler: GazeteOzetMadde[] = ilgiliMaddeler.slice(0, 10).map((m) => ({
+        baslik: m.baslik,
+        aiOzet: m.aciklama || "Detay için kaynak linke tıklayın.",
+        maliMusavirEtkisi: "AI özeti devre dışı — detay için kaynak linke bakın.",
+        aksiyonGerekiyor: false,
+        maliMusavirEtkiPuani: 30,
+        kaynakLink: m.link,
+        yayinTarihi: m.tarih,
+      }));
+
+      return NextResponse.json({
+        ok: true,
+        maddeler,
+        ilgiliMaddeSayisi: ilgiliMaddeler.length,
+        toplamMaddeSayisi: tumMaddeler.length,
+        tarih: new Date().toISOString(),
       });
     }
 

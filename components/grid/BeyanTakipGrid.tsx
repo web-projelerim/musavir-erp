@@ -10,7 +10,7 @@ import type {
 import { sonTarihDurumu, hesaplaSonTarih } from "@/lib/domain/beyanTakip";
 import { BeyanTakipHucre } from "./BeyanTakipHucre";
 import { cn } from "@/lib/utils/cn";
-import { AlertTriangle, StickyNote } from "lucide-react";
+import { AlertTriangle, StickyNote, Calendar } from "lucide-react";
 
 interface Props {
   musteriler: Musteri[];
@@ -23,9 +23,9 @@ interface Props {
   onNotAc: (musteriId: string) => void;
 }
 
-function formatSonGun(kolon: BeyanTakipKolon, donem: string): string {
+function formatSonTarih(kolon: BeyanTakipKolon, donem: string): string {
   const tarih = hesaplaSonTarih(kolon, donem);
-  return tarih.getDate().toString();
+  return `${tarih.getDate()}.${tarih.getMonth() + 1}`;
 }
 
 export function BeyanTakipGrid({
@@ -52,13 +52,26 @@ export function BeyanTakipGrid({
     .filter((m) => m.durum === "aktif")
     .sort((a, b) => a.firmaAdi.localeCompare(b.firmaAdi, "tr"));
 
+  const tamamlananSayilari = new Map<string, { toplam: number; verildi: number }>();
+  for (const m of aktifMusteriler) {
+    let toplam = 0;
+    let verildi = 0;
+    for (const k of kolonlar) {
+      if (m.vergiTurleri?.[k.key] !== "mukellef") continue;
+      toplam++;
+      const h = hucreMap.get(`${m.id}-${k.key}`);
+      if (h?.durum === "tamamlandi" || h?.durum === "gonderildi") verildi++;
+    }
+    tamamlananSayilari.set(m.id, { toplam, verildi });
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-card">
-      <table className="w-full border-collapse text-xs">
+      <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="bg-slate-50">
-            <th className="sticky left-0 z-20 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-700 border-b border-r border-slate-200 min-w-[180px]">
-              Firma
+          <tr className="bg-slate-50 border-b-2 border-slate-200">
+            <th className="sticky left-0 z-20 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">
+              Müşteri
             </th>
             {kolonlar.map((k) => {
               const durumu = sonTarihDurumu(k, donem);
@@ -66,42 +79,52 @@ export function BeyanTakipGrid({
                 <th
                   key={k.key}
                   className={cn(
-                    "px-1 py-2 text-center font-semibold border-b border-slate-200 whitespace-nowrap min-w-[48px]",
+                    "px-2 py-3 text-center font-semibold whitespace-nowrap min-w-[64px]",
                     durumu === "gecikti" && "bg-red-50 text-red-700",
                     durumu === "yaklasan" && "bg-amber-50 text-amber-700",
                     durumu === "normal" && "text-slate-600"
                   )}
                 >
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 text-xs">
                       {k.label}
                       {durumu !== "normal" && <AlertTriangle className="w-3 h-3" />}
                     </span>
-                    <span className="text-[10px] font-normal opacity-70">
-                      {formatSonGun(k, donem)}.
+                    <span className="flex items-center gap-0.5 text-[10px] font-normal opacity-60">
+                      <Calendar className="w-2.5 h-2.5" />
+                      {formatSonTarih(k, donem)}
                     </span>
                   </div>
                 </th>
               );
             })}
-            <th className="px-2 py-2 text-center font-semibold text-slate-600 border-b border-l border-slate-200 min-w-[60px]">
-              Notlar
+            <th className="px-3 py-3 text-center font-semibold text-slate-600 border-l border-slate-200 min-w-[80px] text-xs">
+              Durum
+            </th>
+            <th className="px-3 py-3 text-center font-semibold text-slate-600 border-l border-slate-200 min-w-[60px] text-xs">
+              Not
             </th>
           </tr>
         </thead>
         <tbody>
           {aktifMusteriler.map((m, i) => {
             const notCount = notSayilari.get(m.id) ?? 0;
+            const sayilar = tamamlananSayilari.get(m.id) ?? { toplam: 0, verildi: 0 };
+            const tumVerildi = sayilar.toplam > 0 && sayilar.verildi === sayilar.toplam;
             return (
               <tr
                 key={m.id}
                 className={cn(
-                  "hover:bg-slate-50 transition-colors",
-                  i % 2 === 0 ? "bg-white" : "bg-slate-25"
+                  "transition-colors",
+                  tumVerildi ? "bg-emerald-50/40" : i % 2 === 0 ? "bg-white" : "bg-slate-50/50",
+                  "hover:bg-blue-50/40"
                 )}
               >
-                <td className="sticky left-0 z-10 bg-inherit px-3 py-1.5 border-r border-slate-100 font-medium text-slate-800 truncate max-w-[200px]">
-                  {m.firmaAdi}
+                <td className="sticky left-0 z-10 bg-inherit px-4 py-2 border-r border-slate-100 min-w-[200px]">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-800 text-sm truncate max-w-[200px]">{m.firmaAdi}</span>
+                    <span className="text-[11px] text-slate-400 font-mono">{m.vknTckn}</span>
+                  </div>
                 </td>
                 {kolonlar.map((k) => (
                   <BeyanTakipHucre
@@ -112,7 +135,23 @@ export function BeyanTakipGrid({
                     onDurumDegistir={(durum) => onDurumDegistir(m.id, k.key, durum)}
                   />
                 ))}
-                <td className="px-2 py-1.5 text-center border-l border-slate-100">
+                <td className="px-2 py-2 text-center border-l border-slate-100">
+                  {sayilar.toplam > 0 ? (
+                    <span className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
+                      tumVerildi
+                        ? "bg-emerald-100 text-emerald-700"
+                        : sayilar.verildi > 0
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-500"
+                    )}>
+                      {sayilar.verildi}/{sayilar.toplam}
+                    </span>
+                  ) : (
+                    <span className="text-slate-300 text-xs">—</span>
+                  )}
+                </td>
+                <td className="px-2 py-2 text-center border-l border-slate-100">
                   <button
                     type="button"
                     onClick={() => onNotAc(m.id)}
@@ -123,7 +162,7 @@ export function BeyanTakipGrid({
                         : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                     )}
                   >
-                    <StickyNote className="w-3 h-3" />
+                    <StickyNote className="w-3.5 h-3.5" />
                     {notCount > 0 && <span className="font-semibold">{notCount}</span>}
                   </button>
                 </td>
@@ -133,7 +172,7 @@ export function BeyanTakipGrid({
           {aktifMusteriler.length === 0 && (
             <tr>
               <td
-                colSpan={kolonlar.length + 2}
+                colSpan={kolonlar.length + 3}
                 className="px-4 py-8 text-center text-sm text-slate-400"
               >
                 Aktif müşteri bulunamadı

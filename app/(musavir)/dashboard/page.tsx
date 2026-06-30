@@ -286,12 +286,13 @@ export default function DashboardPage() {
   ];
 
   const visibleGazete = useMemo(() => {
-    const bugun = new Date().toISOString().slice(0, 10);
+    const yediGunOnce = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const dinamikIdsSet = new Set(gazeteDynamic.map((d) => d.id));
     const firestoreFiltered = resmiGazeteOzetleri.filter(
-      (item) => !dinamikIdsSet.has(item.id) && item.yayinTarihi.startsWith(bugun)
+      (item) => !dinamikIdsSet.has(item.id) && item.yayinTarihi.slice(0, 10) >= yediGunOnce
     );
     return [...gazeteDynamic, ...firestoreFiltered]
+      .sort((a, b) => b.yayinTarihi.localeCompare(a.yayinTarihi))
       .filter((item) => !dismissedGazete.includes(item.id))
       .slice(0, 5);
   }, [dismissedGazete, resmiGazeteOzetleri, gazeteDynamic]);

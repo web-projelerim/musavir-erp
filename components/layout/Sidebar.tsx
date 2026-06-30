@@ -18,6 +18,7 @@ import {
   LogOut,
   ScrollText,
   Send,
+  ClipboardList,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -33,6 +34,7 @@ const navItems: {
   { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
   { label: "Beyannameler", href: "/beyannameler", icon: ScrollText, badge: null },
+  { label: "Beyanname Takip", href: "/beyanname-takip", icon: ClipboardList, badge: null },
   { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },

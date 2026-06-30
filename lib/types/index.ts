@@ -754,6 +754,7 @@ export type AuditEntityType =
   | "rapor"
   | "gonderim"
   | "kdv2"
+  | "beyanTakipHucresi"
   | "sistem";
 
 export interface AuditLog {
@@ -809,4 +810,56 @@ export interface FilterState {
   sorumlu?: string;
   tarihBaslangic?: string;
   tarihBitis?: string;
+}
+
+// ─── Beyanname Takip Grid ───────────────────────────────────
+
+export type BeyanTakipDurum =
+  | "bos"
+  | "evrak_bekleniyor"
+  | "hazirlaniyor"
+  | "kontrol"
+  | "gonderildi"
+  | "tamamlandi"
+  | "sorun";
+
+export interface BeyanTakipHucresi {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  vergiTuruKey: string;
+  donem: string;
+  durum: BeyanTakipDurum;
+  guncellenmeTarihi: string;
+  guncelleyenAd?: string;
+  beyannameId?: string;
+  pdfUrl?: string;
+  tahakkukFisUrl?: string;
+  vergiTutari?: number;
+}
+
+export type BeyanTakipNotTur = "gecici" | "kalici";
+
+export interface BeyanTakipNotu {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  donem: string;
+  tur: BeyanTakipNotTur;
+  icerik: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+export type BeyanTakipKolonPeriyot = "aylik" | "ucaylik" | "yillik";
+
+export interface BeyanTakipKolon {
+  key: string;
+  label: string;
+  sonGun: number | "son_gun";
+  periyot: BeyanTakipKolonPeriyot;
+  gorunurAylar?: number[];
+  grup: "kdv" | "muhtasar" | "gelir_kurumlar" | "otv" | "diger" | "bildirim";
+  sira: number;
 }

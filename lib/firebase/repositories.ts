@@ -3,6 +3,8 @@ import { mapLegacyDurumToWorkflow, workflowToBeyanDurum } from "@/lib/domain/bey
 import type {
   AuditLog,
   BankaEkstresi,
+  BeyanTakipHucresi,
+  BeyanTakipNotu,
   Davet,
   GibSyncLog,
   Gorev,
@@ -567,5 +569,26 @@ export async function upsertOfis(input: Ofis) {
   };
   await upsertDocument(COLLECTIONS.ofisler, ofis);
   return ofis;
+}
+
+// ─── Beyanname Takip Grid ───────────────────────────────────
+
+export async function upsertBeyanTakipHucresi(input: BeyanTakipHucresi) {
+  await upsertDocument(COLLECTIONS.beyanTakipHucreleri, input);
+  return input;
+}
+
+export async function createBeyanTakipNotu(input: Omit<BeyanTakipNotu, "id" | "createdAt">) {
+  const notu: BeyanTakipNotu = {
+    ...input,
+    id: createId("btn"),
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.beyanTakipNotlari, notu);
+  return notu;
+}
+
+export async function deleteBeyanTakipNotu(id: string) {
+  await deleteDocument(COLLECTIONS.beyanTakipNotlari, id);
 }
 

@@ -14,6 +14,7 @@ import {
   type DocumentData,
   type FirestoreError,
   type Unsubscribe,
+  type WhereFilterOp,
 } from "firebase/firestore";
 import { firestoreDb } from "@/lib/firebase/client";
 
@@ -47,6 +48,8 @@ export const COLLECTIONS = {
   entegrasyonLoglari: "entegrasyonLoglari",
   notlar: "notlar",
   gibSozlesmeleri: "gibSozlesmeleri",
+  beyanTakipHucreleri: "beyanTakipHucreleri",
+  beyanTakipNotlari: "beyanTakipNotlari",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -130,6 +133,42 @@ export function subscribeCollection<T extends { id: string }>(
     },
     (error: FirestoreError) => {
       console.error(`[Firestore] ${collectionName} okunamadı`, error);
+      onData(fallback, { source: "mock", error: error.message });
+    }
+  );
+}
+
+export interface CollectionFilter {
+  field: string;
+  op: WhereFilterOp;
+  value: unknown;
+}
+
+export function subscribeCollectionFiltered<T extends { id: string }>(
+  collectionName: CollectionName,
+  filters: CollectionFilter[],
+  fallback: T[],
+  onData: (data: T[], meta: SubscribeMeta) => void
+): Unsubscribe {
+  if (!firestoreDb) {
+    onData(fallback, { source: "mock" });
+    return () => undefined;
+  }
+
+  const constraints = filters.map((f) => where(f.field, f.op, f.value));
+  const ref = query(collection(firestoreDb, collectionName), ...constraints);
+
+  return onSnapshot(
+    ref,
+    (snapshot) => {
+      const data = snapshot.docs.map((snapshotDoc) => ({
+        id: snapshotDoc.id,
+        ...snapshotDoc.data(),
+      })) as T[];
+      onData(data, { source: "firebase" });
+    },
+    (error: FirestoreError) => {
+      console.error(`[Firestore] ${collectionName} filtrelenerek okunamadı`, error);
       onData(fallback, { source: "mock", error: error.message });
     }
   );

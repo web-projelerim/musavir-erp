@@ -247,8 +247,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bilinmeyen hata";
-    const stack = err instanceof Error ? err.stack : undefined;
-    console.error("[Vergi Takvimi Sync] HATA:", message, "\n", stack);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    // Dış kaynak (GİB vergi takvimi sayfası) erişilemezliği/parse hatası
+    // beklenen bir durumdur — istemci ok:false'u nazikçe yutar. 500 yerine
+    // 200 dönerek tarayıcı konsolunda "Failed to load resource" gürültüsünü önle.
+    console.warn("[Vergi Takvimi Sync] atlandı:", message);
+    return NextResponse.json({ ok: false, error: message });
   }
 }

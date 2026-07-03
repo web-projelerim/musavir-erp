@@ -227,8 +227,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bilinmeyen hata";
-    const stack = err instanceof Error ? err.stack : undefined;
-    console.error("[Resmi Gazete Özetle] HATA:", message, "\n", stack);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    // Dış kaynak (Resmi Gazete RSS) erişilemezliği beklenen bir durumdur —
+    // istemci ok:false'u nazikçe yutar. 500 yerine 200 dönerek tarayıcı
+    // konsolunda "Failed to load resource" gürültüsünü önle.
+    console.warn("[Resmi Gazete Özetle] atlandı:", message);
+    return NextResponse.json({ ok: false, error: message });
   }
 }

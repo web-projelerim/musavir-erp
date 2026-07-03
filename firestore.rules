@@ -359,5 +359,21 @@ service cloud.firestore {
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
+    // ─── Beyanname Takip (hücre matrisi + notlar) ─────────────────────────────
+
+    match /beyanTakipHucreleri/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /beyanTakipNotlari/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if sameOffice(resource.data.ofisId);
+    }
+
   }
 }

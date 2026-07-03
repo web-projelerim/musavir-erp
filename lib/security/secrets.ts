@@ -43,9 +43,20 @@ export function decryptSecret(token: string): string {
   return decipher.update(Buffer.from(cipherHex, "hex")).toString("utf8") + decipher.final("utf8");
 }
 
-/** Bir credential field'ı şifrelenmiş veya değil olabilir — tanımak için yardımcı */
+/**
+ * Bir credential field'ı şifrelenmiş veya değil olabilir — tanımak için yardımcı.
+ * Uzunluk doğrulaması önemli: IV 12 bayt (24 hex), GCM tag 16 bayt (32 hex).
+ * Aksi halde "ab:12:ef" gibi kısa düz metinler yanlışlıkla şifreli sanılıp
+ * şifrelenmeden saklanabilirdi.
+ */
 export function isEncrypted(value: unknown): boolean {
   if (typeof value !== "string") return false;
   const parts = value.split(":");
-  return parts.length === 3 && /^[0-9a-f]+$/i.test(parts[0]) && /^[0-9a-f]+$/i.test(parts[1]) && /^[0-9a-f]+$/i.test(parts[2]);
+  if (parts.length !== 3) return false;
+  const [iv, tag, cipher] = parts;
+  return (
+    iv.length === IV_LEN * 2 && /^[0-9a-f]+$/i.test(iv) &&
+    tag.length === 32 && /^[0-9a-f]+$/i.test(tag) &&
+    cipher.length > 0 && cipher.length % 2 === 0 && /^[0-9a-f]+$/i.test(cipher)
+  );
 }

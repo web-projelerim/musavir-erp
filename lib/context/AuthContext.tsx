@@ -69,8 +69,16 @@ function demoFallbackUser(email: string, uid: string): User {
 }
 
 async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
-  // Demo mod: Firebase yapılandırılmamış → tam erişimli fallback (kasıtlı)
+  // Demo mod: Firebase yapılandırılmamış → tam erişimli fallback.
+  // GÜVENLİK: Bu mod yalnızca geliştirme ortamında çalışır. Production build'de
+  // Firebase yapılandırması eksikse hata veririz; kimseye otomatik musavir
+  // yetkisi verilmez.
   if (!firestoreDb) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Uygulama yapılandırması eksik (NEXT_PUBLIC_FIREBASE_*). Lütfen sistem yöneticisiyle iletişime geçin."
+      );
+    }
     return demoFallbackUser(firebaseUser.email ?? "", firebaseUser.uid);
   }
 
@@ -107,16 +115,15 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
       throw new Error("Hesabınız devre dışı bırakılmıştır. Lütfen müşavirinizle iletişime geçin.");
     }
 
-    // Güvenlik düzeltmesi: rol "mukellef" ama musteriId yoksa bu kullanıcı
-    // aslında bir müşavirdir — yanlış rol atanmış. Bellekte ve Firestore'da düzelt.
+    // GÜVENLİK: rol "mukellef" ama musteriId yoksa bu bozuk/eksik bir kayıttır.
+    // Eskiden burada istemci kullanıcıyı otomatik "musavir"e terfi ettiriyordu —
+    // bu bir yetki yükseltme (privilege escalation) açığıydı ve kaldırıldı.
+    // Rol düzeltmesi yalnızca müşavir tarafından (kullanıcı yönetimi ekranı)
+    // veya backend/Admin SDK üzerinden yapılmalıdır.
     if (appUser.rol === "mukellef" && !appUser.musteriId) {
-      const corrected: User = { ...appUser, rol: "musavir" };
-      setDoc(
-        doc(firestoreDb, "kullanicilar", firebaseUser.uid),
-        { rol: "musavir" },
-        { merge: true }
-      ).catch(() => undefined);
-      return corrected;
+      throw new Error(
+        "Hesabınız bir mükellef kaydıyla eşleştirilmemiş. Lütfen müşavirinizle iletişime geçin."
+      );
     }
 
     return appUser;

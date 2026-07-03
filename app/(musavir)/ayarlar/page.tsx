@@ -1755,8 +1755,8 @@ export default function AyarlarPage() {
                 <h3 className="text-sm font-semibold text-slate-800">Güvenlik Notları</h3>
                 <div className="mt-3 space-y-2 text-sm text-slate-600">
                   <p>• Şifre değiştirmeden önce mevcut şifrenizle kimlik doğrulaması yapılır.</p>
-                  <p>• Şifrenizi unuttuysanız çıkış yaparak "Şifremi Unuttum" bağlantısını kullanın.</p>
-                  <p>• GİB, Luca ve WhatsApp entegrasyon şifreleri AES-256-GCM ile şifrelenerek saklanır — düz metin Firestore'a yazılmaz.</p>
+                  <p>• Şifrenizi unuttuysanız çıkış yaparak &ldquo;Şifremi Unuttum&rdquo; bağlantısını kullanın.</p>
+                  <p>• GİB, Luca ve WhatsApp entegrasyon şifreleri AES-256-GCM ile şifrelenerek saklanır — düz metin Firestore&apos;a yazılmaz.</p>
                 </div>
               </Card>
             </div>

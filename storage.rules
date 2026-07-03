@@ -22,14 +22,28 @@ service firebase.storage {
       return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
     }
 
+    // Ofis izolasyonu: dosyanın ait olduğu müşteri, personelin ofisine bağlı olmalı.
+    // musteriler/{musteriId}.ofisId == kullanicilar/{uid}.ofisId
+    function staffOfSameOffice(musteriId) {
+      return isStaff()
+        && firestore.get(/databases/(default)/documents/musteriler/$(musteriId)).data.ofisId
+           == userDoc().data.ofisId;
+    }
+
     match /belgeler/{musteriId}/{fileName} {
-      allow read: if isStaff() || isMukellefFor(musteriId);
-      allow write: if isStaff() || isMukellefFor(musteriId);
+      allow read:  if staffOfSameOffice(musteriId) || isMukellefFor(musteriId);
+      allow write: if staffOfSameOffice(musteriId) || isMukellefFor(musteriId);
     }
 
     match /raporlar/{musteriId}/{fileName} {
-      allow read: if isStaff() || isMukellefFor(musteriId);
-      allow write: if isStaff();
+      allow read:  if staffOfSameOffice(musteriId) || isMukellefFor(musteriId);
+      allow write: if staffOfSameOffice(musteriId);
+    }
+
+    // Tanımsız tüm yollar varsayılan olarak kapalı (Firebase varsayılanı),
+    // yine de açıkça belirtelim:
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

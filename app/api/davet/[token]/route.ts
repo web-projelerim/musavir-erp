@@ -25,21 +25,14 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   try {
     const tokenHash = await hashToken(token);
 
-    // tokenHash ile ara, bulamazsan davetLinki sonekiyle ara
-    let snapshot = await db
+    // Yalnızca tokenHash ile ara. (Eski `davetLinki` fallback'i kaldırıldı:
+    // hash'lenmemiş token'ların düz metinle bulunmasına izin veriyordu.
+    // Eski format davetler geçersizdir; gerekirse yeniden davet gönderin.)
+    const snapshot = await db
       .collection("davetler")
       .where("tokenHash", "==", tokenHash)
       .limit(1)
       .get();
-
-    if (snapshot.empty) {
-      snapshot = await db
-        .collection("davetler")
-        .where("davetLinki", ">=", `/davet/${token}`)
-        .where("davetLinki", "<=", `/davet/${token}`)
-        .limit(1)
-        .get();
-    }
 
     if (snapshot.empty) {
       return NextResponse.json({ error: "Davet bulunamadı" }, { status: 404 });

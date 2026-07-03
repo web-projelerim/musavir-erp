@@ -14,7 +14,7 @@ import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
 import { gibDecrypt } from "@/lib/integrations/gib/encrypt";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 import { sgkLogin, fetchSgkBorcListesi, fetchSgkPrimBilgileri, sgkBorcToTahakkuklar } from "@/lib/integrations/sgk/sgk-client";
 
 interface SgkSyncBody {
@@ -29,7 +29,7 @@ interface SgkSyncBody {
 }
 
 export async function POST(req: NextRequest) {
-  const actor = await requireAuth(req);
+  const actor = await requireStaff(req);
   if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }

@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 import { getAdminDb, adminUpsert } from "@/lib/firebase/admin";
 import {
   ivdLogin,
@@ -85,7 +85,7 @@ async function invalidateToken(ofisId: string): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
-  const actor = await requireAuth(req);
+  const actor = await requireStaff(req);
   if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }

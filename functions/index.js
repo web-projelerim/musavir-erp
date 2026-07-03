@@ -9,7 +9,12 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
-const DEFAULT_OFFICE_ID = "ofis-default";
+// Cok ofisli (multi-tenant) model: sabit "ofis-default" kaldirildi.
+// Ofis kapsamli koleksiyonlara yazarken gercek ofis listesi uzerinden donulur.
+async function getAllOfficeIds() {
+  const snap = await db.collection("ofisler").select().get();
+  return snap.docs.map((d) => d.id);
+}
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -81,7 +86,7 @@ async function processTahakkukNotificationsJob() {
       await sendWhatsAppCloudMessage(payload);
       await gonderimRef.set({
         id: gonderimRef.id,
-        ofisId: tahakkuk.ofisId || DEFAULT_OFFICE_ID,
+        ofisId: tahakkuk.ofisId || null,
         kanal: "whatsapp",
         musteriId: tahakkuk.musteriId,
         musteriAdi: tahakkuk.musteriAdi,
@@ -97,13 +102,13 @@ async function processTahakkukNotificationsJob() {
         bildirimDurumu: "gonderildi",
         updatedAt: new Date().toISOString(),
       });
-      const officeId = tahakkuk.ofisId || DEFAULT_OFFICE_ID;
+      const officeId = tahakkuk.ofisId || null;
       officeCache.set(officeId, true);
     } catch (error) {
       logger.error("Tahakkuk bildirimi gonderilemedi", error);
       await gonderimRef.set({
         id: gonderimRef.id,
-        ofisId: tahakkuk.ofisId || DEFAULT_OFFICE_ID,
+        ofisId: tahakkuk.ofisId || null,
         kanal: "whatsapp",
         musteriId: tahakkuk.musteriId,
         musteriAdi: tahakkuk.musteriAdi,
@@ -156,28 +161,42 @@ function summarizeResmiGazete(title) {
 
 async function refreshResmiGazeteSummariesJob() {
   const items = await fetchResmiGazeteItems();
+  const officeIds = await getAllOfficeIds();
+  let written = 0;
   for (const item of items) {
     const summary = summarizeResmiGazete(item.title);
-    await db.collection("resmiGazeteOzetleri").doc(item.id).set({
-      id: item.id,
-      ofisId: DEFAULT_OFFICE_ID,
-      yayinTarihi: todayIso(),
-      baslik: item.title,
-      kaynakLink: item.sourceUrl,
-      ...summary,
-      durum: "yeni",
-      createdAt: new Date().toISOString(),
-    }, { merge: true });
+    for (const ofisId of officeIds) {
+      await db.collection("resmiGazeteOzetleri").doc(`${item.id}-${ofisId}`).set({
+        id: `${item.id}-${ofisId}`,
+        ofisId,
+        yayinTarihi: todayIso(),
+        baslik: item.title,
+        kaynakLink: item.sourceUrl,
+        ...summary,
+        durum: "yeni",
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+      written += 1;
+    }
   }
-  return { count: items.length };
+  return { count: items.length, written, officeCount: officeIds.length };
 }
 
 async function syncGibDataJob() {
+  const officeIds = await getAllOfficeIds();
+  const results = [];
+  for (const ofisId of officeIds) {
+    results.push(await syncGibDataForOffice(ofisId));
+  }
+  return { offices: officeIds.length, results };
+}
+
+async function syncGibDataForOffice(ofisId) {
   const ref = db.collection("gibSyncLogs").doc();
   const startedAt = new Date().toISOString();
   await ref.set({
     id: ref.id,
-    ofisId: DEFAULT_OFFICE_ID,
+    ofisId,
     syncTipi: "tebligat",
     durum: "bekliyor",
     baslamaTarihi: startedAt,
@@ -219,7 +238,23 @@ exports.syncGibData = onSchedule(
   }
 );
 
-exports.runTahakkukNotificationsNow = onRequest({ region: "europe-west1" }, async (_req, res) => {
+// HTTP tetikleyiciler icin fail-closed dogrulama.
+// FUNCTIONS_TRIGGER_SECRET tanimli degilse endpoint kapali kalir.
+function verifyTriggerSecret(req, res) {
+  const secret = process.env.FUNCTIONS_TRIGGER_SECRET;
+  if (!secret) {
+    res.status(503).json({ ok: false, error: "FUNCTIONS_TRIGGER_SECRET tanimli degil; endpoint kapali." });
+    return false;
+  }
+  if (req.headers.authorization !== `Bearer ${secret}`) {
+    res.status(401).json({ ok: false, error: "Yetkisiz erisim" });
+    return false;
+  }
+  return true;
+}
+
+exports.runTahakkukNotificationsNow = onRequest({ region: "europe-west1" }, async (req, res) => {
+  if (!verifyTriggerSecret(req, res)) return;
   try {
     const result = await processTahakkukNotificationsJob();
     res.json({ ok: true, ...result });
@@ -229,7 +264,8 @@ exports.runTahakkukNotificationsNow = onRequest({ region: "europe-west1" }, asyn
   }
 });
 
-exports.runResmiGazeteNow = onRequest({ region: "europe-west1" }, async (_req, res) => {
+exports.runResmiGazeteNow = onRequest({ region: "europe-west1" }, async (req, res) => {
+  if (!verifyTriggerSecret(req, res)) return;
   try {
     const result = await refreshResmiGazeteSummariesJob();
     res.json({ ok: true, ...result });
@@ -239,7 +275,8 @@ exports.runResmiGazeteNow = onRequest({ region: "europe-west1" }, async (_req, r
   }
 });
 
-exports.runGibSyncNow = onRequest({ region: "europe-west1" }, async (_req, res) => {
+exports.runGibSyncNow = onRequest({ region: "europe-west1" }, async (req, res) => {
+  if (!verifyTriggerSecret(req, res)) return;
   try {
     const result = await syncGibDataJob();
     res.json({ ok: true, ...result });

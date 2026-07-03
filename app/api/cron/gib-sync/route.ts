@@ -9,16 +9,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runGibSync } from "@/lib/jobs/gib-sync";
+import { verifyCronSecret } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization");
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   // Captcha yoksa açıklayıcı yanıt dön (GİB artık captcha gerektiriyor)
@@ -34,11 +33,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.get("authorization");
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   let body: { dk?: string; imageID?: string } = {};

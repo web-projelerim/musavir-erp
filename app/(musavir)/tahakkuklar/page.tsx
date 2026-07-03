@@ -112,7 +112,7 @@ export default function TahakkuklarPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => handleLucaExport(filtered)}>
-              Luca'ya Aktar
+              Luca&apos;ya Aktar
             </Button>
             {canWrite && (
               <Button variant="outline" icon={<Upload className="h-4 w-4" />} onClick={() => setShowBankaModal(true)}>

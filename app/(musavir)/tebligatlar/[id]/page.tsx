@@ -108,7 +108,7 @@ export default function TebligatGoruntulePage({ params }: Props) {
             {tebligat.pdfUrl && (
               <Button variant="outline" size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />}
                 onClick={() => window.open(tebligat.pdfUrl, "_blank", "noopener,noreferrer")}>
-                GİB'de Aç
+                GİB&apos;de Aç
               </Button>
             )}
             {pdfBlobUrl && (

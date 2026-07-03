@@ -12,12 +12,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { encryptSecret, isEncrypted } from "@/lib/security/secrets";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!await requireAuth(req)) {
+  if (!await requireStaff(req)) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
   try {

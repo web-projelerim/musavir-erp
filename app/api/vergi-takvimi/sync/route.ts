@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 import { getAdminDb } from "@/lib/firebase/admin";
 
 export const dynamic = "force-dynamic";
@@ -96,7 +96,7 @@ ${metin.slice(0, 30_000)}`;
  * Cron'un veya manuel sync'in son yazdığı veriyi okur.
  */
 export async function GET(req: NextRequest) {
-  const actor = await requireAuth(req);
+  const actor = await requireStaff(req);
   if (!actor) {
     return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
   }
@@ -129,13 +129,13 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (cronSecret) {
     if (authHeader !== `Bearer ${cronSecret}`) {
-      const actor = await requireAuth(req);
+      const actor = await requireStaff(req);
       if (!actor) {
         return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
       }
     }
   } else {
-    const actor = await requireAuth(req);
+    const actor = await requireStaff(req);
     if (!actor) {
       return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
     }

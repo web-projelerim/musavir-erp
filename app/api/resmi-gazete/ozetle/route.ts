@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -144,14 +144,14 @@ export async function POST(req: NextRequest) {
     // Vercel Cron veya manuel tetikleyici — CRON_SECRET ile doğrula
     if (authHeader !== `Bearer ${cronSecret}`) {
       // CRON_SECRET eşleşmezse Firebase token dene
-      const actor = await requireAuth(req);
+      const actor = await requireStaff(req);
       if (!actor) {
         return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
       }
     }
   } else {
     // CRON_SECRET yoksa Firebase token zorunlu
-    const actor = await requireAuth(req);
+    const actor = await requireStaff(req);
     if (!actor) {
       return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
     }

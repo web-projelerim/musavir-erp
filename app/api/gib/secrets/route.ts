@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { gibEncrypt } from "@/lib/integrations/gib/encrypt";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 
 interface SecretsBody {
   ivdSifre?: string;
@@ -20,7 +20,7 @@ interface SecretsBody {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAuth(req)) {
+  if (!await requireStaff(req, { allowedRoles: ["musavir"] })) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
   try {

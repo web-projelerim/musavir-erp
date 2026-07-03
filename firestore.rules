@@ -61,13 +61,47 @@ service cloud.firestore {
 
     // ─── Kullanıcılar (uid bazlı, ofisId filtresi yok) ────────────────────────
 
+    // Davet dokümanını doğrular: yeni kullanıcının rol/ofisId/musteriId alanları
+    // davetle birebir eşleşmeli, davet bekliyor durumunda ve davet e-postası
+    // giriş yapan kullanıcının e-postasıyla aynı olmalı.
+    function davetGecerli() {
+      let davet = get(/databases/$(database)/documents/davetler/$(request.resource.data.davetId)).data;
+      return davet.email == request.auth.token.email
+             && davet.durum == 'bekliyor'
+             && davet.rol == request.resource.data.rol
+             && davet.ofisId == request.resource.data.ofisId
+             && (request.resource.data.rol != 'mukellef'
+                 || davet.musteriId == request.resource.data.musteriId);
+    }
+
     match /kullanicilar/{userId} {
       allow read:   if isSignedIn()
                     && (ownUser(userId)
                         || (isStaff() && resource.data.ofisId == currentOfisId()));
+      // İki meşru oluşturma yolu:
+      //  (a) Self-bootstrap: yeni musavir kendi ofisini kurar (ofisId == uid)
+      //  (b) Davetle katılım: personel/mukellef, geçerli davet dokümanıyla
       allow create: if ownUser(userId)
-                    && request.resource.data.email == request.auth.token.email;
-      allow update: if ownUser(userId) || isMusavir();
+                    && request.resource.data.email == request.auth.token.email
+                    && (
+                      (request.resource.data.rol == 'musavir'
+                       && request.resource.data.ofisId == request.auth.uid)
+                      ||
+                      (request.resource.data.davetId is string && davetGecerli())
+                    );
+      // Kullanıcı kendi profilini güncelleyebilir ama yetki alanlarına dokunamaz;
+      // musavir yalnızca KENDİ ofisindeki kullanıcıları yönetebilir ve
+      // kullanıcıyı başka ofise taşıyamaz.
+      allow update: if (
+                      ownUser(userId)
+                      && !request.resource.data.diff(resource.data).affectedKeys()
+                           .hasAny(['rol', 'ofisId', 'musteriId', 'yetkiler', 'aktif'])
+                    ) || (
+                      isMusavir()
+                      && resource.data.ofisId == currentOfisId()
+                      && !request.resource.data.diff(resource.data).affectedKeys()
+                           .hasAny(['ofisId'])
+                    );
       allow delete: if false;
     }
 
@@ -77,9 +111,16 @@ service cloud.firestore {
       allow read:   if (isStaff() && resource.data.ofisId == currentOfisId()) ||
                       (isSignedIn() && resource.data.email == request.auth.token.email);
       allow create: if writingToOwnOffice() && isStaff();
-      allow update: if sameOffice(resource.data.ofisId) ||
-                      // Davet kabul edilirken (kullanildi: true) mükellef güncelleyebilir
-                      (isSignedIn() && resource.data.email == request.auth.token.email);
+      allow update: if (sameOffice(resource.data.ofisId)
+                        // Ofis personeli de davetin kimlik alanlarını değiştiremez
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                             .hasAny(['email', 'rol', 'ofisId', 'musteriId', 'tokenHash', 'davetLinki'])) ||
+                      // Davet kabul edilirken davetli yalnızca durum + usedAt yazabilir
+                      (isSignedIn()
+                       && resource.data.email == request.auth.token.email
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['durum', 'usedAt'])
+                       && request.resource.data.durum == 'kullanildi');
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 

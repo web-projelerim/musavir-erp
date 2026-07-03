@@ -9,17 +9,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { verifyCronSecret } from "@/lib/security/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron güvenlik doğrulaması
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  // Vercel Cron güvenlik doğrulaması (fail-closed)
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? `https://${req.headers.get("host")}`;

@@ -9,14 +9,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 import { getAdminDb } from "@/lib/firebase/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const actor = await requireAuth(req);
+  const actor = await requireStaff(req);
   if (!actor) {
     return NextResponse.json({ ok: false, error: "Yetkisiz" }, { status: 401 });
   }

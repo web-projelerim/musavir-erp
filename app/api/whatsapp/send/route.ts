@@ -25,7 +25,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 
 const META_API = "https://graph.facebook.com/v19.0";
 const DEFAULT_TEMPLATE = "musavir_hatirlatma";
@@ -139,7 +139,7 @@ async function sendSingle(
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAuth(req)) {
+  if (!await requireStaff(req)) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;

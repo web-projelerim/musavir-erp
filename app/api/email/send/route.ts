@@ -25,7 +25,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/firebase/verifyToken";
+import { requireStaff } from "@/lib/firebase/verifyToken";
 
 interface EmailBody {
   to: string;
@@ -35,7 +35,7 @@ interface EmailBody {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAuth(req)) {
+  if (!await requireStaff(req)) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
@@ -70,7 +70,6 @@ export async function POST(req: NextRequest) {
     // TODO(faz-2): `npm install nodemailer @types/nodemailer` ile aktifleştirin.
     // Şu an SMTP env'leri tanımlı fakat nodemailer kurulu olmayabilir.
     // Runtime'da paket yoksa açıklayıcı hata döner.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const nodemailer = await (
       // Webpack/TypeScript tarafından statik analiz edilmemesi için eval kullanılır
       // Bu sadece server-side route'ta çalışır (Node.js ortamı)

@@ -39,6 +39,28 @@ export const TAKIP_DURUM_SECENEKLER: { value: BeyanTakipDurum; label: string }[]
   { value: "sorun", label: "Sorun" },
 ];
 
+// ─── Müşteri–Sütun Sorumluluğu ─────────────────────────────
+
+/**
+ * Müşteri belirtilen beyanname sütunundan sorumlu mu?
+ * - vergiTurleri tanımlıysa (müşavir yapılandırmışsa) ona tam güvenilir.
+ * - vergiTurleri hiç yoksa (eski/import edilmiş müşteri) kdvMukellef /
+ *   muhtasarMukellef bayraklarından türetilir; böylece grid boş kalmaz.
+ */
+export function musteriKolonSorumlu(m: Musteri, kolonKey: string): boolean {
+  const vt = m.vergiTurleri;
+  if (vt && Object.keys(vt).length > 0) {
+    return vt[kolonKey] === "mukellef";
+  }
+  if (kolonKey === "kdv1" || kolonKey === "kdv2" || kolonKey === "kdv4") {
+    return m.kdvMukellef === true;
+  }
+  if (kolonKey === "muhsgk" || kolonKey === "muhsgk2") {
+    return m.muhtasarMukellef === true;
+  }
+  return false;
+}
+
 // ─── Sütun Görünürlüğü ─────────────────────────────────────
 
 export function gorunurKolonlar(
@@ -50,7 +72,7 @@ export function gorunurKolonlar(
 
   return kolonlar.filter((kolon) => {
     const herhangiMukellef = musteriler.some(
-      (m) => m.durum === "aktif" && m.vergiTurleri?.[kolon.key] === "mukellef"
+      (m) => m.durum === "aktif" && musteriKolonSorumlu(m, kolon.key)
     );
     if (!herhangiMukellef) return false;
 
@@ -120,11 +142,11 @@ export function hesaplaKalanIsler(
     if (durumu === "normal") continue;
 
     const ilgiliMusteriler = musteriler.filter(
-      (m) => m.durum === "aktif" && m.vergiTurleri?.[kolon.key] === "mukellef"
+      (m) => m.durum === "aktif" && musteriKolonSorumlu(m, kolon.key)
     );
     const kalanFirma = ilgiliMusteriler.filter((m) => {
       const hucre = hucreMap.get(`${m.id}-${kolon.key}`);
-      return !hucre || hucre.durum !== "tamamlandi";
+      return !hucre || (hucre.durum !== "tamamlandi" && hucre.durum !== "gonderildi");
     }).length;
 
     if (kalanFirma > 0) {
@@ -178,10 +200,10 @@ export function hesaplaTakipIstatistik(
 
   for (const m of musteriler.filter((m) => m.durum === "aktif")) {
     for (const k of kolonlar) {
-      if (m.vergiTurleri?.[k.key] !== "mukellef") continue;
+      if (!musteriKolonSorumlu(m, k.key)) continue;
       toplam++;
       const hucre = hucreMap.get(`${m.id}-${k.key}`);
-      if (hucre?.durum === "tamamlandi") tamamlanan++;
+      if (hucre?.durum === "tamamlandi" || hucre?.durum === "gonderildi") tamamlanan++;
       if (hucre?.durum === "sorun") sorunlu++;
     }
   }

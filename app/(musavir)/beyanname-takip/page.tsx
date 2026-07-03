@@ -34,6 +34,7 @@ import {
   hesaplaTakipIstatistik,
   geciciVergiUyarisi,
   beyanTakipHucreId,
+  musteriKolonSorumlu,
 } from "@/lib/domain/beyanTakip";
 import { BEYAN_TAKIP_GRUP_LABELS } from "@/lib/data/beyanTakipKolonlari";
 import { upsertBeyanTakipHucresi, patchBeyanTakipHucresi, createBeyanTakipNotu, deleteBeyanTakipNotu } from "@/lib/firebase/repositories";
@@ -60,7 +61,7 @@ function musteriTamamlanmaOrani(
   let verildi = 0;
   let sorunlu = 0;
   for (const k of kolonlar) {
-    if (musteri.vergiTurleri?.[k.key] !== "mukellef") continue;
+    if (!musteriKolonSorumlu(musteri, k.key)) continue;
     toplam++;
     const h = hucreMap.get(`${musteri.id}-${k.key}`);
     if (h?.durum === "tamamlandi" || h?.durum === "gonderildi") verildi++;
@@ -244,7 +245,7 @@ export default function BeyannameTakipPage() {
     async (vergiTuruKey: string) => {
       if (!user?.ofisId) return;
       const ilgiliMusteriler = aktifMusteriler.filter(
-        (m) => m.vergiTurleri?.[vergiTuruKey] === "mukellef"
+        (m) => musteriKolonSorumlu(m, vergiTuruKey)
       );
       let basarili = 0;
       for (const m of ilgiliMusteriler) {

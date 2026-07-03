@@ -134,9 +134,12 @@ export default function DashboardPage() {
     } catch {}
 
     setGazeteYukleniyor(true);
+    // Kaynak (Resmi Gazete) yavaş/erişilemez olabilir — spinner asla takılı
+    // kalmasın diye istemci tarafında da zaman aşımı uygula.
+    const gazeteTimeout = AbortSignal.timeout(18_000);
     void (async () => {
       const headers = await authHeaders();
-      return fetch("/api/resmi-gazete/ozetle", { method: "POST", headers });
+      return fetch("/api/resmi-gazete/ozetle", { method: "POST", headers, signal: gazeteTimeout });
     })()
       .then((r) => (r.ok ? r.json() : r.json().then((d) => { if (!d?.ok) return null; return d; })))
       .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> } | null) => {

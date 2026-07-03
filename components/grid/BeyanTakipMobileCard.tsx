@@ -7,7 +7,7 @@ import type {
   BeyanTakipNotu,
   Musteri,
 } from "@/lib/types";
-import { takipDurumLabel } from "@/lib/domain/beyanTakip";
+import { takipDurumLabel, musteriKolonSorumlu } from "@/lib/domain/beyanTakip";
 import { cn } from "@/lib/utils/cn";
 import { StickyNote, AlertTriangle } from "lucide-react";
 
@@ -38,7 +38,7 @@ export function BeyanTakipMobileCard({
   }
 
   const aktifKolonlar = kolonlar.filter(
-    (k) => musteri.vergiTurleri?.[k.key] === "mukellef"
+    (k) => musteriKolonSorumlu(musteri, k.key)
   );
 
   if (aktifKolonlar.length === 0) return null;

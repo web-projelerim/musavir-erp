@@ -7,7 +7,7 @@ import type {
   BeyanTakipNotu,
   Musteri,
 } from "@/lib/types";
-import { sonTarihDurumu, hesaplaSonTarih } from "@/lib/domain/beyanTakip";
+import { sonTarihDurumu, hesaplaSonTarih, musteriKolonSorumlu } from "@/lib/domain/beyanTakip";
 import { BeyanTakipHucre } from "./BeyanTakipHucre";
 import { cn } from "@/lib/utils/cn";
 import { AlertTriangle, StickyNote, Calendar, CheckCheck } from "lucide-react";
@@ -65,7 +65,7 @@ export function BeyanTakipGrid({
     let toplam = 0;
     let verildi = 0;
     for (const k of kolonlar) {
-      if (m.vergiTurleri?.[k.key] !== "mukellef") continue;
+      if (!musteriKolonSorumlu(m, k.key)) continue;
       toplam++;
       const h = hucreMap.get(`${m.id}-${k.key}`);
       if (h?.durum === "tamamlandi" || h?.durum === "gonderildi") verildi++;
@@ -78,7 +78,7 @@ export function BeyanTakipGrid({
     let toplam = 0;
     let verildi = 0;
     for (const m of aktifMusteriler) {
-      if (m.vergiTurleri?.[k.key] !== "mukellef") continue;
+      if (!musteriKolonSorumlu(m, k.key)) continue;
       toplam++;
       const h = hucreMap.get(`${m.id}-${k.key}`);
       if (h?.durum === "tamamlandi" || h?.durum === "gonderildi") verildi++;
@@ -173,7 +173,7 @@ export function BeyanTakipGrid({
                   <BeyanTakipHucre
                     key={k.key}
                     hucre={hucreMap.get(`${m.id}-${k.key}`)}
-                    mukellef={m.vergiTurleri?.[k.key] === "mukellef"}
+                    mukellef={musteriKolonSorumlu(m, k.key)}
                     readOnly={readOnly}
                     onDurumDegistir={(durum) => onDurumDegistir(m.id, k.key, durum)}
                     onTahakkukDegistir={(yapildi) => onTahakkukDegistir(m.id, k.key, yapildi)}

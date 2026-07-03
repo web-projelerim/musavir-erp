@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
+import { useAuth } from "@/lib/context/AuthContext";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
@@ -156,6 +157,7 @@ function VergiSelect({
 
 export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicilar = [] }: Props) {
   const toast = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState<Tab>("mukellef");
@@ -378,6 +380,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
           });
         } else {
           await createMusteri({
+            ofisId: user?.ofisId,
             firmaAdi: form.firmaAdi,
             vknTckn: form.vknTckn.replace(/\D/g, ""),
             yetkiliAd: form.yetkiliAd,

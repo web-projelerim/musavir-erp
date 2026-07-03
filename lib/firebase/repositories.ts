@@ -578,6 +578,19 @@ export async function upsertBeyanTakipHucresi(input: BeyanTakipHucresi) {
   return input;
 }
 
+/**
+ * Hücrenin yalnızca belirli alanlarını günceller (merge). durum'a dokunmadan
+ * tahakkuk (T) işaretini bağımsız yazmak için — B/T toggle'ları birbirini ezmez.
+ * Kimlik alanları (ofisId dahil) firestore.rules'un create/update kurallarını karşılar.
+ */
+export async function patchBeyanTakipHucresi(
+  patch: Pick<BeyanTakipHucresi, "id" | "ofisId" | "musteriId" | "vergiTuruKey" | "donem"> &
+    Partial<BeyanTakipHucresi>
+) {
+  await upsertDocument(COLLECTIONS.beyanTakipHucreleri, patch);
+  return patch;
+}
+
 export async function createBeyanTakipNotu(input: Omit<BeyanTakipNotu, "id" | "createdAt">) {
   const notu: BeyanTakipNotu = {
     ...input,

@@ -759,6 +759,8 @@ export type AuditEntityType =
 
 export interface AuditLog {
   id: string;
+  /** Çok-kiracılı izolasyon + firestore.rules (sameOffice) için zorunlu. */
+  ofisId?: string;
   actorId: string;
   actorName: string;
   actorRole: AuditActorRole;
@@ -830,6 +832,8 @@ export interface BeyanTakipHucresi {
   vergiTuruKey: string;
   donem: string;
   durum: BeyanTakipDurum;
+  /** Tahakkuk fişi işlendi mi (B/T matrisindeki T işareti). Beyandan (durum) bağımsız izlenir. */
+  tahakkukYapildi?: boolean;
   guncellenmeTarihi: string;
   guncelleyenAd?: string;
   beyannameId?: string;

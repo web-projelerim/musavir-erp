@@ -25,6 +25,7 @@ export function useAuditLog() {
 
       try {
         await createAuditLog({
+          ofisId: user?.ofisId,
           actorId: user?.id ?? "system",
           actorName: user ? `${user.ad} ${user.soyad}`.trim() || user.email : "Sistem",
           actorRole: user?.rol ?? "system",

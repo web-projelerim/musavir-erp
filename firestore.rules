@@ -62,7 +62,9 @@ service cloud.firestore {
     // ─── Kullanıcılar (uid bazlı, ofisId filtresi yok) ────────────────────────
 
     match /kullanicilar/{userId} {
-      allow read:   if isSignedIn() && (ownUser(userId) || isStaff());
+      allow read:   if isSignedIn()
+                    && (ownUser(userId)
+                        || (isStaff() && resource.data.ofisId == currentOfisId()));
       allow create: if ownUser(userId)
                     && request.resource.data.email == request.auth.token.email;
       allow update: if ownUser(userId) || isMusavir();
@@ -72,8 +74,7 @@ service cloud.firestore {
     // ─── Davetler (ofisId filtreli) ───────────────────────────────────────────
 
     match /davetler/{davetId} {
-      allow read:   if sameOffice(resource.data.ofisId) ||
-                      // Davet e-postası eşleşen giriş yapmış kullanıcı kendi davetini okuyabilir
+      allow read:   if (isStaff() && resource.data.ofisId == currentOfisId()) ||
                       (isSignedIn() && resource.data.email == request.auth.token.email);
       allow create: if writingToOwnOffice() && isStaff();
       allow update: if sameOffice(resource.data.ofisId) ||
@@ -272,28 +273,28 @@ service cloud.firestore {
     }
 
     match /lucaEntegrasyonAyarlari/{id} {
-      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
       allow create: if isMusavir() && writingToOwnOffice();
       allow update: if isMusavir() && sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
     match /whatsappEntegrasyonAyarlari/{id} {
-      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
       allow create: if isMusavir() && writingToOwnOffice();
       allow update: if isMusavir() && sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
     match /bankaEntegrasyonAyarlari/{id} {
-      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
       allow create: if isMusavir() && writingToOwnOffice();
       allow update: if isMusavir() && sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
     match /emailEntegrasyonAyarlari/{id} {
-      allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
+      allow read:   if isStaff() && sameOffice(resource.data.ofisId);
       allow create: if isMusavir() && writingToOwnOffice();
       allow update: if isMusavir() && sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
@@ -319,18 +320,41 @@ service cloud.firestore {
     // ─── Hızlı notlar ────────────────────────────────────────────────────────
 
     match /notlar/{notId} {
-      // Sadece yazanın kendisi (uid eşleşmesi) veya paylaşılan email görebilir
       allow read:   if isSignedIn()
                     && (resource.data.createdBy == request.auth.uid
-                        || request.auth.token.email in resource.data.paylasilanEmails);
+                        || request.auth.token.email in resource.data.paylasilanEmails
+                        || sameOffice(resource.data.ofisId));
       allow create: if isStaff() && writingToOwnOffice();
-      // Sadece yazan silebilir
       allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
-      // Tikleme: sadece tikleyenler alanı güncellenebilir — yazan veya paylaşılan tıklayabilir
       allow update: if isSignedIn()
                     && (resource.data.createdBy == request.auth.uid
                         || request.auth.token.email in resource.data.paylasilanEmails)
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["tikleyenler"]);
+    }
+
+    // ─── GİB Sözleşmeleri ────────────────────────────────────────────────────
+
+    match /gibSozlesmeleri/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    // ─── Vergi Takvimi ───────────────────────────────────────────────────────
+
+    match /vergiTakvimi/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
+    }
+
+    match /vergiTakvimiGuncellemeleri/{id} {
+      allow read:   if sameOffice(resource.data.ofisId);
+      allow create: if writingToOwnOffice();
+      allow update: if sameOffice(resource.data.ofisId);
+      allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
     }
 
   }

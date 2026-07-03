@@ -44,9 +44,11 @@ export function useAppData() {
   const ofisId = user?.ofisId;
   const isMukellef = user?.rol === "mukellef";
 
-  const ofisler = useCollectionData<Ofis>(COLLECTIONS.ofisler, [], enabled);
-  const kullanicilar = useCollectionData<User>(COLLECTIONS.kullanicilar, [], enabled, ofisId);
-  const davetler = useCollectionData<Davet>(COLLECTIONS.davetler, [], enabled, ofisId);
+  const isStaff = !isMukellef;
+  const ofisDoc = useDocumentData<Ofis>(COLLECTIONS.ofisler, isStaff ? ofisId : undefined, enabled && isStaff);
+  const ofisler = { data: ofisDoc.data ? [ofisDoc.data] : [], loading: ofisDoc.loading, source: ofisDoc.source };
+  const kullanicilar = useCollectionData<User>(COLLECTIONS.kullanicilar, [], enabled && isStaff, ofisId);
+  const davetler = useCollectionData<Davet>(COLLECTIONS.davetler, [], enabled && isStaff, ofisId);
   // Mükellef: doğrudan musteriId ile belge aboneliği — ofisId uyuşmazlığını aşar
   const musterilerCollection = useCollectionData<Musteri>(COLLECTIONS.musteriler, [], enabled && !isMukellef, ofisId);
   const mukellefMusteri = useDocumentData<Musteri>(COLLECTIONS.musteriler, isMukellef ? user?.musteriId : undefined, enabled && isMukellef);
@@ -69,15 +71,15 @@ export function useAppData() {
   const kdv2 = useCollectionData<KDV2Hesaplama>(COLLECTIONS.kdv2, [], enabled, ofisId);
   const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], enabled, ofisId);
   const belgeler = useCollectionData<Belge>(COLLECTIONS.belgeler, [], enabled, ofisId);
-  const auditLogs = useCollectionData<AuditLog>(COLLECTIONS.auditLogs, [], enabled, ofisId);
-  const gibEntegrasyonAyarlari = useCollectionData<GibEntegrasyonAyari>(COLLECTIONS.gibEntegrasyonAyarlari, [], enabled, ofisId);
-  const lucaEntegrasyonAyarlari = useCollectionData<LucaEntegrasyonAyari>(COLLECTIONS.lucaEntegrasyonAyarlari, [], enabled, ofisId);
-  const whatsappEntegrasyonAyarlari = useCollectionData<WhatsAppEntegrasyonAyari>(COLLECTIONS.whatsappEntegrasyonAyarlari, [], enabled, ofisId);
-  const bankaEntegrasyonAyarlari = useCollectionData<BankaEntegrasyonAyari>(COLLECTIONS.bankaEntegrasyonAyarlari, [], enabled, ofisId);
-  const emailEntegrasyonAyarlari = useCollectionData<EmailEntegrasyonAyari>(COLLECTIONS.emailEntegrasyonAyarlari, [], enabled, ofisId);
-  const entegrasyonLoglari = useCollectionData<EntegrasyonLog>(COLLECTIONS.entegrasyonLoglari, [], enabled, ofisId);
-  const notlar = useCollectionData<Not>(COLLECTIONS.notlar, [], enabled, ofisId);
-  const gibSozlesmeleri = useCollectionData<GibSozlesme>(COLLECTIONS.gibSozlesmeleri, [], enabled, ofisId);
+  const auditLogs = useCollectionData<AuditLog>(COLLECTIONS.auditLogs, [], enabled && isStaff, ofisId);
+  const gibEntegrasyonAyarlari = useCollectionData<GibEntegrasyonAyari>(COLLECTIONS.gibEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
+  const lucaEntegrasyonAyarlari = useCollectionData<LucaEntegrasyonAyari>(COLLECTIONS.lucaEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
+  const whatsappEntegrasyonAyarlari = useCollectionData<WhatsAppEntegrasyonAyari>(COLLECTIONS.whatsappEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
+  const bankaEntegrasyonAyarlari = useCollectionData<BankaEntegrasyonAyari>(COLLECTIONS.bankaEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
+  const emailEntegrasyonAyarlari = useCollectionData<EmailEntegrasyonAyari>(COLLECTIONS.emailEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
+  const entegrasyonLoglari = useCollectionData<EntegrasyonLog>(COLLECTIONS.entegrasyonLoglari, [], enabled && isStaff, ofisId);
+  const notlar = useCollectionData<Not>(COLLECTIONS.notlar, [], enabled && isStaff, ofisId);
+  const gibSozlesmeleri = useCollectionData<GibSozlesme>(COLLECTIONS.gibSozlesmeleri, [], enabled && isStaff, ofisId);
 
   const normalizedBeyannameler = beyannameler.data;
   const normalizedTahakkuklar = useMemo(

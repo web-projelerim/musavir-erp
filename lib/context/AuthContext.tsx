@@ -20,7 +20,7 @@ import {
   updateProfile,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import { firebaseAuth, firestoreDb } from "@/lib/firebase/client";
 import { withoutUndefined } from "@/lib/firebase/firestore";
 import type { KullaniciYetki, Ofis, User, UserRole } from "@/lib/types";
@@ -122,10 +122,11 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     return appUser;
   }
 
-  // Firestore belgesi yok — signUp akışı henüz tamamlanmamış olabilir.
+  // Firestore belgesi yok — signUp akışı yarıda kalmış olabilir.
+  // Firestore'a yaz ki güvenlik kuralları (userDoc) düzgün çalışsın.
   const displayName = firebaseUser.displayName ?? "";
   const [ad = "Kullanici", soyad = ""] = displayName.split(" ");
-  return {
+  const fallbackUser: User = {
     id: firebaseUser.uid,
     ofisId: firebaseUser.uid,
     ad,
@@ -135,6 +136,31 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     aktif: true,
     createdAt: new Date().toISOString(),
   };
+  if (firestoreDb) {
+    try {
+      await setDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid), withoutUndefined(fallbackUser));
+      console.log("[Auth] kullanicilar fallback yazıldı:", firebaseUser.uid);
+    } catch (e) {
+      console.error("[Auth] kullanicilar fallback YAZILAMADI:", e);
+    }
+    try {
+      const ofisSnap = await getDoc(doc(firestoreDb, "ofisler", firebaseUser.uid));
+      if (!ofisSnap.exists()) {
+        const ofisDoc: Ofis = {
+          id: firebaseUser.uid,
+          unvan: displayName || "Yeni Ofis",
+          whatsappDurum: "pasif",
+          gibDurum: "pasif",
+          createdAt: fallbackUser.createdAt,
+        };
+        await setDoc(doc(firestoreDb, "ofisler", firebaseUser.uid), withoutUndefined(ofisDoc));
+        console.log("[Auth] ofisler fallback yazıldı:", firebaseUser.uid);
+      }
+    } catch (e) {
+      console.error("[Auth] ofisler fallback YAZILAMADI:", e);
+    }
+  }
+  return fallbackUser;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -217,7 +243,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(davetId ? { davetId } : {}),
     };
 
-    // kullanicilar önce yazılmalı — ofisler create kuralı isMusavir() ile kullanicilar dokümanını okur
     await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), withoutUndefined(appUser));
 
     if (rol === "musavir" && !ofisId) {

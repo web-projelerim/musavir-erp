@@ -203,17 +203,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? credential.user.uid
       : (ofisId ?? credential.user.uid);
 
-    if (rol === "musavir" && !ofisId) {
-      const ofisDoc: Ofis = {
-        id: resolvedOfisId,
-        unvan: `${ad} ${soyad}`.trim(),
-        whatsappDurum: "pasif",
-        gibDurum: "pasif",
-        createdAt,
-      };
-      await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
-    }
-
     const appUser: User = {
       id: credential.user.uid,
       ofisId: resolvedOfisId,
@@ -228,7 +217,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ...(davetId ? { davetId } : {}),
     };
 
+    // kullanicilar önce yazılmalı — ofisler create kuralı isMusavir() ile kullanicilar dokümanını okur
     await setDoc(doc(firestoreDb, "kullanicilar", credential.user.uid), withoutUndefined(appUser));
+
+    if (rol === "musavir" && !ofisId) {
+      const ofisDoc: Ofis = {
+        id: resolvedOfisId,
+        unvan: `${ad} ${soyad}`.trim(),
+        whatsappDurum: "pasif",
+        gibDurum: "pasif",
+        createdAt,
+      };
+      await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
+    }
     setUser(appUser);
     return appUser;
   }, []);

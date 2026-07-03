@@ -52,7 +52,9 @@ service cloud.firestore {
 
     match /ofisler/{docOfisId} {
       allow read:   if isSignedIn() && currentOfisId() == docOfisId;
-      allow create: if isMusavir() && request.resource.data.id == docOfisId;
+      allow create: if isSignedIn()
+                    && request.resource.data.id == docOfisId
+                    && request.auth.uid == docOfisId;
       allow update: if isMusavir() && currentOfisId() == docOfisId;
       allow delete: if false;
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { COLLECTIONS } from "@/lib/firebase/firestore";
+import { COLLECTIONS, type CollectionFilter } from "@/lib/firebase/firestore";
 import { mergeDerivedVergiTahakkuklari } from "@/lib/domain/tahakkuk";
 import { useCollectionData } from "@/lib/hooks/useCollectionData";
 import { useDocumentData } from "@/lib/hooks/useDocumentData";
@@ -45,6 +45,16 @@ export function useAppData() {
   const isMukellef = user?.rol === "mukellef";
 
   const isStaff = !isMukellef;
+  const musteriId = user?.musteriId;
+
+  // Mükellef koleksiyonları ofisId yerine musteriId ile filtrelenir — Firestore
+  // kuralları mükellefe yalnızca kendi musteriId'sine ait kayıtları açar; ofisId
+  // sorgusu ofisin tüm müşterilerini kapsayacağından tümden reddedilir.
+  const mukellefFilter: CollectionFilter[] | undefined =
+    isMukellef && musteriId ? [{ field: "musteriId", op: "==", value: musteriId }] : undefined;
+  // Mükellef ama musteriId yoksa (bozuk kayıt) hiç sorgu atma.
+  const mukellefVeriEnabled = enabled && (!isMukellef || !!musteriId);
+
   const ofisDoc = useDocumentData<Ofis>(COLLECTIONS.ofisler, isStaff ? ofisId : undefined, enabled && isStaff);
   const ofisler = { data: ofisDoc.data ? [ofisDoc.data] : [], loading: ofisDoc.loading, source: ofisDoc.source };
   const kullanicilar = useCollectionData<User>(COLLECTIONS.kullanicilar, [], enabled && isStaff, ofisId);
@@ -55,22 +65,22 @@ export function useAppData() {
   const musteriler = isMukellef
     ? { data: mukellefMusteri.data ? [mukellefMusteri.data] : [], loading: mukellefMusteri.loading, source: mukellefMusteri.source }
     : musterilerCollection;
-  const mukellefiyetProfilleri = useCollectionData<MukellefiyetProfili>(COLLECTIONS.mukellefiyetProfilleri, [], enabled, ofisId);
-  const yukumlulukler = useCollectionData<Yukumluluk>(COLLECTIONS.yukumlulukler, [], enabled, ofisId);
-  const gorevler = useCollectionData<Gorev>(COLLECTIONS.gorevler, [], enabled, ofisId);
-  const tebligatlar = useCollectionData<Tebligat>(COLLECTIONS.tebligatlar, [], enabled, ofisId);
-  const beyannameler = useCollectionData<Beyanname>(COLLECTIONS.beyannameler, [], enabled, ofisId);
-  const raporlar = useCollectionData<Rapor>(COLLECTIONS.raporlar, [], enabled, ofisId);
-  const bildirimler = useCollectionData<Bildirim>(COLLECTIONS.bildirimler, [], enabled, ofisId);
-  const tahsilatlar = useCollectionData<Tahsilat>(COLLECTIONS.tahsilatlar, [], enabled, ofisId);
-  const tahakkuklar = useCollectionData<Tahakkuk>(COLLECTIONS.tahakkuklar, [], enabled, ofisId);
-  const odemeler = useCollectionData<Odeme>(COLLECTIONS.odemeler, [], enabled, ofisId);
-  const bankaEkstreleri = useCollectionData<BankaEkstresi>(COLLECTIONS.bankaEkstreleri, [], enabled, ofisId);
-  const resmiGazeteOzetleri = useCollectionData<ResmiGazeteOzeti>(COLLECTIONS.resmiGazeteOzetleri, [], enabled, ofisId);
-  const gibSyncLogs = useCollectionData<GibSyncLog>(COLLECTIONS.gibSyncLogs, [], enabled, ofisId);
-  const kdv2 = useCollectionData<KDV2Hesaplama>(COLLECTIONS.kdv2, [], enabled, ofisId);
-  const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], enabled, ofisId);
-  const belgeler = useCollectionData<Belge>(COLLECTIONS.belgeler, [], enabled, ofisId);
+  const mukellefiyetProfilleri = useCollectionData<MukellefiyetProfili>(COLLECTIONS.mukellefiyetProfilleri, [], enabled && isStaff, ofisId);
+  const yukumlulukler = useCollectionData<Yukumluluk>(COLLECTIONS.yukumlulukler, [], enabled && isStaff, ofisId);
+  const gorevler = useCollectionData<Gorev>(COLLECTIONS.gorevler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const tebligatlar = useCollectionData<Tebligat>(COLLECTIONS.tebligatlar, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const beyannameler = useCollectionData<Beyanname>(COLLECTIONS.beyannameler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const raporlar = useCollectionData<Rapor>(COLLECTIONS.raporlar, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const bildirimler = useCollectionData<Bildirim>(COLLECTIONS.bildirimler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const tahsilatlar = useCollectionData<Tahsilat>(COLLECTIONS.tahsilatlar, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const tahakkuklar = useCollectionData<Tahakkuk>(COLLECTIONS.tahakkuklar, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const odemeler = useCollectionData<Odeme>(COLLECTIONS.odemeler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const bankaEkstreleri = useCollectionData<BankaEkstresi>(COLLECTIONS.bankaEkstreleri, [], enabled && isStaff, ofisId);
+  const resmiGazeteOzetleri = useCollectionData<ResmiGazeteOzeti>(COLLECTIONS.resmiGazeteOzetleri, [], enabled && isStaff, ofisId);
+  const gibSyncLogs = useCollectionData<GibSyncLog>(COLLECTIONS.gibSyncLogs, [], enabled && isStaff, ofisId);
+  const kdv2 = useCollectionData<KDV2Hesaplama>(COLLECTIONS.kdv2, [], mukellefVeriEnabled, ofisId, mukellefFilter);
+  const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], enabled && isStaff, ofisId);
+  const belgeler = useCollectionData<Belge>(COLLECTIONS.belgeler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
   const auditLogs = useCollectionData<AuditLog>(COLLECTIONS.auditLogs, [], enabled && isStaff, ofisId);
   const gibEntegrasyonAyarlari = useCollectionData<GibEntegrasyonAyari>(COLLECTIONS.gibEntegrasyonAyarlari, [], enabled && isStaff, ofisId);
   const lucaEntegrasyonAyarlari = useCollectionData<LucaEntegrasyonAyari>(COLLECTIONS.lucaEntegrasyonAyarlari, [], enabled && isStaff, ofisId);

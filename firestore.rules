@@ -116,7 +116,8 @@ service cloud.firestore {
     // ─── Görevler ────────────────────────────────────────────────────────────
 
     match /gorevler/{id} {
-      allow read:   if sameOffice(resource.data.ofisId);
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
       allow create: if writingToOwnOffice();
       allow update: if sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);
@@ -223,7 +224,8 @@ service cloud.firestore {
     // ─── KDV2 ────────────────────────────────────────────────────────────────
 
     match /kdv2/{id} {
-      allow read:   if sameOffice(resource.data.ofisId);
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
       allow create: if writingToOwnOffice();
       allow update: if sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);

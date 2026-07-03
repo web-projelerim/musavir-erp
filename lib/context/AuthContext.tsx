@@ -20,7 +20,7 @@ import {
   updateProfile,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { firebaseAuth, firestoreDb } from "@/lib/firebase/client";
 import { withoutUndefined } from "@/lib/firebase/firestore";
 import type { KullaniciYetki, Ofis, User, UserRole } from "@/lib/types";
@@ -139,9 +139,8 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
   if (firestoreDb) {
     try {
       await setDoc(doc(firestoreDb, "kullanicilar", firebaseUser.uid), withoutUndefined(fallbackUser));
-      console.log("[Auth] kullanicilar fallback yazıldı:", firebaseUser.uid);
     } catch (e) {
-      console.error("[Auth] kullanicilar fallback YAZILAMADI:", e);
+      console.error("[Auth] kullanicilar fallback yazılamadı:", e);
     }
     try {
       const ofisSnap = await getDoc(doc(firestoreDb, "ofisler", firebaseUser.uid));
@@ -154,10 +153,9 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
           createdAt: fallbackUser.createdAt,
         };
         await setDoc(doc(firestoreDb, "ofisler", firebaseUser.uid), withoutUndefined(ofisDoc));
-        console.log("[Auth] ofisler fallback yazıldı:", firebaseUser.uid);
       }
     } catch (e) {
-      console.error("[Auth] ofisler fallback YAZILAMADI:", e);
+      console.error("[Auth] ofisler fallback yazılamadı:", e);
     }
   }
   return fallbackUser;

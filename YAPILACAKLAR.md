@@ -49,8 +49,8 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 
 ## P1 — MVP Fonksiyon Tamamlama
 
-- [ ] **Şifre değiştirme akışı** — Ayarlar ekranında tamamla (reauth + updatePassword zaten kısmen var; uçtan uca test et).
-- [ ] **Bildirim tercihleri kalıcılığı** — kullanıcı bazlı ayar modeli + Firestore persist.
+- [x] **Şifre değiştirme akışı** — Ayarlar'daki akış zaten sağlamdı (reauth + hata kodu eşleme + audit); eksik olan **mükellef tarafıydı**: yeniden kullanılabilir `SifreDegistirModal` bileşeni oluşturuldu ve mükellef paneline (başlıktaki anahtar ikonu) eklendi. Gerçek Firebase'de uçtan uca test P0 smoke listesinde.
+- [x] **Bildirim tercihleri kalıcılığı** — `User.bildirimTercihleri` (tip başına aç/kapat, tanımsız=açık → geriye dönük uyumlu) + `lib/domain/bildirim.ts` yardımcıları. Ayarlar → Güvenlik'te toggle kartı (optimistic + hata geri-alma), TopBar zili tercihlere göre filtreliyor, `refreshUser` ile değişiklik anında yansıyor. Ofis düzeyi WhatsApp tercihlerinin zaten kalıcı olduğu doğrulandı.
 - [ ] **KDV2 tevkifat oranları** — hizmet/fatura tipine göre kapsamlı seçim.
 - [ ] **Tahsilat:** kalan bakiye raporlama + toplu tahsilat ekranı.
 - [ ] **Beyanname yaklaşan/geciken** hesaplarını aktif dönem tarihine tam bağla.

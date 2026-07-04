@@ -15,6 +15,8 @@ export interface User {
   aktif: boolean;
   /** SMMM / YMM ruhsat numarası — yalnızca musavir rolünde anlamlı */
   ruhsatNo?: string;
+  /** Panel içi bildirim tercihleri; tanımsız tip açık kabul edilir */
+  bildirimTercihleri?: BildirimTercihleri;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -667,6 +669,9 @@ export type BildirimTip =
   | "tahsilat"
   | "sistem";
 export type BildirimDurum = "okunmamis" | "okundu";
+
+/** Kullanıcı bazlı bildirim tercihleri — tip başına aç/kapat. Tanımsız tip = açık. */
+export type BildirimTercihleri = Partial<Record<BildirimTip, boolean>>;
 
 export interface Bildirim {
   id: string;

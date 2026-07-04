@@ -35,6 +35,8 @@ interface AuthContextValue {
   resetPassword: (email: string) => Promise<void>;
   /** Mevcut şifreyi doğrulayıp yeni şifreye günceller. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /** Firestore'daki kullanıcı kaydını yeniden okuyup context'i tazeler (örn. tercih değişimi sonrası). */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -345,9 +347,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await updatePassword(currentUser, newPassword);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const currentUser = firebaseAuth?.currentUser;
+    if (!currentUser) return;
+    try {
+      setUser(await resolveAppUser(currentUser));
+    } catch (err) {
+      console.warn("[Auth] refreshUser hatası:", err);
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, signIn, signUp, signOut, resetPassword, changePassword }),
-    [changePassword, loading, resetPassword, signIn, signOut, signUp, user]
+    () => ({ user, loading, signIn, signUp, signOut, resetPassword, changePassword, refreshUser }),
+    [changePassword, loading, refreshUser, resetPassword, signIn, signOut, signUp, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

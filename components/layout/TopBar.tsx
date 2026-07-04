@@ -7,6 +7,7 @@ import { formatSureGecmis } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
+import { isBildirimEnabled } from "@/lib/domain/bildirim";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateBildirimDurum } from "@/lib/firebase/repositories";
 import { useToast } from "@/lib/context/ToastContext";
@@ -18,9 +19,11 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const [showNotif, setShowNotif] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const { bildirimler, musteriler, gorevler, raporlar } = useAppData();
+  const { bildirimler: tumBildirimler, musteriler, gorevler, raporlar } = useAppData();
   const { user } = useAuth();
   const toast = useToast();
+  // Kullanıcının kapattığı bildirim tipleri gösterilmez (tercih tanımsızsa açık)
+  const bildirimler = tumBildirimler.filter((b) => isBildirimEnabled(user, b.tip));
   const okunmamis = bildirimler.filter((b) => b.durum === "okunmamis").length;
   const initials = user ? `${user.ad[0] ?? ""}${user.soyad[0] ?? ""}` : "AM";
   const query = searchText.trim().toLowerCase();

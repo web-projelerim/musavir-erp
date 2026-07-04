@@ -12,10 +12,12 @@ import {
   Download,
   Upload,
   LogOut,
+  KeyRound,
 } from "lucide-react";
 import { Badge, BeyannameBadge, TahsilatBadge, RaporDurumBadge } from "@/components/ui/Badge";
 import { MetricCard, Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SifreDegistirModal } from "@/components/auth/SifreDegistirModal";
 import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { PageLoading } from "@/components/ui/PageLoading";
@@ -35,6 +37,7 @@ function formatDosyaBoyutu(bytes: number) {
 export default function MukellefPanelPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const [sifreModalOpen, setSifreModalOpen] = useState(false);
   const {
     musteriler,
     beyannameler,
@@ -143,6 +146,14 @@ export default function MukellefPanelPage() {
             </div>
             <button
               type="button"
+              onClick={() => setSifreModalOpen(true)}
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Şifre Değiştir"
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
               onClick={async () => {
                 await signOut();
                 router.replace("/giris");
@@ -155,6 +166,7 @@ export default function MukellefPanelPage() {
           </div>
         </div>
       </header>
+      <SifreDegistirModal open={sifreModalOpen} onClose={() => setSifreModalOpen(false)} />
 
       <main className="max-w-5xl mx-auto px-4 py-5 sm:px-6 sm:py-8">
         {/* Firma özeti */}

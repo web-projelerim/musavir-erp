@@ -23,6 +23,7 @@ import { isMusavir } from "@/lib/utils/permissions";
 import { authHeaders } from "@/lib/firebase/client";
 import { syncClaimsFor } from "@/lib/firebase/syncClaims";
 import { TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
+import { BILDIRIM_TIP_LABELS, TUM_BILDIRIM_TIPLERI } from "@/lib/domain/bildirim";
 import {
   createAuditLog,
   createEntegrasyonLog,
@@ -45,6 +46,8 @@ import { FirebaseError } from "firebase/app";
 import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErrors";
 import type {
   AuditAction,
+  BildirimTercihleri,
+  BildirimTip,
   KullaniciYetki,
   EntegrasyonDurum,
   GibEntegrasyonAyari,
@@ -168,7 +171,7 @@ function panelTitle(panel: IntegrationPanel) {
 
 export default function AyarlarPage() {
   const toast = useToast();
-  const { user, changePassword } = useAuth();
+  const { user, changePassword, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("kurum");
   const [activeIntegration, setActiveIntegration] = useState<IntegrationPanel>("gib");
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1034,6 +1037,39 @@ export default function AyarlarPage() {
     }
   };
 
+  // ─── Bildirim tercihleri (kullanıcı bazlı, kalıcı) ────────────────────────
+
+  const [bildirimSaving, setBildirimSaving] = useState(false);
+  // Context'teki user oturum boyunca sabit kalır; UI'ın anında yansıması için
+  // tercihler lokal state'te tutulur (kaynak: user.bildirimTercihleri).
+  const [bildirimTercihleri, setBildirimTercihleri] = useState<BildirimTercihleri>(
+    user?.bildirimTercihleri ?? {}
+  );
+  useEffect(() => {
+    setBildirimTercihleri(user?.bildirimTercihleri ?? {});
+  }, [user?.bildirimTercihleri]);
+
+  const handleBildirimTercihDegistir = async (tip: BildirimTip, acik: boolean) => {
+    if (!user) return;
+    setBildirimSaving(true);
+    const onceki = bildirimTercihleri;
+    const yeni = { ...bildirimTercihleri, [tip]: acik };
+    setBildirimTercihleri(yeni); // optimistic
+    try {
+      await updateKullanici(user.id, { bildirimTercihleri: yeni });
+      await refreshUser(); // TopBar zil filtresi anında güncellensin
+      toast.success(
+        acik ? "Bildirim açıldı" : "Bildirim kapatıldı",
+        `${BILDIRIM_TIP_LABELS[tip]} tercihi kaydedildi.`
+      );
+    } catch (err) {
+      setBildirimTercihleri(onceki); // geri al
+      toast.error("Tercih kaydedilemedi", err instanceof Error ? err.message : undefined);
+    } finally {
+      setBildirimSaving(false);
+    }
+  };
+
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
       const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
@@ -1894,6 +1930,39 @@ export default function AyarlarPage() {
 
           {activeTab === "guvenlik" && (
             <div className="space-y-4">
+              {/* Bildirim Tercihleri — kullanıcı bazlı, Firestore'da kalıcı */}
+              <Card>
+                <div className="flex items-center gap-2 mb-1">
+                  <Bell className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold text-slate-800">Bildirim Tercihleri</h3>
+                </div>
+                <p className="text-xs text-slate-500 mb-4">
+                  Panel içi bildirim zilinde hangi tür bildirimleri görmek istediğinizi seçin. Tercihler hesabınıza kaydedilir.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl">
+                  {TUM_BILDIRIM_TIPLERI.map((tip) => {
+                    const acik = bildirimTercihleri[tip] !== false;
+                    return (
+                      <label
+                        key={tip}
+                        className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                          acik ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <span className="text-xs font-medium text-slate-700">{BILDIRIM_TIP_LABELS[tip]}</span>
+                        <input
+                          type="checkbox"
+                          checked={acik}
+                          disabled={bildirimSaving}
+                          onChange={(e) => handleBildirimTercihDegistir(tip, e.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </Card>
+
               {/* Şifre Değiştirme */}
               <Card>
                 <div className="flex items-center gap-2 mb-4">

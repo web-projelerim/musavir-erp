@@ -11,9 +11,9 @@ import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { createDavet } from "@/lib/firebase/repositories";
-import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry } from "@/lib/domain/davet";
+import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry, PERSONEL_DEFAULT_YETKILER, TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
 import { getOfisId } from "@/lib/domain/office";
-import type { UserRole } from "@/lib/types";
+import type { KullaniciYetki, UserRole } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -34,6 +34,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
   const [createdLink, setCreatedLink] = useState("");
   const [emailGonder, setEmailGonder] = useState(true);
   const [emailGonderiliyor, setEmailGonderiliyor] = useState(false);
+  const [yetkiler, setYetkiler] = useState<KullaniciYetki[]>(PERSONEL_DEFAULT_YETKILER);
   const fixedMukellef = Boolean(musteriId);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       setRole(defaultRole);
       setEmail(defaultEmail);
       setCreatedLink("");
+      setYetkiler(PERSONEL_DEFAULT_YETKILER);
     }
   }, [defaultEmail, defaultRole, open]);
 
@@ -63,6 +65,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
           email,
           musteriId,
           musteriAdi,
+          yetkiler: !fixedMukellef && role === "personel" ? yetkiler : [],
           tokenHash: await hashInviteToken(token),
           davetLinki: link,
           expiresAt: inviteExpiry(7),
@@ -156,6 +159,33 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
               { value: "musavir", label: "Mali Müşavir" },
             ]}
           />
+        )}
+        {!fixedMukellef && role === "personel" && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-semibold text-slate-700 mb-2">Personel yetkileri</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {TUM_YETKILER.map((y) => (
+                <label key={y} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={yetkiler.includes(y)}
+                    onChange={(e) =>
+                      setYetkiler((prev) =>
+                        e.target.checked ? [...prev, y] : prev.filter((p) => p !== y)
+                      )
+                    }
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {YETKI_LABELS[y]}
+                </label>
+              ))}
+            </div>
+            {yetkiler.includes("vkn_goruntule") && (
+              <p className="mt-2 text-[11px] text-amber-700">
+                VKN/TCKN açık görüntüleme hassas bir yetkidir; yalnızca gerekli personele verin.
+              </p>
+            )}
+          </div>
         )}
         {musteriAdi && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">

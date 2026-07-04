@@ -186,6 +186,8 @@ export interface Davet {
   email: string;
   musteriId?: string;
   musteriAdi?: string;
+  /** Personel davetinde atanacak yetkiler; davet anında müşavir belirler. */
+  yetkiler?: KullaniciYetki[];
   tokenHash: string;
   davetLinki: string;
   durum: DavetDurum;

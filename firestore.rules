@@ -101,7 +101,11 @@ service cloud.firestore {
              && davet.rol == request.resource.data.rol
              && davet.ofisId == request.resource.data.ofisId
              && (request.resource.data.rol != 'mukellef'
-                 || davet.musteriId == request.resource.data.musteriId);
+                 || davet.musteriId == request.resource.data.musteriId)
+             // Yetkiler davetle birebir eşleşmeli — davetli kendine yetki
+             // (örn. vkn_goruntule) ekleyemez. Eski/yetkisiz davetlerde her
+             // iki taraf da boş listeye düşer.
+             && request.resource.data.get('yetkiler', []) == davet.get('yetkiler', []);
     }
 
     match /kullanicilar/{userId} {

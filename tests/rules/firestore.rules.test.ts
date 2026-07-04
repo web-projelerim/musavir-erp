@@ -143,6 +143,17 @@ describe("firestore.rules — rol yükseltme ve tenant izolasyonu", () => {
     );
   });
 
+  it.skipIf(() => !env)("SALDIRI: davetli, davette olmayan yetkiyi kendine ekleyemez", async () => {
+    const davetli = env!.authenticatedContext("davetli-uid4", { email: "davetli@mail.com" }).firestore();
+    await assertFails(
+      davetli.doc("kullanicilar/davetli-uid4").set({
+        id: "davetli-uid4", rol: "personel", ofisId: "kurban-ofis",
+        email: "davetli@mail.com", aktif: true, davetId: "davet-1",
+        yetkiler: ["vkn_goruntule"], // davette bu yetki yok
+      })
+    );
+  });
+
   // ─── B1: Custom claim hızlı yolu ───────────────────────────────────────────
 
   it.skipIf(() => !env)("CLAIM: rol claim'i taşıyan kullanıcı Firestore dokümanı OLMADAN müşteri okuyabilir", async () => {

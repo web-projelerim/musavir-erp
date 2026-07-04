@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateDavet } from "@/lib/firebase/repositories";
-import { defaultYetkilerForRole, hashInviteToken } from "@/lib/domain/davet";
+import { hashInviteToken } from "@/lib/domain/davet";
 import { parseFirebaseSignUpError } from "@/lib/utils/firebaseErrors";
 import { useAppData } from "@/lib/hooks/useAppData";
 import type { Davet } from "@/lib/types";
@@ -94,7 +94,7 @@ export default function DavetPage({ params }: { params: { token: string } }) {
         ofisId: davet.ofisId,
         musteriId: davet.musteriId,
         davetId: davet.id,
-        yetkiler: defaultYetkilerForRole(davet.rol),
+        yetkiler: davet.yetkiler ?? [],
       });
       if (isFirebaseConfigured) {
         await updateDavet(davet.id, {

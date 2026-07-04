@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { isMusavir } from "@/lib/utils/permissions";
 import { authHeaders } from "@/lib/firebase/client";
 import { syncClaimsFor } from "@/lib/firebase/syncClaims";
+import { TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
 import {
   createAuditLog,
   createEntegrasyonLog,
@@ -44,6 +45,7 @@ import { FirebaseError } from "firebase/app";
 import { parseFirestoreError, parseGibSyncError } from "@/lib/utils/firebaseErrors";
 import type {
   AuditAction,
+  KullaniciYetki,
   EntegrasyonDurum,
   GibEntegrasyonAyari,
   GibSyncLog,
@@ -172,6 +174,8 @@ export default function AyarlarPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   // Rol/durum değiştirme akışı (yalnızca müşavir)
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [yetkiEditUserId, setYetkiEditUserId] = useState<string | null>(null);
+  const [yetkiDraft, setYetkiDraft] = useState<KullaniciYetki[]>([]);
   const {
     auditLogs,
     bankaEntegrasyonAyarlari,
@@ -995,6 +999,41 @@ export default function AyarlarPage() {
     }
   };
 
+  const handleYetkiPanelAc = (hedef: (typeof kullanicilar)[number]) => {
+    if (yetkiEditUserId === hedef.id) {
+      setYetkiEditUserId(null);
+      return;
+    }
+    setYetkiEditUserId(hedef.id);
+    setYetkiDraft(hedef.yetkiler ?? []);
+  };
+
+  const handleYetkiKaydet = async (hedef: (typeof kullanicilar)[number]) => {
+    setSavingUserId(hedef.id);
+    try {
+      await updateKullanici(hedef.id, { yetkiler: yetkiDraft });
+      createAuditLog({
+        actorId: user?.id ?? "",
+        actorName: user ? `${user.ad} ${user.soyad}`.trim() : "Bilinmeyen",
+        actorRole: user?.rol ?? "musavir",
+        action: "update" as AuditAction,
+        entityType: "sistem",
+        entityId: hedef.id,
+        entityLabel: hedef.email,
+        summary: `Yetkiler güncellendi: ${yetkiDraft.length ? yetkiDraft.map((y) => YETKI_LABELS[y]).join(", ") : "(boş)"}`,
+      }).catch((e) => console.warn("[Audit] Yetki log hatası:", e));
+      toast.success(
+        "Yetkiler güncellendi",
+        "Değişiklik kullanıcının bir sonraki oturumunda etkin olur."
+      );
+      setYetkiEditUserId(null);
+    } catch (err) {
+      toast.error("Yetkiler kaydedilemedi", err instanceof Error ? err.message : undefined);
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
       const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
@@ -1585,7 +1624,8 @@ export default function AyarlarPage() {
                       const avatarBg = u.rol === "musavir" ? "bg-blue-100" : u.rol === "personel" ? "bg-violet-100" : "bg-emerald-100";
                       const avatarText = u.rol === "musavir" ? "text-blue-700" : u.rol === "personel" ? "text-violet-700" : "text-emerald-700";
                       return (
-                        <div key={u.id} className="flex items-center justify-between py-3">
+                        <div key={u.id} className="py-3">
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className={`flex h-8 w-8 items-center justify-center rounded-full ${avatarBg}`}>
                               <span className={`text-xs font-bold ${avatarText}`}>{u.ad[0]}{u.soyad[0]}</span>
@@ -1628,6 +1668,20 @@ export default function AyarlarPage() {
                                 >
                                   {u.aktif ? "Aktif" : "Pasif"}
                                 </button>
+                                {u.rol === "personel" && (
+                                  <button
+                                    type="button"
+                                    disabled={savingUserId === u.id}
+                                    onClick={() => handleYetkiPanelAc(u)}
+                                    className={`rounded-lg px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                      yetkiEditUserId === u.id
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    Yetkiler{u.yetkiler?.length ? ` (${u.yetkiler.length})` : ""}
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1638,6 +1692,41 @@ export default function AyarlarPage() {
                               </>
                             )}
                           </div>
+                        </div>
+                        {yetkiEditUserId === u.id && (
+                          <div className="mt-2 ml-11 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              {TUM_YETKILER.map((y) => (
+                                <label key={y} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={yetkiDraft.includes(y)}
+                                    onChange={(e) =>
+                                      setYetkiDraft((prev) =>
+                                        e.target.checked ? [...prev, y] : prev.filter((p) => p !== y)
+                                      )
+                                    }
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  {YETKI_LABELS[y]}
+                                </label>
+                              ))}
+                            </div>
+                            {yetkiDraft.includes("vkn_goruntule") && !u.yetkiler?.includes("vkn_goruntule") && (
+                              <p className="mt-2 text-[11px] text-amber-700">
+                                VKN/TCKN açık görüntüleme hassas bir yetkidir; yalnızca gerekli personele verin.
+                              </p>
+                            )}
+                            <div className="mt-3 flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setYetkiEditUserId(null)}>
+                                Vazgeç
+                              </Button>
+                              <Button size="sm" loading={savingUserId === u.id} onClick={() => handleYetkiKaydet(u)}>
+                                Kaydet
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         </div>
                       );
                     })

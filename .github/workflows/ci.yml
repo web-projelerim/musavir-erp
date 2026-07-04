@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Tip kontrolü
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx next lint
+
+      - name: Birim testler
+        run: npx vitest run
+
+      - name: Build
+        run: npx next build
+        env:
+          # Build için Firebase yapılandırması gerekmez (demo fallback) — ama
+          # NODE_ENV=production'da demo fallback kapalı olduğundan public env'ler
+          # placeholder olarak verilir; gerçek değerler deploy ortamında tanımlanır.
+          NEXT_PUBLIC_FIREBASE_API_KEY: "ci-placeholder"
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: "ci.firebaseapp.com"
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: "ci-project"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "1:1:web:ci"
+
+  rules-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Java kurulumu (Firestore emülatörü için)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Rules testleri (emülatörlü)
+        run: |
+          firebase emulators:exec --only firestore --project demo-musavir \
+            "npm run test:rules"

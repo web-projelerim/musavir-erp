@@ -491,6 +491,36 @@ export interface Rapor {
   kanal?: "whatsapp" | "email" | "panel";
   pdfUrl?: string;
   pdfStoragePath?: string;
+  /** Bu raporu üreten şablon id'si (varsa) */
+  sablonId?: string;
+}
+
+/** Rapor şablonunda yer alacak içerik bölümleri (aç/kapat) */
+export type RaporBolumKey =
+  | "ozet"
+  | "musteri_bilgileri"
+  | "gorevler"
+  | "beyannameler"
+  | "tahsilatlar"
+  | "tebligatlar"
+  | "risk";
+
+export interface RaporSablon {
+  id: string;
+  ofisId: string;
+  ad: string;
+  tip: RaporTip;
+  /** Rapora dahil edilecek bölümler (sıralı) */
+  bolumler: RaporBolumKey[];
+  /** Başlık/altbilgi gibi serbest metin alanları */
+  ustBaslik?: string;
+  altNot?: string;
+  /** VKN/TCKN maskeleme zorunlu mu (yetkiden bağımsız) */
+  vknMaskeliZorla?: boolean;
+  varsayilan?: boolean;
+  olusturan: string;
+  createdAt: string;
+  guncellenmeTarihi?: string;
 }
 
 // ─── Risk Sinyali ────────────────────────────────────────────

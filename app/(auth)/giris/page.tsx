@@ -10,6 +10,8 @@ import { parseFirebaseAuthError, parseFirebaseResetError, parseFirebaseSignUpErr
 export default function GirisPage() {
   const router = useRouter();
   const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
+  // B2: davet_only modunda self-signup kapatılır (yalnızca davetle katılım)
+  const kayitKapali = process.env.NEXT_PUBLIC_KAYIT_MODU === "davet_only";
   const toast = useToast();
   const [authMode, setAuthMode] = useState<"login" | "register" | "forgot">("login");
   const [showPass, setShowPass] = useState(false);
@@ -41,6 +43,11 @@ export default function GirisPage() {
     setError(null);
 
     try {
+      if (authMode === "register" && kayitKapali) {
+        setError("Kayıt kapalı. Lütfen müşavirinizin gönderdiği davet bağlantısını kullanın.");
+        setLoading(false);
+        return;
+      }
       if (authMode === "register") {
         if (!ad.trim() || !soyad.trim()) {
           setError("Ad ve soyad alanlarını doldurunuz.");
@@ -93,6 +100,7 @@ export default function GirisPage() {
   };
 
   const toggleAuthMode = () => {
+    if (kayitKapali && authMode === "login") return; // davet_only: kayıt kapalı
     const nextMode = authMode === "login" ? "register" : "login";
     setAuthMode(nextMode);
     setError(null);
@@ -407,7 +415,7 @@ export default function GirisPage() {
             </button>
           </form>
 
-          {authMode !== "forgot" && (
+          {authMode !== "forgot" && !(kayitKapali && authMode === "login") && (
             <div className="mt-5 text-center">
               <button
                 type="button"

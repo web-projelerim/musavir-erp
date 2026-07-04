@@ -14,6 +14,9 @@ let cacheExpiry = 0;
 
 async function getPublicKeys(force = false): Promise<Record<string, string>> {
   if (!force && Date.now() < cacheExpiry) return cachedKeys;
+  if (force) {
+    console.info("[verifyToken] Google sertifika cache'i zorla yenileniyor (key rotation olası)");
+  }
   const res = await fetch(JWKS_URL);
   const maxAge = parseInt(res.headers.get("cache-control")?.match(/max-age=(\d+)/)?.[1] ?? "3600");
   cachedKeys = await res.json();

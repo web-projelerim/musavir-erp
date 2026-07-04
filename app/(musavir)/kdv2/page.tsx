@@ -21,6 +21,11 @@ import {
 } from "@/lib/firebase/repositories";
 import { useToast } from "@/lib/context/ToastContext";
 import { formatTarih, formatPara } from "@/lib/utils/format";
+import {
+  hesaplaKdv2,
+  TEVKIFAT_TURLERI,
+  tevkifatOranEtiketi,
+} from "@/lib/domain/tevkifat";
 import type { KDV2Hesaplama } from "@/lib/types";
 
 const KDV_ORANLARI = [
@@ -29,11 +34,12 @@ const KDV_ORANLARI = [
   { value: "20", label: "%20 KDV" },
 ];
 
-const KDV2_ORANI_MAP: Record<string, number> = {
-  "1": 0.5,
-  "10": 0.5,
-  "20": 0.5,
-};
+const TEVKIFAT_SECENEKLERI = TEVKIFAT_TURLERI.map((t) => ({
+  value: t.key,
+  label: `${t.label} (${t.pay}/${t.payda})`,
+}));
+
+const VARSAYILAN_TEVKIFAT = TEVKIFAT_TURLERI[0].key;
 
 const initialForm = () => ({
   musteriId: "",
@@ -41,6 +47,7 @@ const initialForm = () => ({
   belgeNo: "",
   kdvMatrahi: "",
   kdvOrani: "20",
+  tevkifatTuru: VARSAYILAN_TEVKIFAT,
   aciklama: "",
 });
 
@@ -60,9 +67,11 @@ export default function KDV2Page() {
   const editingKayit = editingId ? kayitlar.find((kayit) => kayit.id === editingId) : null;
   const kdvMatrahi = parseFloat(form.kdvMatrahi) || 0;
   const kdvOrani = parseInt(form.kdvOrani);
-  const kdvTutari = kdvMatrahi * (kdvOrani / 100);
-  const kdv2Tutari = kdvTutari * KDV2_ORANI_MAP[form.kdvOrani];
-  const toplamTutar = kdvMatrahi + kdvTutari;
+  const hesap = hesaplaKdv2(kdvMatrahi, kdvOrani, form.tevkifatTuru);
+  const kdvTutari = hesap.kdvTutari;
+  const kdv2Tutari = hesap.tevkifEdilenKdv;
+  const saticiyaOdenenKdv = hesap.saticiyaOdenenKdv;
+  const toplamTutar = hesap.faturaToplam;
 
   const resetForm = () => {
     setEditingId(null);
@@ -77,6 +86,7 @@ export default function KDV2Page() {
       belgeNo: kayit.belgeNo,
       kdvMatrahi: String(kayit.kdvMatrahi),
       kdvOrani: String(kayit.kdvOrani),
+      tevkifatTuru: kayit.tevkifatTuru ?? VARSAYILAN_TEVKIFAT,
       aciklama: kayit.aciklama ?? "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -100,6 +110,8 @@ export default function KDV2Page() {
       kdvOrani,
       kdvTutari,
       kdv2Tutari,
+      tevkifatTuru: form.tevkifatTuru,
+      saticiyaOdenenKdv,
       aciklama: form.aciklama.trim() || undefined,
     };
 
@@ -262,6 +274,12 @@ export default function KDV2Page() {
                   options={KDV_ORANLARI}
                 />
               </div>
+              <Select
+                label="Tevkifat Türü"
+                value={form.tevkifatTuru}
+                onChange={(e) => setForm({ ...form, tevkifatTuru: e.target.value })}
+                options={TEVKIFAT_SECENEKLERI}
+              />
               <Input
                 label="Açıklama (isteğe bağlı)"
                 type="text"
@@ -276,8 +294,9 @@ export default function KDV2Page() {
                   {[
                     { label: "KDV Matrahı", value: formatPara(kdvMatrahi), bold: false },
                     { label: `KDV Tutarı (%${kdvOrani})`, value: formatPara(kdvTutari), bold: false },
-                    { label: "Toplam Tutar", value: formatPara(toplamTutar), bold: false },
-                    { label: `KDV2 Tevkifat (%${KDV2_ORANI_MAP[form.kdvOrani] * 100} tevkifat)`, value: formatPara(kdv2Tutari), bold: true },
+                    { label: `KDV2 Tevkifat (${tevkifatOranEtiketi(form.tevkifatTuru)})`, value: formatPara(kdv2Tutari), bold: true },
+                    { label: "Satıcıya Ödenen KDV", value: formatPara(saticiyaOdenenKdv), bold: false },
+                    { label: "Fatura Genel Toplam", value: formatPara(toplamTutar), bold: false },
                   ].map(({ label, value, bold }) => (
                     <div key={label} className={`flex justify-between ${bold ? "pt-2 border-t border-slate-300" : ""}`}>
                       <span className={`text-xs ${bold ? "font-bold text-blue-700" : "text-slate-600"}`}>{label}</span>
@@ -378,6 +397,9 @@ export default function KDV2Page() {
                 <span className="text-xs text-slate-600">%{k.kdvOrani} KDV</span>
                 <span className="text-xs text-slate-600">Matrah: {formatPara(k.kdvMatrahi)}</span>
                 <span className="text-xs text-slate-600">KDV: {formatPara(k.kdvTutari)}</span>
+                {k.tevkifatTuru && (
+                  <span className="text-xs text-slate-600">Tevkifat: {tevkifatOranEtiketi(k.tevkifatTuru)}</span>
+                )}
               </div>
               <div className="mt-1.5 flex items-center justify-between">
                 <span className="text-xs font-bold text-blue-700">KDV2: {formatPara(k.kdv2Tutari)}</span>
@@ -397,6 +419,7 @@ export default function KDV2Page() {
                 <TableHeadCell>KDV Matrahı</TableHeadCell>
                 <TableHeadCell>KDV Oranı</TableHeadCell>
                 <TableHeadCell>KDV Tutarı</TableHeadCell>
+                <TableHeadCell>Tevkifat</TableHeadCell>
                 <TableHeadCell>KDV2 Tutarı</TableHeadCell>
                 <TableHeadCell>Açıklama</TableHeadCell>
                 <TableHeadCell>İşlem</TableHeadCell>
@@ -414,6 +437,7 @@ export default function KDV2Page() {
                     <TableCell><span className="text-xs font-medium text-slate-800">{formatPara(k.kdvMatrahi)}</span></TableCell>
                     <TableCell><span className="text-xs text-slate-600">%{k.kdvOrani}</span></TableCell>
                     <TableCell><span className="text-xs text-slate-800">{formatPara(k.kdvTutari)}</span></TableCell>
+                    <TableCell><span className="text-xs text-slate-600">{k.tevkifatTuru ? tevkifatOranEtiketi(k.tevkifatTuru) : "-"}</span></TableCell>
                     <TableCell><span className="text-xs font-bold text-blue-700">{formatPara(k.kdv2Tutari)}</span></TableCell>
                     <TableCell>
                       {k.aciklama ? (

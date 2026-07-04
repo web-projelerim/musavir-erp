@@ -493,6 +493,10 @@ export interface KDV2Hesaplama {
   kdvOrani: number;
   kdvTutari: number;
   kdv2Tutari: number;
+  /** Tevkifat türü key'i (lib/domain/tevkifat.ts) — eski kayıtlarda boş olabilir */
+  tevkifatTuru?: string;
+  /** Satıcıya ödenecek (tevkifat sonrası kalan) KDV */
+  saticiyaOdenenKdv?: number;
   aciklama?: string;
   createdAt: string;
 }

@@ -47,6 +47,7 @@ import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { beyannameTakipDurumu, beyannameTakipOzeti } from "@/lib/domain/beyannameTakip";
 import { useAuth } from "@/lib/context/AuthContext";
 import { displayVknTckn } from "@/lib/utils/maskData";
 import { PageLoading } from "@/components/ui/PageLoading";
@@ -217,7 +218,13 @@ export default function DashboardPage() {
     (g) => g.durum !== "tamamlandi" && g.durum !== "iptal"
   );
   const yeniTebligatlar = tebligatlar.filter((t) => t.durum === "yeni");
-  const yaklasanBeyanlar = beyannameler.filter((b) => b.durum === "bekliyor");
+  // "Yaklaşan": son tarihi yaklaşan veya geçmiş (aksiyon gerektiren) bekleyen
+  // beyannameler — verilmiş/iptal hariç, gerçek tarih değerlendirmesiyle.
+  const beyanTakipOzeti = beyannameTakipOzeti(beyannameler);
+  const yaklasanBeyanlar = beyannameler.filter((b) => {
+    const d = beyannameTakipDurumu(b);
+    return d === "yaklasan" || d === "gecikti";
+  });
   const hazirRaporlar = raporlar.filter((r) => r.durum === "hazir");
   const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
   const riskListesi = hesaplaRiskListesi({ musteriler: aktifMusteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
@@ -278,9 +285,9 @@ export default function DashboardPage() {
     {
       title: "Yaklaşan Beyanlar",
       value: yaklasanBeyanlar.length,
-      subtitle: "Son tarih yakın",
+      subtitle: beyanTakipOzeti.gecikenSayisi > 0 ? `${beyanTakipOzeti.gecikenSayisi} geciken` : "Son tarih yakın",
       icon: <Calendar className="w-5 h-5" />,
-      variant: "default" as const,
+      variant: beyanTakipOzeti.gecikenSayisi > 0 ? ("danger" as const) : ("default" as const),
     },
     {
       title: "Hazır Raporlar",

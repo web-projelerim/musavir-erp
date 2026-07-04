@@ -47,6 +47,7 @@ import {
   workflowActionLabel,
   buildBeyanWorkflowPatch,
 } from "@/lib/domain/beyanWorkflow";
+import { beyannameTakipDurumu } from "@/lib/domain/beyannameTakip";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import type { Beyanname, BeyannameType } from "@/lib/types";
 
@@ -59,14 +60,13 @@ const BEYAN_TUR_LABELS: Record<BeyannameType, string> = {
   DIGER: "Diğer",
 };
 
-function sonTarihUyari(sonTarih: string): "gecikti" | "yaklasan" | "normal" {
-  const now = new Date();
-  const dt = new Date(sonTarih);
-  if (isNaN(dt.getTime())) return "normal";
-  const diffGun = Math.ceil((dt.getTime() - now.getTime()) / 86_400_000);
-  if (diffGun < 0) return "gecikti";
-  if (diffGun <= 7) return "yaklasan";
-  return "normal";
+function sonTarihUyari(
+  beyan: Pick<Beyanname, "durum" | "sonTarih">
+): "gecikti" | "yaklasan" | "verildi" | "normal" {
+  const d = beyannameTakipDurumu(beyan);
+  // İptal'i de "normal" gibi nötr göster (badge zaten durumu ayrıca gösterir)
+  if (d === "iptal") return "normal";
+  return d;
 }
 
 export default function BeyannamellerPage() {
@@ -462,7 +462,7 @@ export default function BeyannamellerPage() {
       {/* Mobil liste */}
       <MobileList className="md:hidden" empty={filtered.length === 0}>
         {filtered.map((b) => {
-          const uyari = sonTarihUyari(b.sonTarih);
+          const uyari = sonTarihUyari(b);
           const nextStep = nextWorkflowStep(b.yasamDongusuDurum);
           const actionLabel = workflowActionLabel(b.yasamDongusuDurum);
           return (
@@ -551,7 +551,7 @@ export default function BeyannamellerPage() {
               <TableEmpty colSpan={9} />
             ) : (
               filtered.map((b) => {
-                const uyari = sonTarihUyari(b.sonTarih);
+                const uyari = sonTarihUyari(b);
                 const nextStep = nextWorkflowStep(b.yasamDongusuDurum);
                 const actionLabel = workflowActionLabel(b.yasamDongusuDurum);
                 return (

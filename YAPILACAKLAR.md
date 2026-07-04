@@ -52,7 +52,7 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 - [x] **Şifre değiştirme akışı** — Ayarlar'daki akış zaten sağlamdı (reauth + hata kodu eşleme + audit); eksik olan **mükellef tarafıydı**: yeniden kullanılabilir `SifreDegistirModal` bileşeni oluşturuldu ve mükellef paneline (başlıktaki anahtar ikonu) eklendi. Gerçek Firebase'de uçtan uca test P0 smoke listesinde.
 - [x] **Bildirim tercihleri kalıcılığı** — `User.bildirimTercihleri` (tip başına aç/kapat, tanımsız=açık → geriye dönük uyumlu) + `lib/domain/bildirim.ts` yardımcıları. Ayarlar → Güvenlik'te toggle kartı (optimistic + hata geri-alma), TopBar zili tercihlere göre filtreliyor, `refreshUser` ile değişiklik anında yansıyor. Ofis düzeyi WhatsApp tercihlerinin zaten kalıcı olduğu doğrulandı.
 - [ ] **KDV2 tevkifat oranları** — hizmet/fatura tipine göre kapsamlı seçim.
-- [ ] **Tahsilat:** kalan bakiye raporlama + toplu tahsilat ekranı.
+- [x] **Tahsilat:** `/tahsilatlar` sayfası eklendi (sidebar'da). `lib/domain/tahsilat.ts` saf fonksiyonları (odenenTutari/kalanBakiye/musteriBakiyeOzeti/genelBakiyeOzeti/kismiOdemeUygula, 11 test) — 'odendi' durumu odenenTutar boş olsa da tam ödenmiş sayılır, negatif bakiye imkânsız. Ekran: 4 özet kartı (alacak/tahsil/kalan/geciken), müşteri bazlı kalan bakiye raporu (kalan büyükten küçüğe, en eski ödenmemiş vade), açılır kayıt detayları, checkbox'lı **toplu ödendi işaretleme**, kısmi ödeme girişi ('Tamamını Öde' kısayoluyla), audit log.
 - [ ] **Beyanname yaklaşan/geciken** hesaplarını aktif dönem tarihine tam bağla.
 
 ---

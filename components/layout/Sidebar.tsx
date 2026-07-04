@@ -19,6 +19,7 @@ import {
   ScrollText,
   Send,
   ClipboardList,
+  Wallet,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -37,6 +38,7 @@ const navItems: {
   { label: "Beyanname Takip", href: "/beyanname-takip", icon: ClipboardList, badge: null },
   { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
+  { label: "Tahsilatlar", href: "/tahsilatlar", icon: Wallet, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
   { label: "Onay Bekleyenler", href: "/onay-bekleyenler", icon: Send, badge: "onay" },
 ];

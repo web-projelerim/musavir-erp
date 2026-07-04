@@ -14,6 +14,7 @@ import "server-only";
 
 import { cert, getApps, initializeApp, type ServiceAccount } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth, type Auth } from "firebase-admin/auth";
 
 const APP_NAME = "musavir-admin";
 
@@ -44,6 +45,43 @@ export function getAdminDb(): Firestore | null {
   if (!app) return null;
   _db = getFirestore(app);
   return _db;
+}
+
+let _auth: Auth | null = null;
+
+export function getAdminAuth(): Auth | null {
+  if (_auth) return _auth;
+  const app = initAdminApp();
+  if (!app) return null;
+  _auth = getAuth(app);
+  return _auth;
+}
+
+/**
+ * Kullanıcının rol/ofisId/musteriId bilgisini Firebase custom claims'e yazar (B1).
+ *
+ * Bu, güvenlik kurallarının her istekte `kullanicilar/{uid}` dokümanını
+ * okumasını gereksiz kılar — kurallar `request.auth.token.rol` gibi claim'leri
+ * doğrudan okuyabilir. Claim değişikliği, kullanıcı token'ını yenileyene kadar
+ * (en geç ~1 saat, ya da istemcide getIdToken(true)) etkin olmaz.
+ *
+ * @returns Başarılıysa true. Admin SDK yoksa false (çağıran fallback'e düşmeli).
+ */
+export async function syncUserClaims(
+  uid: string,
+  claims: { rol: string; ofisId: string; musteriId?: string | null }
+): Promise<boolean> {
+  const auth = getAdminAuth();
+  if (!auth) return false;
+
+  const payload: Record<string, unknown> = {
+    rol: claims.rol,
+    ofisId: claims.ofisId,
+  };
+  if (claims.musteriId) payload.musteriId = claims.musteriId;
+
+  await auth.setCustomUserClaims(uid, payload);
+  return true;
 }
 
 /** Firestore'a merge-set (upsert) — undefined değerleri siler */

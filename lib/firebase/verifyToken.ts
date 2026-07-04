@@ -24,6 +24,9 @@ async function getPublicKeys(force = false): Promise<Record<string, string>> {
 export interface VerifiedToken {
   uid: string;
   email?: string;
+  rol?: string;
+  ofisId?: string;
+  musteriId?: string;
 }
 
 export async function verifyFirebaseToken(token: string): Promise<VerifiedToken> {
@@ -58,7 +61,13 @@ export async function verifyFirebaseToken(token: string): Promise<VerifiedToken>
   const valid = verifier.verify(cert, Buffer.from(sigB64, "base64url"));
   if (!valid) throw new Error("Geçersiz token imzası");
 
-  return { uid: payload.sub, email: payload.email };
+  return {
+    uid: payload.sub,
+    email: payload.email,
+    rol: typeof payload.rol === "string" ? payload.rol : undefined,
+    ofisId: typeof payload.ofisId === "string" ? payload.ofisId : undefined,
+    musteriId: typeof payload.musteriId === "string" ? payload.musteriId : undefined,
+  };
 }
 
 /** Request header'dan token çıkar ve doğrula. Başarısızsa null döner. */
@@ -99,13 +108,26 @@ export async function requireStaff(
   const token = await requireAuth(req);
   if (!token) return null;
 
+  const allowed = options?.allowedRoles ?? ["musavir", "personel"];
+
+  // B1 hızlı yol: token custom claim taşıyorsa Firestore okumasına gerek yok.
+  if (token.rol && token.ofisId) {
+    if (!allowed.includes(token.rol as StaffRole)) return null;
+    return {
+      ...token,
+      rol: token.rol as StaffRole,
+      ofisId: token.ofisId,
+    };
+  }
+
+  // Geçiş dönemi fallback'i: claim henüz yoksa Admin SDK ile dokümandan oku.
   const { getAdminDb } = await import("@/lib/firebase/admin");
   const db = getAdminDb();
 
   if (!db) {
     if (process.env.NODE_ENV === "production") {
       console.error(
-        "[requireStaff] FIREBASE_SERVICE_ACCOUNT_KEY yapılandırılmamış — production'da rol doğrulaması yapılamıyor, istek reddedildi."
+        "[requireStaff] Custom claim yok ve Admin SDK yapılandırılmamış — production'da rol doğrulaması yapılamıyor, istek reddedildi."
       );
       return null;
     }
@@ -119,7 +141,6 @@ export async function requireStaff(
   if (!snap.exists) return null;
 
   const data = snap.data() as { rol?: string; ofisId?: string; aktif?: boolean };
-  const allowed = options?.allowedRoles ?? ["musavir", "personel"];
 
   if (data.aktif === false) return null;
   if (!data.rol || !allowed.includes(data.rol as StaffRole)) return null;

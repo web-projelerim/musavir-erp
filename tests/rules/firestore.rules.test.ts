@@ -142,4 +142,35 @@ describe("firestore.rules — rol yükseltme ve tenant izolasyonu", () => {
       davetli.doc("davetler/davet-1").update({ rol: "musavir", durum: "kullanildi" })
     );
   });
+
+  // ─── B1: Custom claim hızlı yolu ───────────────────────────────────────────
+
+  it.skipIf(() => !env)("CLAIM: rol claim'i taşıyan kullanıcı Firestore dokümanı OLMADAN müşteri okuyabilir", async () => {
+    // Bu kullanıcının kullanicilar/{uid} dokümanı YOK — yalnızca claim var.
+    const claimUser = env!.authenticatedContext("claim-only-uid", {
+      email: "claim@ofis.com",
+      rol: "musavir",
+      ofisId: "kurban-ofis",
+    }).firestore();
+    await assertSucceeds(claimUser.doc("musteriler/musteri-1").get());
+  });
+
+  it.skipIf(() => !env)("CLAIM: yanlış ofis claim'i taşıyan kullanıcı erişemez", async () => {
+    const wrongOffice = env!.authenticatedContext("claim-wrong-uid", {
+      email: "wrong@ofis.com",
+      rol: "musavir",
+      ofisId: "baska-ofis",
+    }).firestore();
+    await assertFails(wrongOffice.doc("musteriler/musteri-1").get());
+  });
+
+  it.skipIf(() => !env)("CLAIM: mukellef claim'i doğru musteriId ile kendi belgesine erişir", async () => {
+    const mukellef = env!.authenticatedContext("claim-mukellef-uid", {
+      email: "mukellef@mail.com",
+      rol: "mukellef",
+      ofisId: "kurban-ofis",
+      musteriId: "musteri-1",
+    }).firestore();
+    await assertSucceeds(mukellef.doc("musteriler/musteri-1").get());
+  });
 });

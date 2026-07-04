@@ -10,8 +10,25 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/kullanicilar/$(request.auth.uid));
     }
 
+    // B1: Önce custom claim, yoksa kullanıcı dokümanı.
+    function hasRoleClaim() {
+      return request.auth != null
+             && request.auth.token.rol != null
+             && request.auth.token.ofisId != null;
+    }
+
     function role() {
-      return isSignedIn() && userDoc().data.rol != null ? userDoc().data.rol : null;
+      return !isSignedIn() ? null
+             : hasRoleClaim() ? request.auth.token.rol
+             : (userDoc().data.rol != null ? userDoc().data.rol : null);
+    }
+
+    function currentOfisId() {
+      return hasRoleClaim() ? request.auth.token.ofisId : userDoc().data.ofisId;
+    }
+
+    function currentMusteriId() {
+      return hasRoleClaim() ? request.auth.token.musteriId : userDoc().data.musteriId;
     }
 
     function isStaff() {
@@ -19,15 +36,15 @@ service firebase.storage {
     }
 
     function isMukellefFor(musteriId) {
-      return role() == 'mukellef' && userDoc().data.musteriId == musteriId;
+      return role() == 'mukellef' && currentMusteriId() == musteriId;
     }
 
     // Ofis izolasyonu: dosyanın ait olduğu müşteri, personelin ofisine bağlı olmalı.
-    // musteriler/{musteriId}.ofisId == kullanicilar/{uid}.ofisId
+    // Claim varsa müşteri dokümanı okunur (1 okuma); yoksa kullanıcı + müşteri (2 okuma).
     function staffOfSameOffice(musteriId) {
       return isStaff()
         && firestore.get(/databases/(default)/documents/musteriler/$(musteriId)).data.ofisId
-           == userDoc().data.ofisId;
+           == currentOfisId();
     }
 
     match /belgeler/{musteriId}/{fileName} {

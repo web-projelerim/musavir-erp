@@ -13,12 +13,37 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/kullanicilar/$(request.auth.uid));
     }
 
+    // B1: Rol/ofis bilgisi önce custom claim'den okunur (Firestore okuması yok).
+    // Claim henüz yoksa (geçiş dönemi / token tazelenmemiş) kullanıcı dokümanına
+    // düşülür. Böylece mevcut kullanıcılar claim senkronize edilene kadar
+    // çalışmaya devam eder.
+    //
+    // ÖNEMLİ: rol/ofisId/musteriId TEK bir bütünlük kapısına (hasRoleClaim)
+    // bağlıdır. syncUserClaims her zaman rol+ofisId'yi birlikte yazar; bu yüzden
+    // rol claim'i varsa ofisId claim'i de vardır. Farklı kaynaklardan (yarısı
+    // claim, yarısı doküman) okuma yapılmaz — tutarsızlık önlenir.
+    function hasRoleClaim() {
+      return isSignedIn()
+             && request.auth.token.rol != null
+             && request.auth.token.ofisId != null;
+    }
+
     function currentRole() {
-      return isSignedIn() ? userDoc().data.rol : null;
+      return !isSignedIn() ? null
+             : hasRoleClaim() ? request.auth.token.rol
+             : userDoc().data.rol;
     }
 
     function currentOfisId() {
-      return isSignedIn() ? userDoc().data.ofisId : null;
+      return !isSignedIn() ? null
+             : hasRoleClaim() ? request.auth.token.ofisId
+             : userDoc().data.ofisId;
+    }
+
+    function currentMusteriId() {
+      return !isSignedIn() ? null
+             : hasRoleClaim() ? request.auth.token.musteriId
+             : userDoc().data.musteriId;
     }
 
     function isMusavir() {
@@ -41,7 +66,7 @@ service cloud.firestore {
 
     // Mükellef kendi musteriId'li belgelere erişebilir mi?
     function isMukellefFor(musteriId) {
-      return currentRole() == 'mukellef' && userDoc().data.musteriId == musteriId;
+      return currentRole() == 'mukellef' && currentMusteriId() == musteriId;
     }
 
     function ownUser(userId) {

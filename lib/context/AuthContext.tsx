@@ -69,6 +69,32 @@ function demoFallbackUser(email: string, uid: string): User {
   };
 }
 
+/**
+ * Kullanıcının rol/ofisId/musteriId bilgisini custom claim'e senkronize eder (B1).
+ * Token'da rol claim'i zaten varsa hiçbir şey yapmaz. Yoksa /api/auth/sync-claims
+ * çağrılır ve token getIdToken(true) ile tazelenir; böylece güvenlik kuralları
+ * bir sonraki istekte Firestore okumadan claim'i kullanır.
+ */
+async function ensureClaims(firebaseUser: FirebaseUser): Promise<void> {
+  const tokenResult = await firebaseUser.getIdTokenResult();
+  if (tokenResult.claims.rol) return; // Claim zaten mevcut
+
+  const idToken = await firebaseUser.getIdToken();
+  const res = await fetch("/api/auth/sync-claims", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${idToken}`,
+    },
+    body: "{}",
+  });
+
+  if (res.ok) {
+    // Yeni claim'lerin token'a yansıması için zorla tazele
+    await firebaseUser.getIdToken(true);
+  }
+}
+
 async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
   // Demo mod: Firebase yapılandırılmamış → tam erişimli fallback.
   // GÜVENLİK: Bu mod yalnızca geliştirme ortamında çalışır. Production build'de
@@ -200,6 +226,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        // B1: Kullanıcının rol claim'i yoksa senkronize et ve token'ı tazele.
+        // Böylece güvenlik kuralları Firestore okuması yapmadan claim'i kullanır.
+        await ensureClaims(firebaseUser).catch((e) =>
+          console.warn("[Auth] claim senkronizasyonu atlandı:", e)
+        );
         setUser(await resolveAppUser(firebaseUser));
       } catch (err) {
         console.error("[Auth] resolveAppUser hatası:", err);

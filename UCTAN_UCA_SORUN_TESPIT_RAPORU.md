@@ -157,6 +157,22 @@ Davet dokümanı `davetGecerli()` ile `get()` üzerinden doğrulanıyor; ek olar
 
 ### Sonraki sprint'e bırakılanlar (bilinçli)
 
+### ✅ B1 — Custom claims (UYGULANDI)
+Rol/ofisId/musteriId artık Firebase **custom claims**'e senkronize ediliyor; güvenlik kuralları her istekte `kullanicilar/{uid}` dokümanı okumak yerine `request.auth.token.rol` gibi claim'leri doğrudan okuyor (potansiyel olarak kural değerlendirmesi başına 17 Firestore okuması ortadan kalkıyor).
+
+**Bileşenler:**
+- `lib/firebase/admin.ts` → `getAdminAuth()` + `syncUserClaims(uid, {rol, ofisId, musteriId})`.
+- `app/api/auth/sync-claims/route.ts` → self-sync (kullanıcı kendi claim'ini Firestore kaydından yazar; rolü yükseltemez çünkü kaynak korumalı doküman) ve admin-sync (`targetUid` ile müşavir, aynı ofisteki kullanıcının claim'ini yazar).
+- `lib/context/AuthContext.tsx` → `ensureClaims()`: oturum açılınca token'da rol claim'i yoksa `/api/auth/sync-claims` çağrılır ve `getIdToken(true)` ile token tazelenir.
+- `firestore.rules` + `storage.rules` → claim-öncelikli, doküman-fallback'li yardımcılar. Rol/ofisId/musteriId **tek bütünlük kapısına** (`hasRoleClaim` = rol **ve** ofisId claim'i birlikte var) bağlı; yarısı-claim-yarısı-doküman okuma tutarsızlığı önlendi. Geçiş dönemi güvenli: claim'i olmayan mevcut kullanıcılar dokümana düşerek çalışmaya devam eder.
+- `lib/firebase/verifyToken.ts` → `requireStaff` **hızlı yolu**: token claim taşıyorsa Firestore/Admin SDK okuması tamamen atlanır.
+
+**Kalan/dikkat:** Claim değişikliği token tazelenene kadar (~1 saat veya `getIdToken(true)`) etkin olmaz — rol değişiminde admin-sync sonrası kullanıcının yeniden giriş yapması ya da token tazelemesi gerekir. Kullanıcı rol değiştirme UI'ı henüz yok (admin-sync yolu hazır, tetikleyici eklenince kullanılabilir). Rules testine 3 claim-hızlı-yol senaryosu eklendi (emülatörle çalışır).
+
+---
+
+### Diğer sonraki sprint'e bırakılanlar (bilinçli)
+
 ### B1. 🟠 Rol/yetki modeli hâlâ Firestore dokümanına dayanıyor
 Kurallar her istekte `kullanicilar/{uid}` okuyor (ekstra okuma maliyeti + `userDoc()` çağrısı kural başına tekrarlanıyor). **Öneri:** Firebase **custom claims**'e geçiş (rol + ofisId claim'e yazılır; kurallar `request.auth.token.rol` okur). Bu hem maliyeti düşürür hem de rol değişikliklerinin tek güvenilir kaynaktan (Admin SDK) yönetilmesini zorlar. Claim yazma işlemi için küçük bir admin API/function gerekir. `requireStaff` de claim okuyarak Firestore okumasını atlayabilir.
 

@@ -6,6 +6,7 @@ import type {
   BeyanTakipHucresi,
   BeyanTakipNotu,
   Davet,
+  User,
   GibSyncLog,
   Gorev,
   GorevDurum,
@@ -362,6 +363,16 @@ export async function createDavet(input: Omit<Davet, "id" | "createdAt" | "durum
 
 export async function updateDavet(id: string, input: Partial<Davet>) {
   await updateDocument<Davet>(COLLECTIONS.davetler, id, input);
+}
+
+/**
+ * Kullanıcı kaydını günceller (rol, aktiflik, yetkiler vb.).
+ * Firestore kuralları yalnızca kendi ofisindeki müşavire izin verir; rol/aktif
+ * değişiminden sonra çağıran, custom claim senkronizasyonunu (/api/auth/sync-claims)
+ * ayrıca tetiklemelidir — yoksa claim eski kalır (~1 saat token yenilenene kadar).
+ */
+export async function updateKullanici(id: string, input: Partial<User>) {
+  await updateDocument<User>(COLLECTIONS.kullanicilar, id, input);
 }
 
 export async function createResmiGazeteOzeti(input: Omit<ResmiGazeteOzeti, "id" | "createdAt">) {

@@ -35,7 +35,7 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 
 ## P1 — Yüksek Öncelik (Güvenlik Sertleştirme Kalanı)
 
-- [ ] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol değiştirme ekle; değişince `/api/auth/sync-claims` (`targetUid` ile) çağır. Not: claim ~1 saat veya token tazelemesine kadar etkin olmaz — kullanıcıya "yeniden giriş" bilgisi göster. *(B1 altyapısı hazır, tetikleyici eksik.)*
+- [x] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol Select + aktif/pasif toggle eklendi (yalnızca müşavir, kendi hesabı hariç). Değişince `updateKullanici` + `/api/auth/sync-claims` (`targetUid`) çağrılıyor, audit log yazılıyor, "yeniden giriş gerekebilir" bilgisi gösteriliyor. Mükellefe düşürme yalnızca `musteriId` varsa mümkün. *(B1 altyapısı tam kullanılabilir hale geldi.)*
 - [ ] **B5 dağıtık rate limit:** Mevcut in-memory limiter serverless'te instance başına çalışır. Upstash Redis / Vercel KV tabanlı global limite geçir (özellikle `whatsapp/send`, `email/send`, `gib/captcha`).
 - [ ] **Firebase App Check** ekle (reCAPTCHA/attestation) — bot ve kötüye kullanım koruması.
 - [ ] **VKN/TCKN ve finansal veri maskeleme** — özellikle personel rolü için alan bazlı görünürlük; hassas alanların log/PDF/export'a sızmadığını kontrol et.

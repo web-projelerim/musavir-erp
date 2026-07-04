@@ -21,11 +21,13 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { isMusavir } from "@/lib/utils/permissions";
 import { authHeaders } from "@/lib/firebase/client";
+import { syncClaimsFor } from "@/lib/firebase/syncClaims";
 import {
   createAuditLog,
   createEntegrasyonLog,
   createGibSyncLog,
   updateDavet,
+  updateKullanici,
   updateGonderimKaydi,
   upsertBeyannameFromGib,
   upsertGibEntegrasyonAyari,
@@ -47,6 +49,7 @@ import type {
   GibSyncLog,
   GonderimKaydi,
   LucaEntegrasyonAyari,
+  User,
   WhatsAppEntegrasyonAyari,
 } from "@/lib/types";
 
@@ -167,6 +170,8 @@ export default function AyarlarPage() {
   const [activeTab, setActiveTab] = useState<TabId>("kurum");
   const [activeIntegration, setActiveIntegration] = useState<IntegrationPanel>("gib");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  // Rol/durum değiştirme akışı (yalnızca müşavir)
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const {
     auditLogs,
     bankaEntegrasyonAyarlari,
@@ -912,6 +917,84 @@ export default function AyarlarPage() {
     }
   };
 
+  // ─── Kullanıcı rol/durum yönetimi (yalnızca müşavir) ──────────────────────
+
+  const handleRolDegistir = async (hedef: (typeof kullanicilar)[number], yeniRol: string) => {
+    if (yeniRol === hedef.rol) return;
+    // Kendi rolünü buradan değiştirmeyi engelle (yanlışlıkla yetki kaybı riski)
+    if (hedef.id === user?.id) {
+      toast.error("Kendi rolünüzü buradan değiştiremezsiniz.");
+      return;
+    }
+    // Mükellefe düşürme: bağlı bir müşteri kaydı olmadan mükellef olamaz
+    if (yeniRol === "mukellef" && !hedef.musteriId) {
+      toast.error("Mükellef rolü için kullanıcının bir müşteriyle eşleştirilmiş olması gerekir.");
+      return;
+    }
+
+    setSavingUserId(hedef.id);
+    try {
+      await updateKullanici(hedef.id, { rol: yeniRol as User["rol"] });
+
+      // Custom claim'i senkronize et (kural/API hızlı yolu için)
+      const sync = await syncClaimsFor(hedef.id);
+
+      createAuditLog({
+        actorId: user?.id ?? "",
+        actorName: user ? `${user.ad} ${user.soyad}`.trim() : "Bilinmeyen",
+        actorRole: user?.rol ?? "musavir",
+        action: "update" as AuditAction,
+        entityType: "sistem",
+        entityId: hedef.id,
+        entityLabel: hedef.email,
+        summary: `Rol değiştirildi: ${ROL_LABELS[hedef.rol]} → ${ROL_LABELS[yeniRol]}`,
+      }).catch((e) => console.warn("[Audit] Rol log hatası:", e));
+
+      if (sync.ok) {
+        toast.success(
+          "Rol güncellendi",
+          "Değişikliğin tam etkin olması için kullanıcının yeniden giriş yapması gerekebilir."
+        );
+      } else {
+        toast.success(
+          "Rol güncellendi",
+          "Yetki senkronizasyonu tamamlanamadı; kullanıcı yeniden giriş yaptığında etkin olur."
+        );
+      }
+    } catch (err) {
+      toast.error("Rol değiştirilemedi", err instanceof Error ? err.message : undefined);
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleAktiflikDegistir = async (hedef: (typeof kullanicilar)[number]) => {
+    if (hedef.id === user?.id) {
+      toast.error("Kendi hesabınızı buradan pasifleştiremezsiniz.");
+      return;
+    }
+    const yeniAktif = !hedef.aktif;
+    setSavingUserId(hedef.id);
+    try {
+      await updateKullanici(hedef.id, { aktif: yeniAktif });
+      createAuditLog({
+        actorId: user?.id ?? "",
+        actorName: user ? `${user.ad} ${user.soyad}`.trim() : "Bilinmeyen",
+        actorRole: user?.rol ?? "musavir",
+        action: "update" as AuditAction,
+        entityType: "sistem",
+        entityId: hedef.id,
+        entityLabel: hedef.email,
+        summary: yeniAktif ? "Kullanıcı aktifleştirildi" : "Kullanıcı pasifleştirildi",
+      }).catch((e) => console.warn("[Audit] Aktiflik log hatası:", e));
+      toast.success(yeniAktif ? "Kullanıcı aktifleştirildi" : "Kullanıcı pasifleştirildi");
+    } catch (err) {
+      toast.error("Durum değiştirilemedi", err instanceof Error ? err.message : undefined);
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   const renderIntegrationPanel = () => {
     if (activeIntegration === "gib" && gibDraftSafe) {
       const encSifre = encryptedGibSecrets["ivdSifre"] || gibDraftSafe.encryptedIvdSifre;
@@ -1517,10 +1600,43 @@ export default function AyarlarPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Badge variant={u.rol === "musavir" ? "info" : u.rol === "personel" ? "neutral" : "success"}>
-                              {ROL_LABELS[u.rol]}
-                            </Badge>
-                            <Badge variant={u.aktif ? "success" : "neutral"}>{u.aktif ? "Aktif" : "Pasif"}</Badge>
+                            {isMusavir(user) && u.id !== user?.id ? (
+                              <>
+                                <select
+                                  value={u.rol}
+                                  disabled={savingUserId === u.id}
+                                  onChange={(e) => handleRolDegistir(u, e.target.value)}
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-400 focus:outline-none disabled:opacity-50"
+                                  title="Rolü değiştir"
+                                >
+                                  <option value="musavir">Mali Müşavir</option>
+                                  <option value="personel">Personel</option>
+                                  <option value="mukellef" disabled={!u.musteriId}>
+                                    Mükellef
+                                  </option>
+                                </select>
+                                <button
+                                  type="button"
+                                  disabled={savingUserId === u.id}
+                                  onClick={() => handleAktiflikDegistir(u)}
+                                  title={u.aktif ? "Pasifleştir" : "Aktifleştir"}
+                                  className={`rounded-lg px-2 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                    u.aktif
+                                      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                  }`}
+                                >
+                                  {u.aktif ? "Aktif" : "Pasif"}
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <Badge variant={u.rol === "musavir" ? "info" : u.rol === "personel" ? "neutral" : "success"}>
+                                  {ROL_LABELS[u.rol]}
+                                </Badge>
+                                <Badge variant={u.aktif ? "success" : "neutral"}>{u.aktif ? "Aktif" : "Pasif"}</Badge>
+                              </>
+                            )}
                           </div>
                         </div>
                       );

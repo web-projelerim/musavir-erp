@@ -12,8 +12,8 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "";
 let cachedKeys: Record<string, string> = {};
 let cacheExpiry = 0;
 
-async function getPublicKeys(): Promise<Record<string, string>> {
-  if (Date.now() < cacheExpiry) return cachedKeys;
+async function getPublicKeys(force = false): Promise<Record<string, string>> {
+  if (!force && Date.now() < cacheExpiry) return cachedKeys;
   const res = await fetch(JWKS_URL);
   const maxAge = parseInt(res.headers.get("cache-control")?.match(/max-age=(\d+)/)?.[1] ?? "3600");
   cachedKeys = await res.json();
@@ -44,8 +44,13 @@ export async function verifyFirebaseToken(token: string): Promise<VerifiedToken>
   if (payload.iss !== `https://securetoken.google.com/${PROJECT_ID}`) throw new Error("Geçersiz token kaynağı");
   if (typeof payload.sub !== "string" || !payload.sub) throw new Error("Geçersiz subject (sub)");
 
-  const keys = await getPublicKeys();
-  const cert = keys[header.kid];
+  let keys = await getPublicKeys();
+  let cert = keys[header.kid];
+  if (!cert) {
+    // Google anahtarları rotasyona girmiş olabilir — cache'i zorla yenile ve bir kez daha dene.
+    keys = await getPublicKeys(true);
+    cert = keys[header.kid];
+  }
   if (!cert) throw new Error("Bilinmeyen anahtar ID");
 
   const verifier = createVerify("RSA-SHA256");

@@ -25,6 +25,7 @@ export default function DavetPage({ params }: { params: { token: string } }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [form, setForm] = useState({
     ad: "",
     soyad: "",
@@ -101,8 +102,13 @@ export default function DavetPage({ params }: { params: { token: string } }) {
           usedAt: new Date().toISOString(),
         });
       }
-      toast.success("Hesabınız oluşturuldu", "Yönlendiriliyorsunuz...");
-      router.replace(davet.rol === "mukellef" ? "/panel" : "/dashboard");
+      // Davetli kullanıcı e-postasını doğrulamadan uygulamaya giremez (bkz. AuthContext).
+      // Doğrulama e-postası kayıt sırasında gönderildi; kullanıcıyı bilgilendir.
+      setEmailVerificationSent(true);
+      toast.success(
+        "Hesabınız oluşturuldu",
+        "E-postanıza gönderilen doğrulama bağlantısına tıklayıp giriş yapın."
+      );
     } catch (err) {
       console.error(err);
       setError(parseFirebaseSignUpError(err));
@@ -110,6 +116,27 @@ export default function DavetPage({ params }: { params: { token: string } }) {
       setLoading(false);
     }
   };
+
+  if (emailVerificationSent) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+        <div className="mx-auto max-w-md text-center">
+          <div className="mb-6 flex justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+          </div>
+          <h1 className="mb-2 text-lg font-semibold">Hesabınız oluşturuldu</h1>
+          <p className="mb-6 text-sm text-slate-400">
+            <span className="font-medium text-slate-200">{davet?.email}</span> adresine bir
+            doğrulama bağlantısı gönderdik. Bağlantıya tıklayıp e-postanızı doğruladıktan
+            sonra giriş yapabilirsiniz.
+          </p>
+          <Button onClick={() => router.replace("/giris")}>Giriş sayfasına git</Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">

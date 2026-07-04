@@ -9,13 +9,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchGibCaptcha } from "@/lib/integrations/gib/ivd-client";
 import { requireStaff } from "@/lib/firebase/verifyToken";
+import { rateLimit } from "@/lib/security/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   // Açık proxy olarak kötüye kullanımı engelle: yalnızca ofis personeli
-  if (!await requireStaff(req)) {
+  const actor = await requireStaff(req);
+  if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  }
+  // GİB'e istek attıran endpoint — abuse'ü sınırla: 30 istek / dakika / kullanıcı
+  const rl = rateLimit(`gib-captcha:${actor.uid}`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Çok fazla istek. Lütfen bekleyin." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
   }
   try {
     const captcha = await fetchGibCaptcha();

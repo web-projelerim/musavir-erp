@@ -13,6 +13,7 @@ import {
   EmailAuthProvider,
   onAuthStateChanged,
   reauthenticateWithCredential,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -113,6 +114,17 @@ async function resolveAppUser(firebaseUser: FirebaseUser): Promise<User> {
     // Güvenlik: aktif değilse oturumu kapat
     if (!appUser.aktif) {
       throw new Error("Hesabınız devre dışı bırakılmıştır. Lütfen müşavirinizle iletişime geçin.");
+    }
+
+    // Güvenlik (B3): Davetle katılan kullanıcılar (davetId taşıyanlar) e-postalarını
+    // doğrulamış olmalı. Davet e-postasını bilen biri, adresi sahiplenmeden hesap
+    // açıp daveti kullanamamalı. Self-bootstrap müşavirler için zorunlu değildir
+    // (kendi verilerinden başkasına erişemezler), ancak onlar da ayarlardan
+    // doğrulama yapmaya teşvik edilir.
+    if (appUser.davetId && !firebaseUser.emailVerified) {
+      throw new Error(
+        "E-posta adresinizi doğrulamanız gerekiyor. Gelen kutunuzdaki doğrulama bağlantısına tıklayın, ardından tekrar giriş yapın."
+      );
     }
 
     // GÜVENLİK: rol "mukellef" ama musteriId yoksa bu bozuk/eksik bir kayıttır.
@@ -230,6 +242,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName: `${ad} ${soyad}`.trim(),
     });
 
+    // E-posta doğrulama linki gönder (best-effort — başarısız olursa kayıt yine tamamlanır,
+    // kullanıcı ayarlardan tekrar isteyebilir).
+    try {
+      await sendEmailVerification(credential.user);
+    } catch (e) {
+      console.warn("[Auth] Doğrulama e-postası gönderilemedi:", e);
+    }
+
     const resolvedOfisId = rol === "musavir" && !ofisId
       ? credential.user.uid
       : (ofisId ?? credential.user.uid);
@@ -260,6 +280,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       await setDoc(doc(firestoreDb, "ofisler", resolvedOfisId), withoutUndefined(ofisDoc));
     }
+    // Davetli kullanıcı (davetId taşıyan) e-postasını doğrulamadan uygulamaya
+    // giremez. Oturumu açmıyoruz; hesabı oluşturup çıkış yapıyoruz. Kullanıcı
+    // e-postasını doğrulayıp giriş yapınca resolveAppUser onu içeri alır.
+    if (davetId) {
+      await firebaseSignOut(firebaseAuth);
+      return appUser;
+    }
+
     setUser(appUser);
     return appUser;
   }, []);

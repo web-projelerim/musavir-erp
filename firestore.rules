@@ -64,6 +64,11 @@ service cloud.firestore {
     // Davet dokümanını doğrular: yeni kullanıcının rol/ofisId/musteriId alanları
     // davetle birebir eşleşmeli, davet bekliyor durumunda ve davet e-postası
     // giriş yapan kullanıcının e-postasıyla aynı olmalı.
+    // NOT (B3): email_verified şartı create anında uygulanamaz — Firebase'de yeni
+    // hesabın email_verified değeri kayıt sırasında false'tur. E-posta sahiplenmesi
+    // zaten davet.email == token.email eşleşmesiyle sağlanır (o e-postayla hesap
+    // açılmış olmalı). Ek koruma olarak istemci, doğrulanmamış davetli kullanıcıyı
+    // uygulamaya sokmaz (resolveAppUser: davetId + !emailVerified → oturum reddi).
     function davetGecerli() {
       let davet = get(/databases/$(database)/documents/davetler/$(request.resource.data.davetId)).data;
       return davet.email == request.auth.token.email
@@ -298,7 +303,7 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read:   if isMusavir() && sameOffice(resource.data.ofisId);
       allow create: if isSignedIn()
-                    && request.resource.data.actorId is string
+                    && request.resource.data.actorId == request.auth.uid
                     && request.resource.data.createdAt is string
                     && (isStaff()
                         ? request.resource.data.ofisId == currentOfisId()

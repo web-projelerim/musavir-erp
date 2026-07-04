@@ -132,35 +132,42 @@ Bu rapor iki bölümden oluşur:
 
 ## BÖLÜM B — AÇIK KALAN SORUNLAR VE ÖNERİLER
 
+> **Güncelleme (2026-07-03, ikinci tur):** B3, B6, B7, B8, B9 ve B5'in bir bölümü uygulandı — aşağıda ✅ ile işaretlendi. B1, B2, B4, B10 ve B5'in dağıtık kısmı bilinçli olarak sonraki sprint'e bırakıldı (mimari/çaba gerekçeleriyle).
+
+### ✅ B3 — E-posta doğrulaması (UYGULANDI)
+Davet dokümanı `davetGecerli()` ile `get()` üzerinden doğrulanıyor; ek olarak istemcide `resolveAppUser`, `davetId` taşıyan kullanıcı `emailVerified` değilse oturumu reddediyor. (Firebase'de yeni hesabın `email_verified`'ı kayıt anında `false` olduğu için kontrol create kuralında değil, oturum açma anında istemcide + kayıt akışında uygulanıyor.)
+
+### ✅ B6 — Audit log bütünlüğü (UYGULANDI)
+`auditLogs` create kuralına `actorId == request.auth.uid` eşitliği eklendi; kullanıcı başkası adına log yazamıyor. `update, delete: false` (değiştirilemezlik korunuyor).
+
+### ✅ B7 — Lint uyarıları (UYGULANDI)
+Üç captcha `<img>` (base64 data URI) satır bazlı `eslint-disable-next-line @next/next/no-img-element` ile işaretlendi. **Lint: 0 error, 0 warning.**
+
+### ✅ B8 — Anahtar rotasyonu (UYGULANDI)
+`verifyToken`'da `kid` bulunamazsa Google sertifika cache'i `getPublicKeys(true)` ile zorla yenilenip bir kez daha deneniyor (key rotation anında geçerli token'ların reddedilmesi önlendi).
+
+### ✅ B9 — Gönderimlerde ofis kapsamı (UYGULANDI)
+`lib/firebase/officeScope.ts` → `assertMusterilerInOffice()`; `whatsapp/send` ve `email/send`, hedef `musteriId`'lerin çağıranın ofisine ait olduğunu Admin SDK ile doğruluyor (aksi halde 403). Admin SDK yoksa production'da fail-closed.
+
+### ✅ B5 (kısmi) — Rate limiting (UYGULANDI)
+`lib/security/rateLimit.ts` (bağımlısız in-memory sliding-window) eklendi ve en abuse'e açık üç endpoint'e uygulandı: `gib/captcha` (30/dk/kullanıcı), `whatsapp/send` (10/dk/ofis), `email/send` (20/dk/ofis). 429 + `Retry-After` döner.
+**Kalan:** Serverless'te her instance kendi penceresini tutar; kesin global limit için Upstash/Vercel KV tabanlı dağıtık çözüm gerekir (sonraki sprint). App Check hâlâ eklenmedi.
+
+---
+
+### Sonraki sprint'e bırakılanlar (bilinçli)
+
 ### B1. 🟠 Rol/yetki modeli hâlâ Firestore dokümanına dayanıyor
 Kurallar her istekte `kullanicilar/{uid}` okuyor (ekstra okuma maliyeti + `userDoc()` çağrısı kural başına tekrarlanıyor). **Öneri:** Firebase **custom claims**'e geçiş (rol + ofisId claim'e yazılır; kurallar `request.auth.token.rol` okur). Bu hem maliyeti düşürür hem de rol değişikliklerinin tek güvenilir kaynaktan (Admin SDK) yönetilmesini zorlar. Claim yazma işlemi için küçük bir admin API/function gerekir. `requireStaff` de claim okuyarak Firestore okumasını atlayabilir.
 
 ### B2. 🟠 İlk kayıt (self-bootstrap) herkese açık
 Model gereği herkes kayıt olup **kendi boş ofisini** kurabilir (tenant izolasyonu sayesinde başka veriye erişemez). SaaS olarak bu istenen davranış olabilir; değilse kayıt sayfası davet-only yapılmalı ve self-bootstrap kural yolu kaldırılmalı. Ayrıca `AuthContext`'teki "Firestore belgesi yok → musavir olarak oluştur" kurtarma akışı, yarıda kalmış **mükellef** kayıtlarını yanlışlıkla (kendi boş ofisinde) müşavir yapabilir — davet akışında doküman yazımı başarısız olursa kullanıcıyı davet sayfasına geri yönlendiren bir kontrol eklenebilir.
 
-### B3. 🟠 E-posta doğrulaması zorunlu değil
-Davet doğrulaması `request.auth.token.email` karşılaştırmasına dayanıyor ama `email_verified` kontrol edilmiyor. Firebase şifreli kayıtla e-posta sahiplenilmeden hesap açılabilir; davet e-postasını bilen biri o adresle hesap açıp daveti kullanabilir. **Öneri:** kurala `request.auth.token.email_verified == true` eklenmesi + kayıt akışına e-posta doğrulama adımı.
-
 ### B4. 🟠 Kalan bağımlılık zafiyetleri (16 → çoğu düşük pratik risk)
 - `next` 14.x için 2 "high" advisory kaldı (Image Optimizer `remotePatterns` DoS — projede `remotePatterns` **kullanılmıyor**, etkilenmez; RSC deserialization DoS). Kalıcı çözüm Next 15 migrasyonu (planlı iş — orta çaba, breaking changes var).
 - `glob`/`minimatch`/`rimraf` — yalnızca dev zincirinde (eslint), runtime'a girmiyor.
 - `jspdf` → `dompurify` zinciri — webpack alias ile `dompurify: false` stub'landığı için bundle'a girmiyor.
 - `xlsx` uyarısı, yerelde `npm install` çalıştırılıp lock dosyası CDN 0.20.3'e güncellenince kapanacak.
-
-### B5. 🟠 Rate limiting ve App Check yok
-API route'larında istek sınırlama yok (özellikle `gib/captcha`, `whatsapp/send`, `email/send` maliyet/abuse hassas). **Öneri:** Upstash/Vercel KV tabanlı basit rate limit + Firebase **App Check** (bot/kötüye kullanım koruması).
-
-### B6. 🟡 Audit log bütünlüğü
-`auditLogs` create'te `actorId` "string olması" kontrol ediliyor ama **`actorId == request.auth.uid` zorunlu değil** — kullanıcı başkası adına log yazabilir. Kurala eşitlik kontrolü eklenmeli; uzun vadede loglar Admin SDK/function üzerinden yazılmalı (değiştirilemezlik).
-
-### B7. 🟡 Kalan lint uyarıları (5 warning)
-`<img>` kullanımları (ayarlar, beyannameler, tebligatlar) — bunlar base64 captcha/PDF önizlemeleri olduğu için `next/image` uygun değil; satır bazlı disable yorumu eklenebilir. Kırıcı değil.
-
-### B8. 🟡 `verifyToken` anahtar önbelleği tek instance
-Serverless ortamda (Vercel) her cold start'ta Google sertifika endpoint'ine gidilir — kabul edilebilir, ancak `kid` bulunamadığında cache'i zorla yenileme (key rotation anı) eklenmeli.
-
-### B9. 🟡 WhatsApp/e-posta gönderimlerinde ofis kapsamı doğrulanmıyor
-`requireStaff` artık rolü doğruluyor ama gönderilen `musteriId`'nin **çağıranın ofisine ait olduğu** API'de kontrol edilmiyor (personel kendi ofisindeki olmayan bir numaraya ofis şablonuyla mesaj atamaz garanti edilmeli). `requireStaff` dönen `ofisId` ile `musteriler/{musteriId}.ofisId` karşılaştırması eklenmeli.
 
 ### B10. Fonksiyonel eksikler (EKSIKLER.md'den devralınan, hâlâ açık)
 - Gerçek Firebase projesiyle uçtan uca smoke test (P0 listesindeki 7 adım)

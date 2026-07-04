@@ -589,6 +589,7 @@ export default function TebligatlarPage() {
                   <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : captchaImageBase64 ? (
+                // eslint-disable-next-line @next/next/no-img-element -- base64 data URI captcha; next/image optimizasyonu gereksiz
                 <img
                   src={`data:image/jpeg;base64,${captchaImageBase64}`}
                   alt="GİB güvenlik kodu"

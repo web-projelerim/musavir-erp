@@ -26,17 +26,29 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/firebase/verifyToken";
+import { assertMusterilerInOffice } from "@/lib/firebase/officeScope";
+import { rateLimit } from "@/lib/security/rateLimit";
 
 interface EmailBody {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  /** Verilirse, müşterinin çağıranın ofisine ait olduğu doğrulanır (B9). */
+  musteriId?: string;
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireStaff(req)) {
+  const actor = await requireStaff(req);
+  if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  }
+  const rl = rateLimit(`email-send:${actor.ofisId}`, 20, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Çok fazla e-posta isteği. Lütfen bekleyin." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
   }
 
   const smtpHost = process.env.SMTP_HOST;
@@ -57,13 +69,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: EmailBody = await req.json();
-    const { to, subject, html, text } = body;
+    const { to, subject, html, text, musteriId } = body;
 
     if (!to || !subject || !html) {
       return NextResponse.json(
         { error: "to, subject ve html alanları zorunludur" },
         { status: 400 }
       );
+    }
+
+    // B9: musteriId verilmişse müşterinin çağıranın ofisine ait olduğunu doğrula.
+    if (musteriId) {
+      const scope = await assertMusterilerInOffice([musteriId], actor.ofisId);
+      if (!scope.ok) {
+        return NextResponse.json(
+          { error: "Ofis dışı müşteri hedeflenemez", disallowed: scope.disallowed },
+          { status: 403 }
+        );
+      }
     }
 
     // nodemailer ile gönderim

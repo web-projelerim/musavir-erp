@@ -1,9 +1,11 @@
 # MusavirERP — Yapılacaklar Listesi
 
-Tarih: 2026-07-03
-Bu liste, son üç güvenlik/kalite oturumunun çıktısını ve `EKSIKLER.md` / `TODO_GUNCEL.md` içindeki açık maddeleri tek yerde önceliklendirir. Tamamlanan güvenlik işleri `UCTAN_UCA_SORUN_TESPIT_RAPORU.md` Bölüm A'da; buradaki maddeler **yapılması gerekenler**dir.
+Tarih: 2026-07-03 (güncellendi)
+Bu liste, güvenlik/kalite oturumlarının çıktısını ve `EKSIKLER.md` / `TODO_GUNCEL.md` içindeki açık maddeleri tek yerde önceliklendirir. Tamamlanan güvenlik işleri `UCTAN_UCA_SORUN_TESPIT_RAPORU.md` Bölüm A'da; buradaki maddeler **yapılması gerekenler**dir.
 
-Durum işaretleri: `[ ]` açık · `[~]` kısmen yapıldı · `[!]` engelleyici/blocker
+Son oturumda tamamlananlar: rol değiştirme UI + admin-sync tetikleme (B1 tam kullanılabilir), VKN/TCKN gösterim maskelemesi. Birim test sayısı 33'e çıktı (6 dosya) + 11 rules senaryosu.
+
+Durum işaretleri: `[ ]` açık · `[x]` tamamlandı · `[~]` kısmen yapıldı · `[!]` engelleyici/blocker
 
 ---
 
@@ -38,7 +40,10 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 - [x] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol Select + aktif/pasif toggle eklendi (yalnızca müşavir, kendi hesabı hariç). Değişince `updateKullanici` + `/api/auth/sync-claims` (`targetUid`) çağrılıyor, audit log yazılıyor, "yeniden giriş gerekebilir" bilgisi gösteriliyor. Mükellefe düşürme yalnızca `musteriId` varsa mümkün. *(B1 altyapısı tam kullanılabilir hale geldi.)*
 - [ ] **B5 dağıtık rate limit:** Mevcut in-memory limiter serverless'te instance başına çalışır. Upstash Redis / Vercel KV tabanlı global limite geçir (özellikle `whatsapp/send`, `email/send`, `gib/captcha`).
 - [ ] **Firebase App Check** ekle (reCAPTCHA/attestation) — bot ve kötüye kullanım koruması.
-- [~] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). *Kalan:* yetki atama UI'ı (personele vkn_goruntule verme), VKN arama filtresinin yetkisiz personel için sınırlanması, PDF/export/log'da maskeleme.
+- [~] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). Kalan alt-görevler aşağıda ayrı maddeler.
+- [ ] **Yetki atama UI'ı** — Müşavirin personele `vkn_goruntule` (ve diğer `KullaniciYetki`'leri) verebileceği arayüz. Davet modalına yetki seçimi + Ayarlar → Kullanıcılar satırına yetki düzenleme. *(maskData altyapısı hazır; şu an personele VKN erişimi verilemiyor.)*
+- [ ] **VKN arama sınırlaması** — Yetkisiz personel için müşteri/beyanname-takip arama filtrelerinde ham VKN eşleşmesini kapat (kör aramayla hane doğrulama sızıntısını önle).
+- [ ] **PDF/export/log maskeleme** — Rapor PDF'leri, Excel/Luca export'ları ve audit/log çıktılarında yetkisiz roller için VKN/TCKN ve finansal alan maskeleme.
 - [ ] `firestore.indexes.json` oluştur ve deploy et — `davetler` tokenHash sorgusu ve diğer composite sorgular için gerekli index'leri tanımla.
 - [ ] Cron/işlerin gerçek ortamda fail-closed davrandığını doğrula (secret'sız 503).
 
@@ -84,12 +89,14 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 
 ---
 
-## Önerilen Sıra (İlk Sprint)
+## Önerilen Sıra (Sonraki Sprint)
+
+Tamamlandı: ~~rol değiştirme UI + admin-sync~~ ✓, ~~VKN/TCKN gösterim maskelemesi~~ ✓
 
 1. P0 deploy & doğrulama bloğu (patch'ler + env + rules deploy + emülatör testi)
 2. P0 smoke test listesi
-3. P1 rol değiştirme UI + admin-sync tetikleme (B1'i tam kullanılabilir yapar)
-4. P1 App Check + dağıtık rate limit
-5. P1 VKN/TCKN maskeleme
+3. Yetki atama UI'ı — VKN maskelemeyi tam kullanılabilir yapar (personele erişim verme)
+4. Firebase App Check + dağıtık rate limit
+5. VKN arama sınırlaması + PDF/export/log maskeleme (VKN maddesini tam kapatır)
 
 Sonra P2 entegrasyonlar iş önceliğine göre sıralanır.

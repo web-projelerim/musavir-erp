@@ -9,6 +9,8 @@ import { RiskMetre } from "@/components/ui/RiskMetre";
 import { Table, TableHead, TableHeadCell } from "@/components/ui/Table";
 import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import type { RiskSeviyesi } from "@/lib/types";
@@ -17,6 +19,7 @@ const RISK_SEVIYELERI: RiskSeviyesi[] = ["kritik", "yuksek", "orta", "dusuk"];
 
 export default function RiskPage() {
   const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2, loading } = useAppData();
+  const { user } = useAuth();
   const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
 
   const sayac = (seviye: RiskSeviyesi) => riskListesi.filter((risk) => risk.seviye === seviye).length;
@@ -97,7 +100,7 @@ export default function RiskPage() {
                       #{idx + 1}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">{m.firmaAdi}</p>
-                    <p className="mt-1 text-xs font-mono text-slate-400">{m.vknTckn}</p>
+                    <p className="mt-1 text-xs font-mono text-slate-400">{displayVknTckn(m.vknTckn, user)}</p>
                   </div>
                   <RiskBadge seviye={risk.seviye} />
                 </div>
@@ -169,7 +172,7 @@ export default function RiskPage() {
                   <td className="px-4 py-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{m.firmaAdi}</p>
-                      <p className="text-xs text-slate-400 font-mono">{m.vknTckn}</p>
+                      <p className="text-xs text-slate-400 font-mono">{displayVknTckn(m.vknTckn, user)}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3">

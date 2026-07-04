@@ -38,7 +38,7 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 - [x] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol Select + aktif/pasif toggle eklendi (yalnızca müşavir, kendi hesabı hariç). Değişince `updateKullanici` + `/api/auth/sync-claims` (`targetUid`) çağrılıyor, audit log yazılıyor, "yeniden giriş gerekebilir" bilgisi gösteriliyor. Mükellefe düşürme yalnızca `musteriId` varsa mümkün. *(B1 altyapısı tam kullanılabilir hale geldi.)*
 - [ ] **B5 dağıtık rate limit:** Mevcut in-memory limiter serverless'te instance başına çalışır. Upstash Redis / Vercel KV tabanlı global limite geçir (özellikle `whatsapp/send`, `email/send`, `gib/captcha`).
 - [ ] **Firebase App Check** ekle (reCAPTCHA/attestation) — bot ve kötüye kullanım koruması.
-- [ ] **VKN/TCKN ve finansal veri maskeleme** — özellikle personel rolü için alan bazlı görünürlük; hassas alanların log/PDF/export'a sızmadığını kontrol et.
+- [~] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). *Kalan:* yetki atama UI'ı (personele vkn_goruntule verme), VKN arama filtresinin yetkisiz personel için sınırlanması, PDF/export/log'da maskeleme.
 - [ ] `firestore.indexes.json` oluştur ve deploy et — `davetler` tokenHash sorgusu ve diğer composite sorgular için gerekli index'leri tanımla.
 - [ ] Cron/işlerin gerçek ortamda fail-closed davrandığını doğrula (secret'sız 503).
 

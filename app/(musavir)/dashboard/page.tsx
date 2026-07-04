@@ -47,6 +47,8 @@ import { YeniGorevModal } from "@/components/modals/YeniGorevModal";
 import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal";
 import { hesaplaRiskListesi } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { MiniTakvim } from "@/components/ui/MiniTakvim";
 import type { TakvimOlay } from "@/components/ui/MiniTakvim";
@@ -121,6 +123,7 @@ export default function DashboardPage() {
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
   const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
   const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs, loading } = useAppData();
+  const { user } = useAuth();
 
   useEffect(() => {
     const bugun = new Date().toISOString().slice(0, 10);
@@ -547,7 +550,7 @@ export default function DashboardPage() {
                         {risk.skor >= 90 && "🚨 "}
                         {m.firmaAdi}
                       </p>
-                      <p className="mt-1 text-xs font-mono text-slate-500">{m.vknTckn}</p>
+                      <p className="mt-1 text-xs font-mono text-slate-500">{displayVknTckn(m.vknTckn, user)}</p>
                     </Link>
                     <TahsilatBadge durum={m.tahsilatDurumu} />
                   </div>
@@ -584,7 +587,7 @@ export default function DashboardPage() {
                         {risk.skor >= 90 && "🚨 "}
                         {m.firmaAdi}
                       </p>
-                      <p className="text-slate-500 text-xs font-mono mt-0.5">{m.vknTckn}</p>
+                      <p className="text-slate-500 text-xs font-mono mt-0.5">{displayVknTckn(m.vknTckn, user)}</p>
                     </Link>
                   </TableCell>
                   <TableCell>

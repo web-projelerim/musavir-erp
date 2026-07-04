@@ -29,6 +29,7 @@ import {
 } from "@/lib/domain/tebligatSla";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateTebligat } from "@/lib/firebase/repositories";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
@@ -358,7 +359,7 @@ export default function TebligatlarPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900">{tebligat.baslik}</p>
                     <p className="mt-1 text-xs font-medium text-slate-600">{tebligat.musteriAdi}</p>
-                    <p className="mt-1 text-xs font-mono text-slate-400">{tebligat.vknTckn}</p>
+                    <p className="mt-1 text-xs font-mono text-slate-400">{displayVknTckn(tebligat.vknTckn, user)}</p>
                   </div>
                   <TebligatBadge durum={tebligat.durum} />
                 </div>
@@ -478,7 +479,7 @@ export default function TebligatlarPage() {
                       <span className="text-xs font-semibold text-slate-800">{tebligat.musteriAdi}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs font-mono text-slate-500">{tebligat.vknTckn}</span>
+                      <span className="text-xs font-mono text-slate-500">{displayVknTckn(tebligat.vknTckn, user)}</span>
                     </TableCell>
                     <TableCell>
                       <div>

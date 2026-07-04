@@ -40,6 +40,7 @@ import { normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { formatTarih, formatPara } from "@/lib/utils/format";
 import { isMusavir } from "@/lib/utils/permissions";
 import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
 const TABS = ["Özet", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
@@ -411,7 +412,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
             <h1 className="text-xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="font-mono text-sm text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                {musteri.vknTckn}
+                {displayVknTckn(musteri.vknTckn, user)}
               </span>
               <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{MUSTERI_DURUM_LABEL[musteri.durum] ?? musteri.durum}</Badge>
               <TahsilatBadge durum={musteri.tahsilatDurumu} />

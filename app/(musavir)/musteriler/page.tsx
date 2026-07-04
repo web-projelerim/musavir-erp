@@ -18,6 +18,7 @@ import { MusteriImportModal } from "@/components/modals/MusteriImportModal";
 import { BankaHizmetEkstresiModal } from "@/components/modals/BankaHizmetEkstresiModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import { hasPermission } from "@/lib/utils/permissions";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatPara, formatTarih } from "@/lib/utils/format";
@@ -337,7 +338,7 @@ export default function MusterilerPage() {
                       <h3 className="text-sm font-bold text-slate-800 truncate group-hover:text-blue-700 transition-colors">
                         {m.firmaAdi}
                       </h3>
-                      <p className="text-xs font-mono text-slate-400 mt-0.5">{m.vknTckn}</p>
+                      <p className="text-xs font-mono text-slate-400 mt-0.5">{displayVknTckn(m.vknTckn, user)}</p>
                     </div>
                     <Badge variant={m.durum === "aktif" ? "success" : "neutral"} className="ml-2 flex-shrink-0">
                       {MUSTERI_DURUM_LABEL[m.durum] ?? m.durum}
@@ -432,7 +433,7 @@ export default function MusterilerPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-800 truncate">{m.firmaAdi}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{m.yetkiliAd} · {m.vknTckn}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{m.yetkiliAd} · {displayVknTckn(m.vknTckn, user)}</p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <Badge variant={m.durum === "aktif" ? "success" : m.durum === "pasif" ? "neutral" : "warning"}>
@@ -496,7 +497,7 @@ export default function MusterilerPage() {
                         </TableCell>
                         <TableCell>
                           <span className="font-mono text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
-                            {m.vknTckn}
+                            {displayVknTckn(m.vknTckn, user)}
                           </span>
                         </TableCell>
                         <TableCell>

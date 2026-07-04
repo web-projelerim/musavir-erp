@@ -25,7 +25,8 @@ export type KullaniciYetki =
   | "tahakkuk_yazma"
   | "belge_yonetimi"
   | "gib_okuma"
-  | "rapor_yonetimi";
+  | "rapor_yonetimi"
+  | "vkn_goruntule";
 
 export interface Ofis {
   id: string;

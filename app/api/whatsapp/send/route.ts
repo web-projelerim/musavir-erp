@@ -27,7 +27,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/firebase/verifyToken";
 import { assertMusterilerInOffice } from "@/lib/firebase/officeScope";
-import { rateLimit } from "@/lib/security/rateLimit";
+import { rateLimitDistributed } from "@/lib/security/rateLimit";
 
 const META_API = "https://graph.facebook.com/v19.0";
 const DEFAULT_TEMPLATE = "musavir_hatirlatma";
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
   if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
-  const rl = rateLimit(`whatsapp-send:${actor.ofisId}`, 10, 60_000);
+  const rl = await rateLimitDistributed(`whatsapp-send:${actor.ofisId}`, 10, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Çok fazla gönderim isteği. Lütfen bekleyin." },

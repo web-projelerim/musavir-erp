@@ -327,6 +327,23 @@ service cloud.firestore {
       allow delete: if isStaff() && sameOffice(resource.data.ofisId);
     }
 
+    match /belgeTalepleri/{id} {
+      // Müşavir/personel kendi ofisindeki talepleri; mükellef kendine ait
+      // talepleri görebilir.
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
+      // Talebi yalnızca ofis personeli oluşturur (mükellepten belge ister)
+      allow create: if writingToOwnOffice();
+      // Personel talebi günceller; mükellef yalnızca durumu 'yuklendi'ye
+      // çekebilir ve karşılayan belgeId'yi bağlayabilir (talebi kapatamaz).
+      allow update: if sameOffice(resource.data.ofisId) ||
+                      (isMukellefFor(resource.data.musteriId) &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['durum', 'belgeId', 'guncellenmeTarihi']) &&
+                       request.resource.data.durum == 'yuklendi');
+      allow delete: if isStaff() && sameOffice(resource.data.ofisId);
+    }
+
     // ─── Audit logları ────────────────────────────────────────────────────────
 
     match /auditLogs/{logId} {

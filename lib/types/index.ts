@@ -201,6 +201,38 @@ export interface Davet {
 
 // ─── Müşteri ────────────────────────────────────────────────────
 export type RiskSeviyesi = "dusuk" | "orta" | "yuksek" | "kritik";
+
+/** Zaman içinde risk skorunun anlık görüntüsü — trend takibi için */
+export interface RiskGecmisKaydi {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi?: string;
+  skor: number;
+  seviye: RiskSeviyesi;
+  /** O anki başlıca risk sinyalleri (kısa etiketler) */
+  sinyaller?: string[];
+  tarih: string;
+}
+
+export type RiskAksiyonDurum = "acik" | "devam" | "tamamlandi" | "iptal";
+
+/** Bir risk sinyaline karşı başlatılan aksiyon/görev bağlantısı */
+export interface RiskAksiyon {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi?: string;
+  baslik: string;
+  aciklama?: string;
+  seviye: RiskSeviyesi;
+  durum: RiskAksiyonDurum;
+  /** Bağlı görev id'si (aksiyon bir göreve dönüştüyse) */
+  gorevId?: string;
+  olusturan: string;
+  createdAt: string;
+  guncellenmeTarihi?: string;
+}
 export type MusteriDurum = "aktif" | "pasif" | "beklemede";
 
 export interface Musteri {
@@ -510,6 +542,18 @@ export type BelgeKategori =
   | "diger";
 export type BelgeGorunurluk = "musavir" | "mukellef";
 
+export type BelgeOnayDurum = "bekliyor" | "onaylandi" | "reddedildi";
+
+export interface BelgeVersiyon {
+  versiyon: number;
+  url: string;
+  storagePath?: string;
+  boyut: number;
+  yukleyen: string;
+  not?: string;
+  createdAt: string;
+}
+
 export interface Belge {
   id: string;
   ofisId?: string;
@@ -525,7 +569,36 @@ export interface Belge {
   yukleyen: string;
   yukleyenRol: UserRole;
   notlar?: string;
+  /** Aktif versiyon numarası (1'den başlar) */
+  versiyon?: number;
+  /** Geçmiş versiyonlar (en yeni sonda). Aktif versiyon `url`/`storagePath`te tutulur. */
+  versiyonlar?: BelgeVersiyon[];
+  /** Müşavir onay durumu — mükellefin yüklediği belgeler için */
+  onayDurum?: BelgeOnayDurum;
+  onaylayan?: string;
+  onayTarihi?: string;
+  onayNotu?: string;
   createdAt: string;
+}
+
+export type BelgeTalepDurum = "acik" | "yuklendi" | "tamamlandi" | "iptal";
+
+/** Müşavirin mükellepten belge istemesi — belge talep akışı */
+export interface BelgeTalep {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  baslik: string;
+  aciklama?: string;
+  kategori?: BelgeKategori;
+  durum: BelgeTalepDurum;
+  talepEden: string;
+  /** Talebi karşılayan yüklenen belge id'si */
+  belgeId?: string;
+  sonTarih?: string;
+  createdAt: string;
+  guncellenmeTarihi?: string;
 }
 
 // ─── Tahsilat ────────────────────────────────────────────────

@@ -27,7 +27,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/firebase/verifyToken";
 import { assertMusterilerInOffice } from "@/lib/firebase/officeScope";
-import { rateLimit } from "@/lib/security/rateLimit";
+import { rateLimitDistributed } from "@/lib/security/rateLimit";
 
 interface EmailBody {
   to: string;
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   if (!actor) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
-  const rl = rateLimit(`email-send:${actor.ofisId}`, 20, 60_000);
+  const rl = await rateLimitDistributed(`email-send:${actor.ofisId}`, 20, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Çok fazla e-posta isteği. Lütfen bekleyin." },

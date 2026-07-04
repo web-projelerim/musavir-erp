@@ -1,0 +1,5 @@
+{
+  "//": "Composite index tanımları. Şu an tüm sorgular tek alanlı eşitlik filtresi (ofisId/durum/tokenHash/createdBy) veya array-contains kullandığı için Firestore bunları otomatik indeksler — zorunlu composite index YOK. Sıralama (orderBy) istemci tarafında yapılıyor. Gelecekte where+orderBy veya çok-alanlı aralık sorgusu eklenirse buraya composite index eklenmeli ve 'firebase deploy --only firestore:indexes' ile yayınlanmalı. Firestore, eksik index gerektiren bir sorgu çalıştırıldığında konsola hazır index oluşturma linki yazar.",
+  "indexes": [],
+  "fieldOverrides": []
+}

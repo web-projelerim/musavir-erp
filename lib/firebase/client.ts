@@ -33,6 +33,35 @@ export const firebaseAuth: Auth | null = app ? getAuth(app) : null;
 export const firestoreDb: Firestore | null = app ? getFirestore(app) : null;
 export const firebaseStorage: FirebaseStorage | null = app ? getStorage(app) : null;
 
+/**
+ * Firebase App Check — bot/kötüye kullanım koruması.
+ * NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY tanımlıysa reCAPTCHA v3 sağlayıcısıyla
+ * etkinleştirilir. Yalnızca tarayıcıda ve site key varsa çalışır; aksi halde
+ * sessizce atlanır (App Check zorunlu değilse uygulama çalışmaya devam eder).
+ *
+ * Not: App Check'in gerçek koruma sağlaması için Firebase Console'da
+ * "enforce" edilmesi gerekir. Geliştirmede FIREBASE_APPCHECK_DEBUG_TOKEN
+ * kullanılabilir.
+ */
+if (app && typeof window !== "undefined") {
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY;
+  if (siteKey) {
+    // Dinamik import: App Check paketi yalnızca gerektiğinde yüklenir
+    import("firebase/app-check")
+      .then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
+        try {
+          initializeAppCheck(app!, {
+            provider: new ReCaptchaV3Provider(siteKey),
+            isTokenAutoRefreshEnabled: true,
+          });
+        } catch (err) {
+          console.warn("[AppCheck] başlatılamadı:", err);
+        }
+      })
+      .catch((err) => console.warn("[AppCheck] modül yüklenemedi:", err));
+  }
+}
+
 /** Mevcut kullanıcının Firebase ID token'ını döner. Demo modunda null. */
 export async function getIdToken(): Promise<string | null> {
   const currentUser = firebaseAuth?.currentUser;

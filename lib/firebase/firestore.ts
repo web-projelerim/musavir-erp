@@ -50,6 +50,7 @@ export const COLLECTIONS = {
   gibSozlesmeleri: "gibSozlesmeleri",
   beyanTakipHucreleri: "beyanTakipHucreleri",
   beyanTakipNotlari: "beyanTakipNotlari",
+  belgeTalepleri: "belgeTalepleri",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

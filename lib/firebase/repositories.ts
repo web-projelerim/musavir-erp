@@ -11,6 +11,7 @@ import type {
   Gorev,
   GorevDurum,
   Belge,
+  BelgeTalep,
   GonderimKaydi,
   KDV2Hesaplama,
   Musteri,
@@ -502,6 +503,27 @@ export async function createBelge(input: Omit<Belge, "id" | "createdAt">) {
 
   await upsertDocument(COLLECTIONS.belgeler, belge);
   return belge;
+}
+
+export async function updateBelge(id: string, input: Partial<Belge>) {
+  await updateDocument<Belge>(COLLECTIONS.belgeler, id, input);
+}
+
+export async function createBelgeTalep(input: Omit<BelgeTalep, "id" | "createdAt">) {
+  const talep: BelgeTalep = {
+    id: createId("talep"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.belgeTalepleri, talep);
+  return talep;
+}
+
+export async function updateBelgeTalep(id: string, input: Partial<BelgeTalep>) {
+  await updateDocument<BelgeTalep>(COLLECTIONS.belgeTalepleri, id, {
+    ...input,
+    guncellenmeTarihi: new Date().toISOString(),
+  });
 }
 
 export async function deleteBelge(id: string) {

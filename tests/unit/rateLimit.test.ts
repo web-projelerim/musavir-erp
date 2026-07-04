@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rateLimit } from "@/lib/security/rateLimit";
+import { rateLimit, rateLimitDistributed } from "@/lib/security/rateLimit";
 
 describe("rateLimit (sliding window)", () => {
   it("limit dahilinde istekleri geçirir", () => {
@@ -38,5 +38,14 @@ describe("rateLimit (sliding window)", () => {
     rateLimit(k1, 1, 60_000);
     expect(rateLimit(k1, 1, 60_000).ok).toBe(false);
     expect(rateLimit(k2, 1, 60_000).ok).toBe(true);
+  });
+});
+
+describe("rateLimitDistributed (Upstash yoksa in-memory fallback)", () => {
+  it("Upstash env tanımsızsa in-memory gibi davranır", async () => {
+    const key = `dist:${Math.random()}`;
+    expect((await rateLimitDistributed(key, 2, 60_000)).ok).toBe(true);
+    expect((await rateLimitDistributed(key, 2, 60_000)).ok).toBe(true);
+    expect((await rateLimitDistributed(key, 2, 60_000)).ok).toBe(false);
   });
 });

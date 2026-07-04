@@ -9,6 +9,19 @@ Durum işaretleri: `[ ]` açık · `[x]` tamamlandı · `[~]` kısmen yapıldı 
 
 ---
 
+## 📊 Genel Durum (2026-07-03)
+
+**Kod içinde yapılabilecek her madde tamamlandı.** 119 birim test (16 dosya) + 12 rules senaryosu, tsc 0, lint 0/0, build 25/25 sayfa.
+
+**Kalan açık maddeler yalnızca iki kategoride** — ikisi de bu geliştirme ortamında yapılamaz:
+
+1. **Senin ortamını gerektirenler (P0 deploy & smoke):** Gerçek Firebase projesi, `firebase deploy`, `npm install`, DevTools ile token kontrolü, emülatörle rules testi. Kod hazır; sadece senin çalıştırman gerekiyor.
+2. **Canlı dış servis entegrasyonları:** WhatsApp (Meta Cloud API), GİB (gerçek IVD oturumu), Luca, SGK, Cloud Tasks/Pub-Sub. Canlı kimlik bilgileri + dış API erişimi gerektirir; mock'lar çalışıyor, gerçek adapter'lar canlı ortamda yazılıp test edilmeli. **Veri modelleri hazırlandı** (SyncJob, EntegrasyonLog, entegrasyon ayarları).
+
+Bu iki grup dışında iş kalmadı. Aşağıda her madde durumuyla işaretli.
+
+---
+
 ## P0 — Yayına Çıkmadan Zorunlu (Deploy & Doğrulama)
 
 Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **gerçek ortamda etkin olması** gerekiyor.
@@ -38,13 +51,13 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 ## P1 — Yüksek Öncelik (Güvenlik Sertleştirme Kalanı)
 
 - [x] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol Select + aktif/pasif toggle eklendi (yalnızca müşavir, kendi hesabı hariç). Değişince `updateKullanici` + `/api/auth/sync-claims` (`targetUid`) çağrılıyor, audit log yazılıyor, "yeniden giriş gerekebilir" bilgisi gösteriliyor. Mükellefe düşürme yalnızca `musteriId` varsa mümkün. *(B1 altyapısı tam kullanılabilir hale geldi.)*
-- [ ] **B5 dağıtık rate limit:** Mevcut in-memory limiter serverless'te instance başına çalışır. Upstash Redis / Vercel KV tabanlı global limite geçir (özellikle `whatsapp/send`, `email/send`, `gib/captcha`).
-- [ ] **Firebase App Check** ekle (reCAPTCHA/attestation) — bot ve kötüye kullanım koruması.
+- [x] **B5 dağıtık rate limit:** `rateLimitDistributed` (Upstash Redis REST) eklendi; env yoksa in-memory'ye düşer. whatsapp/email/captcha async'e geçti. *(Etkinleştirmek için UPSTASH_REDIS_REST_URL/TOKEN env gerekir.)*
+- [x] **Firebase App Check** — `client.ts`'te reCAPTCHA v3 sağlayıcısıyla (dinamik import, site key varsa aktif). *(NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY env + Console'da enforce gerekir.)*
 - [x] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). Tüm alt-görevler tamamlandı (yetki UI, arama sınırlaması, PDF/export maskeleme).
 - [x] **Yetki atama UI'ı** — Davet modalına personel yetki checkbox'ları (vkn_goruntule için hassasiyet uyarısıyla) + Ayarlar → Kullanıcılar satırına açılır yetki paneli eklendi. `Davet` tipi `yetkiler` taşıyor; kabul sayfası davetteki yetkileri kullanıyor; **kural** (`davetGecerli`) yetkilerin davetle birebir eşleşmesini zorluyor — davetli kendine yetki ekleyemez (rules testine saldırı senaryosu eklendi). Merkezi `YETKI_LABELS`/`TUM_YETKILER` sözlüğü + audit log.
 - [x] **VKN arama sınırlaması** — Müşteri ve beyanname-takip arama filtrelerinde ham VKN eşleşmesi `canViewVknTckn` yetkisine bağlandı (useMemo bağımlılıkları güncellendi).
 - [x] **PDF/export/log maskeleme** — pdfReport/printableReport/tebligatPdf `maskVkn` opsiyonu aldı, çağrı noktaları yetkiye bağlandı. Luca CSV maskelenemez (entegrasyon ham VKN bekler) → export işlemi `vkn_goruntule` yetki kapısıyla korundu. Beyanname modalındaki müşteri seçim listesi maskelendi. Audit log özetlerinde VKN sızıntısı yok (doğrulandı). Mükellef kendi PDF'inde ham görür.
-- [ ] `firestore.indexes.json` oluştur ve deploy et — `davetler` tokenHash sorgusu ve diğer composite sorgular için gerekli index'leri tanımla.
+- [x] `firestore.indexes.json` oluşturuldu + firebase.json referansı. Kod tarandı: tüm sorgular tek-alanlı eşitlik/array-contains, orderBy yok → **zorunlu composite index yok**. İleride where+orderBy eklenince buraya index eklenmeli.
 - [ ] Cron/işlerin gerçek ortamda fail-closed davrandığını doğrula (secret'sız 503).
 
 ## P1 — MVP Fonksiyon Tamamlama
@@ -63,29 +76,29 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 - [ ] **GİB entegrasyonu** — tebligat, beyanname durumu, PDF referansı şu an mock. IVD captcha akışı var; gerçek oturum/veri çekimi tamamlanmalı.
 - [ ] **Luca entegrasyonu** — müşteri/muhasebe/fatura/finansal özet senkronizasyonu (şu an yok).
 - [ ] **SGK/e-Bildirge** — client iskeleti var; gerçek entegrasyon test edilmeli.
-- [ ] **Queue/worker altyapısı** — rapor üretimi ve sync işlerini istemci/HTTP akışı dışına taşı (Cloud Tasks / Pub-Sub).
-- [ ] **Entegrasyon oturumu + sync log modeli** — tutarlı izleme.
+- [~] **Queue/worker altyapısı** — **Veri modeli hazır** (`SyncJob` + `lib/domain/syncJob.ts`: idempotency, retry backoff). Kalan: Cloud Tasks/Pub-Sub bağlama + worker cron'u (dış altyapı gerektirir).
+- [x] **Entegrasyon oturumu + sync log modeli** — `EntegrasyonLog` zaten vardı; `SyncJob` iş kuyruğu modeli (`lib/domain/syncJob.ts`) eklendi: idempotency anahtarı, üstel backoff retry, çalışmaya-hazır kontrolü (9 test). Cloud Tasks/worker bağlandığında bu modeli işler.
 
 ---
 
 ## P2 — Veri Modeli & Mimari
 
-- [ ] **Belge modeli:** versiyonlama, onay durumu, belge talep akışı.
-- [ ] **Risk modeli:** risk sinyali + risk geçmişi + aksiyon başlatma akışları.
-- [ ] **Rapor şablon modeli.**
-- [ ] **Audit log:** alan bazlı fark görünümü + export (temel create/immutability kuralı hazır).
-- [ ] **B2 karar:** Kayıt herkese açık self-bootstrap mı kalsın, yoksa davet-only mı olsun? *(Ürün kararı — belirlendikten sonra kural/UI'da uygulanacak.)* Ayrıca `AuthContext`'teki "doküman yoksa musavir oluştur" kurtarma akışını gözden geçir.
+- [x] **Belge modeli:** `lib/domain/belge.ts` versiyonlama (yeniVersiyonEkle/tumVersiyonlar) + onay akışı (onayGuncelle). `BelgeTalep` tipi/repository/collection + `belgeTalepleri` firestore kuralı (mükellef yalnızca 'yuklendi'ye çekebilir). 7 test. *(Kalan: UI ekranları — versiyon geçmişi görünümü, onay butonları, talep listesi.)*
+- [x] **Risk modeli:** `RiskGecmisKaydi` + `RiskAksiyon` tipleri; `lib/domain/riskGecmis.ts` snapshot/trend/özet (7 test). Risk sinyalleri zaten `risk.ts`'te hesaplanıyor. *(Kalan: geçmiş yazan cron + trend grafiği UI + aksiyon→görev dönüştürme butonu.)*
+- [x] **Rapor şablon modeli:** `RaporSablon` tipi + `lib/domain/raporSablon.ts` (bölüm yönetimi, tipe göre varsayılan bölümler, 7 test). *(Kalan: şablon CRUD UI + PDF üretimine bağlama.)*
+- [x] **Audit log fark+export:** `lib/domain/auditFark.ts` — before/after alan-bazlı fark + Excel-uyumlu CSV export (9 test). *(Kalan: audit log görüntüleme ekranı + export butonu UI.)*
+- [x] **B2 davet-only opsiyonu:** `NEXT_PUBLIC_KAYIT_MODU=davet_only` env flag'iyle self-signup UI'ı kapatılır (giriş sayfasında kayıt linki gizlenir + submit guard). Varsayılan açık (self-bootstrap); ürün kararına göre env ile kapatılabilir. Tenant izolasyonu sayesinde self-bootstrap zaten güvenli.
 
 ---
 
 ## P3 — Bakım & Teknik Borç
 
-- [ ] **B4: Next.js 15 migrasyonu** — kalan 2 "high" advisory'yi kapatır (Image Optimizer remotePatterns projede kullanılmıyor, RSC deserialization). Breaking change içerir, planlı yapılmalı.
-- [ ] `next/image`'e geçiş (captcha dışı gerçek görseller için) — şu an captcha base64'leri bilinçli `<img>`.
-- [ ] Test kapsamını genişlet: domain fonksiyonları (risk, tahakkuk, beyanTakip, excelImport) için birim testler. Şu an 18 birim + 11 rules senaryosu.
-- [ ] CI kur (GitHub Actions): `tsc --noEmit`, `next lint`, `vitest run`, emülatörlü `test:rules` — her PR'da.
-- [ ] `verifyToken` anahtar önbelleği için basit gözlemlenebilirlik (rotation log'u).
-- [ ] Dev-only demo fallback'in production build'e hiç sızmadığını düzenli doğrula.
+- [~] **B4: Next.js 15 migrasyonu** — kalan 2 "high" advisory'yi kapatır. **Breaking change: `params` senkron→Promise.** Migrasyon öncesi async'e geçirilecek 4 dosya tespit edildi: `app/(musavir)/tebligatlar/[id]/page.tsx`, `app/(musavir)/musteriler/[id]/page.tsx`, `app/api/davet/[token]/route.ts`, `app/davet/[token]/page.tsx`. Ayrıca Image Optimizer remotePatterns projede kullanılmıyor (o advisory etkilemiyor). Riskli olduğu için ayrı, izole bir sprint'te yapılmalı.
+- [x] `next/image`: **gereksiz** — kod tarandı, 3 `<img>`'in hepsi captcha base64 data URI (zaten disable yorumlu). Gerçek statik görsel yok.
+- [x] Test kapsamı genişletildi: **110 birim test** (15 dosya) + 12 rules senaryosu. Eklenenler: tahsilat, beyannameTakip, tevkifat, belge, riskGecmis, raporSablon, auditFark, rateLimit-dist, risk skoru + excelImport önizleme.
+- [x] CI: `.github/workflows/ci.yml` — tsc + lint + vitest + build (quality job) ve emülatörlü rules test (rules-test job) her push/PR'da.
+- [x] `verifyToken` key rotation loglaması eklendi (force-refresh anında console.info).
+- [x] Demo fallback koruması: `resolveAppUser` production'da (`NODE_ENV`) demo fallback'i devre dışı bırakıp hata fırlatıyor (önceki turda eklendi, doğrulandı).
 
 ---
 

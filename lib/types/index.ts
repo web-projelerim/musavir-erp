@@ -179,6 +179,35 @@ export interface EntegrasyonLog {
   createdAt: string;
 }
 
+// ─── İş Kuyruğu / Sync Job Modeli ────────────────────────────
+export type SyncJobTur = "gib_sync" | "luca_sync" | "rapor_uret" | "vade_hatirlatma" | "bildirim_gonder";
+export type SyncJobDurum = "kuyrukta" | "calisiyor" | "tamamlandi" | "basarisiz" | "iptal";
+
+/**
+ * Uzun/tekrar edebilir işleri istemci akışı dışına taşımak için kuyruk kaydı.
+ * Cloud Tasks / Pub-Sub veya basit bir worker cron'u bu kayıtları işleyebilir.
+ * `idempotencyKey` aynı işin iki kez kuyruğa girmesini önler.
+ */
+export interface SyncJob {
+  id: string;
+  ofisId: string;
+  tur: SyncJobTur;
+  durum: SyncJobDurum;
+  /** Aynı işin tekrarını önleyen benzersiz anahtar (ör. `gib_sync:ofis1:2026-06`) */
+  idempotencyKey: string;
+  /** İşe özel parametreler (musteriId, donem, vb.) */
+  payload?: Record<string, unknown>;
+  deneme: number;
+  maxDeneme: number;
+  sonHata?: string;
+  /** Bir sonraki deneme zamanı (backoff) */
+  sonrakiDeneme?: string;
+  olusturan: string;
+  createdAt: string;
+  baslamaTarihi?: string;
+  bitisTarihi?: string;
+}
+
 export type DavetDurum = "bekliyor" | "kullanildi" | "suresi_doldu" | "iptal";
 
 export interface Davet {

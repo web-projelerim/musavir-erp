@@ -26,6 +26,7 @@ import { BeyanTakipNotModal } from "@/components/modals/BeyanTakipNotModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useBeyanTakipData } from "@/lib/hooks/useBeyanTakipData";
 import { useAuth } from "@/lib/context/AuthContext";
+import { canViewVknTckn } from "@/lib/utils/maskData";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import {
@@ -150,7 +151,7 @@ export default function BeyannameTakipPage() {
       liste = liste.filter(
         (m) =>
           m.firmaAdi.toLowerCase().includes(aranan) ||
-          m.vknTckn.includes(aranan) ||
+          (canViewVknTckn(user) && m.vknTckn.includes(aranan)) ||
           (m.yetkiliAd && m.yetkiliAd.toLowerCase().includes(aranan))
       );
     }
@@ -178,7 +179,7 @@ export default function BeyannameTakipPage() {
     });
 
     return liste;
-  }, [musteriler, aramaMetni, siralama, kolonlar, hucreMap]);
+  }, [musteriler, aramaMetni, siralama, kolonlar, hucreMap, user]);
 
   const handleDurumDegistir = useCallback(
     async (musteriId: string, vergiTuruKey: string, durum: BeyanTakipDurum) => {

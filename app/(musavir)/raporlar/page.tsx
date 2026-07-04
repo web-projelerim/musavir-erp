@@ -23,6 +23,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { hesaplaMusteriRisk } from "@/lib/domain/risk";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
+import { canViewVknTckn } from "@/lib/utils/maskData";
 import { hasPermission } from "@/lib/utils/permissions";
 import { getOfisId } from "@/lib/domain/office";
 import { PageLoading } from "@/components/ui/PageLoading";
@@ -128,6 +129,7 @@ export default function RaporlarPage() {
       : undefined;
 
     return {
+      maskVkn: !canViewVknTckn(user),
       rapor,
       musteri,
       gorevler: raporGorevler,

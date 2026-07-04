@@ -40,10 +40,10 @@ Kod tarafındaki kritik güvenlik açıkları kapatıldı; şimdi bunların **ge
 - [x] **Rol değiştirme UI'ı + admin-sync tetikleme:** Ayarlar → Kullanıcılar ekranına rol Select + aktif/pasif toggle eklendi (yalnızca müşavir, kendi hesabı hariç). Değişince `updateKullanici` + `/api/auth/sync-claims` (`targetUid`) çağrılıyor, audit log yazılıyor, "yeniden giriş gerekebilir" bilgisi gösteriliyor. Mükellefe düşürme yalnızca `musteriId` varsa mümkün. *(B1 altyapısı tam kullanılabilir hale geldi.)*
 - [ ] **B5 dağıtık rate limit:** Mevcut in-memory limiter serverless'te instance başına çalışır. Upstash Redis / Vercel KV tabanlı global limite geçir (özellikle `whatsapp/send`, `email/send`, `gib/captcha`).
 - [ ] **Firebase App Check** ekle (reCAPTCHA/attestation) — bot ve kötüye kullanım koruması.
-- [~] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). Yetki atama UI'ı tamamlandı; kalan alt-görevler aşağıda.
+- [x] **VKN/TCKN maskeleme** — `lib/utils/maskData.ts` (maskVknTckn/canViewVknTckn/displayVknTckn) + `vkn_goruntule` yetkisi eklendi. Müşteri liste/detay, dashboard, risk, tebligatlar sayfalarında yetkisiz personele son-4-hane maskeli gösteriliyor (varsayılan personel maskeli). Tüm alt-görevler tamamlandı (yetki UI, arama sınırlaması, PDF/export maskeleme).
 - [x] **Yetki atama UI'ı** — Davet modalına personel yetki checkbox'ları (vkn_goruntule için hassasiyet uyarısıyla) + Ayarlar → Kullanıcılar satırına açılır yetki paneli eklendi. `Davet` tipi `yetkiler` taşıyor; kabul sayfası davetteki yetkileri kullanıyor; **kural** (`davetGecerli`) yetkilerin davetle birebir eşleşmesini zorluyor — davetli kendine yetki ekleyemez (rules testine saldırı senaryosu eklendi). Merkezi `YETKI_LABELS`/`TUM_YETKILER` sözlüğü + audit log.
-- [ ] **VKN arama sınırlaması** — Yetkisiz personel için müşteri/beyanname-takip arama filtrelerinde ham VKN eşleşmesini kapat (kör aramayla hane doğrulama sızıntısını önle).
-- [ ] **PDF/export/log maskeleme** — Rapor PDF'leri, Excel/Luca export'ları ve audit/log çıktılarında yetkisiz roller için VKN/TCKN ve finansal alan maskeleme.
+- [x] **VKN arama sınırlaması** — Müşteri ve beyanname-takip arama filtrelerinde ham VKN eşleşmesi `canViewVknTckn` yetkisine bağlandı (useMemo bağımlılıkları güncellendi).
+- [x] **PDF/export/log maskeleme** — pdfReport/printableReport/tebligatPdf `maskVkn` opsiyonu aldı, çağrı noktaları yetkiye bağlandı. Luca CSV maskelenemez (entegrasyon ham VKN bekler) → export işlemi `vkn_goruntule` yetki kapısıyla korundu. Beyanname modalındaki müşteri seçim listesi maskelendi. Audit log özetlerinde VKN sızıntısı yok (doğrulandı). Mükellef kendi PDF'inde ham görür.
 - [ ] `firestore.indexes.json` oluştur ve deploy et — `davetler` tokenHash sorgusu ve diğer composite sorgular için gerekli index'leri tanımla.
 - [ ] Cron/işlerin gerçek ortamda fail-closed davrandığını doğrula (secret'sız 503).
 
@@ -97,6 +97,6 @@ Tamamlandı: ~~rol değiştirme UI + admin-sync~~ ✓, ~~VKN/TCKN gösterim mask
 2. P0 smoke test listesi
 3. ~~Yetki atama UI'ı~~ ✓
 4. Firebase App Check + dağıtık rate limit
-5. VKN arama sınırlaması + PDF/export/log maskeleme (VKN maddesini tam kapatır)
+5. ~~VKN arama sınırlaması + PDF/export/log maskeleme~~ ✓ (VKN maddesi tam kapandı)
 
 Sonra P2 entegrasyonlar iş önceliğine göre sıralanır.

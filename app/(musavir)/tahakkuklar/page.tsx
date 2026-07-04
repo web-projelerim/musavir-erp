@@ -21,6 +21,7 @@ import {
 import { calculateTahakkukDurum, tahakkukKalemLabel, tahakkukTuruLabel, vergiTuruLabel } from "@/lib/domain/tahakkuk";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
+import { canViewVknTckn } from "@/lib/utils/maskData";
 import { lucaCSVIndir } from "@/lib/reports/lucaExport";
 import { useToast } from "@/lib/context/ToastContext";
 import { hasPermission } from "@/lib/utils/permissions";
@@ -43,6 +44,15 @@ export default function TahakkuklarPage() {
   const canWrite = hasPermission(user, "tahakkuk_yazma");
 
   const handleLucaExport = (liste: typeof normalized) => {
+    // Luca CSV ham VKN içerir (entegrasyon gereği maskelenemez) —
+    // bu yüzden export, VKN açık görüntüleme yetkisi gerektirir.
+    if (!canViewVknTckn(user)) {
+      toast.error(
+        "Yetki gerekli",
+        "Luca dışa aktarımı ham VKN/TCKN içerir; 'VKN/TCKN açık görüntüleme' yetkisi olan bir kullanıcı yapmalıdır."
+      );
+      return;
+    }
     if (liste.length === 0) {
       toast.warning("Dışa aktarılacak tahakkuk yok");
       return;

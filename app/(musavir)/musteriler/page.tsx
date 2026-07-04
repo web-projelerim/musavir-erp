@@ -18,7 +18,7 @@ import { MusteriImportModal } from "@/components/modals/MusteriImportModal";
 import { BankaHizmetEkstresiModal } from "@/components/modals/BankaHizmetEkstresiModal";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
-import { displayVknTckn } from "@/lib/utils/maskData";
+import { canViewVknTckn, displayVknTckn } from "@/lib/utils/maskData";
 import { hasPermission } from "@/lib/utils/permissions";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatPara, formatTarih } from "@/lib/utils/format";
@@ -173,7 +173,9 @@ export default function MusterilerPage() {
         const matchesSearch =
           !aramaText ||
           m.firmaAdi.toLowerCase().includes(low) ||
-          m.vknTckn.includes(aramaText) ||
+          // VKN eşleşmesi yalnızca açık görüntüleme yetkisi olanlar için —
+          // yetkisiz personel kör aramayla hane doğrulayamaz
+          (canViewVknTckn(user) && m.vknTckn.includes(aramaText)) ||
           m.yetkiliAd.toLowerCase().includes(low);
         const matchesDurum    = filterDurum    === "tumu" || m.durum            === filterDurum;
         // Hem ID hem de isim bazlı eşleştir (eski kayıtlar için geriye dönük uyum)
@@ -198,7 +200,7 @@ export default function MusterilerPage() {
         const diff = a.musteri.firmaAdi.localeCompare(b.musteri.firmaAdi, "tr");
         return sortDir === "asc" ? diff : -diff;
       }),
-    [kayitlar, aramaText, filterDurum, filterSorumlu, filterTahsilat, sortField, sortDir]
+    [kayitlar, aramaText, filterDurum, filterSorumlu, filterTahsilat, sortField, sortDir, user]
   );
 
   const SortHeader = ({ field, label }: { field: MusteriSortField; label: string }) => (

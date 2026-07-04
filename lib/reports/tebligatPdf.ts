@@ -1,14 +1,15 @@
+import { maskVknTckn } from "@/lib/utils/maskData";
 import type { Tebligat } from "@/lib/types";
 import { formatTarih } from "@/lib/utils/format";
 import { buildTextPdfBlob } from "@/lib/reports/pdfReport";
 
-export function buildTebligatPdfBlob(tebligat: Tebligat): Promise<Blob> {
+export function buildTebligatPdfBlob(tebligat: Tebligat, maskVkn = false): Promise<Blob> {
   return buildTextPdfBlob([
     "MusavirERP",
     "E-Tebligat Dokumu",
     "",
     `Musteri: ${tebligat.musteriAdi}`,
-    `VKN/TCKN: ${tebligat.vknTckn}`,
+    `VKN/TCKN: ${maskVkn ? maskVknTckn(tebligat.vknTckn) : tebligat.vknTckn}`,
     `Tarih: ${formatTarih(tebligat.tarih)}`,
     `Tur: ${tebligat.tur}`,
     `Durum: ${tebligat.durum}`,

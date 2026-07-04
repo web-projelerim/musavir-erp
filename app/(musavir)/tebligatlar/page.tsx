@@ -29,7 +29,7 @@ import {
 } from "@/lib/domain/tebligatSla";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
-import { displayVknTckn } from "@/lib/utils/maskData";
+import { canViewVknTckn, displayVknTckn } from "@/lib/utils/maskData";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { updateTebligat } from "@/lib/firebase/repositories";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
@@ -194,7 +194,7 @@ export default function TebligatlarPage() {
       return;
     }
 
-    const blob = await buildTebligatPdfBlob(tebligat);
+    const blob = await buildTebligatPdfBlob(tebligat, !canViewVknTckn(user));
     downloadPdfBlob(blob, tebligatPdfFileName(tebligat));
     toast.info("Takip PDF'i indirildi", "GİB PDF referansı bulunmadığı için sistem dökümanı üretildi");
   };

@@ -7,6 +7,7 @@ import { Input, Select } from "@/components/ui/Input";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAuth } from "@/lib/context/AuthContext";
+import { displayVknTckn } from "@/lib/utils/maskData";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createBeyanname } from "@/lib/firebase/repositories";
@@ -122,7 +123,7 @@ export function YeniBeyanameModal({ open, onClose, musteriler, onCreated, defaul
           <option value="">Müşteri seçin</option>
           {musteriler.map((m) => (
             <option key={m.id} value={m.id}>
-              {m.firmaAdi} — {m.vknTckn}
+              {m.firmaAdi} — {displayVknTckn(m.vknTckn, user)}
             </option>
           ))}
         </Select>

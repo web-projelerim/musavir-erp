@@ -1,3 +1,4 @@
+import { maskVknTckn } from "@/lib/utils/maskData";
 import type { Beyanname, Gorev, Musteri, Rapor, RiskSeviyesi, Tahsilat, Tebligat } from "@/lib/types";
 import { formatPara, formatTarih } from "@/lib/utils/format";
 
@@ -9,6 +10,7 @@ const RAPOR_TIP_LABELS: Record<Rapor["tip"], string> = {
 };
 
 interface PrintableReportPayload {
+  maskVkn?: boolean;
   rapor: Rapor;
   musteri?: Musteri;
   gorevler: Gorev[];
@@ -97,7 +99,7 @@ export function buildPrintableReportHtml(payload: PrintableReportPayload) {
   <h2>Firma Bilgileri</h2>
   <table class="info">
     ${row("Firma", musteri?.firmaAdi ?? rapor.musteriAdi)}
-    ${row("VKN/TCKN", musteri?.vknTckn)}
+    ${row("VKN/TCKN", musteri?.vknTckn ? (payload.maskVkn ? maskVknTckn(musteri.vknTckn) : musteri.vknTckn) : undefined)}
     ${row("Yetkili", musteri?.yetkiliAd)}
     ${row("Telefon", musteri?.telefon)}
     ${row("E-posta", musteri?.email)}

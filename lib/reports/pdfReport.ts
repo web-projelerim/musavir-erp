@@ -1,3 +1,4 @@
+import { maskVknTckn } from "@/lib/utils/maskData";
 import jsPDF from "jspdf";
 import type { Beyanname, Gorev, Musteri, Rapor, RiskSeviyesi, Tahsilat, Tebligat } from "@/lib/types";
 import { formatPara, formatTarih } from "@/lib/utils/format";
@@ -5,6 +6,8 @@ import { ensureRobotoFont } from "@/lib/reports/pdfFont";
 
 interface ReportPdfPayload {
   rapor: Rapor;
+  /** true ise VKN/TCKN maskeli basılır (yetkisiz personel için) */
+  maskVkn?: boolean;
   musteri?: Musteri;
   gorevler: Gorev[];
   beyannameler: Beyanname[];
@@ -76,7 +79,7 @@ function buildSections(payload: ReportPdfPayload): {
         title: "Firma Bilgileri",
         rows: [
           `Firma: ${musteri?.firmaAdi ?? rapor.musteriAdi}`,
-          `VKN/TCKN: ${musteri?.vknTckn ?? "-"}`,
+          `VKN/TCKN: ${musteri?.vknTckn ? (payload.maskVkn ? maskVknTckn(musteri.vknTckn) : musteri.vknTckn) : "-"}`,
           `Yetkili: ${musteri?.yetkiliAd ?? "-"}`,
           `Telefon: ${musteri?.telefon ?? "-"}`,
           `E-posta: ${musteri?.email ?? "-"}`,

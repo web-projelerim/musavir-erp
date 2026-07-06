@@ -193,6 +193,7 @@ export default function TahsilatlarPage() {
       </div>
 
       {/* Müşteri bazlı kalan bakiye raporu */}
+      <h3 className="mb-2 text-sm font-semibold text-slate-800">Tahsilat Listesi</h3>
       <div className="space-y-2">
         {bakiyeler.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">

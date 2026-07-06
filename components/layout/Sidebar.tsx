@@ -209,6 +209,9 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
                   {badgeValue}
                 </span>
               )}
+              {!collapsed && (badgeValue === null || badgeValue === 0) && (
+                <ChevronRight className={cn("h-3.5 w-3.5 flex-shrink-0", isActive ? "text-blue-200" : "text-slate-500 group-hover:text-white")} />
+              )}
             </Link>
           );
         })}
@@ -226,14 +229,19 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
               title={collapsed ? item.label : undefined}
               className={cn(
                 "flex items-center rounded-lg text-sm transition-colors group",
-                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
+                collapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2",
                 isActive
                   ? "bg-blue-600 text-white"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               )}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-white" />
-              {!collapsed && <span className="font-medium">{item.label}</span>}
+              <span className={cn("flex items-center", !collapsed && "gap-3")}>
+                <item.icon className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-white" />
+                {!collapsed && <span className="font-medium">{item.label}</span>}
+              </span>
+              {!collapsed && (
+                <ChevronRight className={cn("h-3.5 w-3.5 flex-shrink-0", isActive ? "text-blue-200" : "text-slate-500 group-hover:text-white")} />
+              )}
             </Link>
           );
         })}

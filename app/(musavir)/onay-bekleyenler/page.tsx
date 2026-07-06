@@ -193,6 +193,9 @@ export default function OnayBekleyenlerPage() {
             ))}
           </MobileList>
           <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-800">Bekleyen Gönderimler</h3>
+            </div>
             <Table>
               <TableHead>
                 <tr>

@@ -420,6 +420,9 @@ export default function MusterilerPage() {
       {/* Tablo görünümü */}
       {view === "tablo" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-800">Müşteri Listesi</h3>
+          </div>
           {/* Mobil kart listesi */}
           <div className="md:hidden divide-y divide-slate-100">
             {filteredKayitlar.length === 0 ? (

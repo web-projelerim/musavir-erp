@@ -350,6 +350,9 @@ export default function TebligatlarPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="text-sm font-semibold text-slate-800">Tebligat Listesi</h3>
+        </div>
         <MobileList empty={filteredTebligatlar.length === 0}>
           {filteredTebligatlar.map((tebligat) => {
             const kalanGun = tebligatKalanGun(tebligat);

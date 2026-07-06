@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building2, Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Shield, TrendingUp, Users, UserPlus, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
@@ -139,9 +139,11 @@ export default function GirisPage() {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/logo-mm.jpg"
+              alt="MusavirERP logosu"
+              className="w-10 h-10 rounded-xl object-cover flex-shrink-0"
+            />
             <div>
               <p className="text-white font-bold text-lg">MusavirERP</p>
               <p className="text-slate-400 text-xs">Mali Müşavir Yönetim Platformu</p>
@@ -186,9 +188,11 @@ export default function GirisPage() {
         <div className="w-full max-w-sm">
           {/* Mobil logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <img
+              src="/logo-mm.jpg"
+              alt="MusavirERP logosu"
+              className="w-9 h-9 rounded-xl object-cover flex-shrink-0"
+            />
             <p className="text-white font-bold text-lg">MusavirERP</p>
           </div>
 

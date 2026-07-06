@@ -15,7 +15,7 @@ export function Table({ children, className }: TableProps) {
 
 export function TableHead({ children }: { children: React.ReactNode }) {
   return (
-    <thead className="bg-slate-50 border-b border-slate-200">
+    <thead className="bg-blue-600">
       {children}
     </thead>
   );
@@ -25,7 +25,7 @@ export function TableHeadCell({ children, className }: { children?: React.ReactN
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap",
+        "px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wide whitespace-nowrap",
         className
       )}
     >

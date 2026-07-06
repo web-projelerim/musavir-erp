@@ -207,10 +207,10 @@ export default function MusterilerPage() {
     <TableHeadCell>
       <button
         onClick={() => handleSort(field)}
-        className="flex items-center gap-1 hover:text-slate-700 transition-colors"
+        className="flex items-center gap-1 hover:text-blue-100 transition-colors"
       >
         {label}
-        <ArrowUpDown className={`w-3 h-3 ${sortField === field ? "text-blue-500" : "text-slate-300"}`} />
+        <ArrowUpDown className={`w-3 h-3 ${sortField === field ? "text-white" : "text-blue-300"}`} />
       </button>
     </TableHeadCell>
   );

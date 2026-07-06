@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Building2,
   FileText,
   Bell,
   CreditCard,
@@ -33,6 +32,13 @@ function formatDosyaBoyutu(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+const RAPOR_TIP_LABELS: Record<Rapor["tip"], string> = {
+  gelir_gider: "Gelir-Gider Özeti",
+  vergi_beyan: "Vergi ve Beyan Durumu",
+  operasyon: "Operasyon Özeti",
+  risk: "Risk Raporu",
+};
 
 export default function MukellefPanelPage() {
   const router = useRouter();
@@ -132,9 +138,11 @@ export default function MukellefPanelPage() {
       <header className="bg-white border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-4 h-4 text-white" />
-            </div>
+            <img
+              src="/logo-mm.jpg"
+              alt="MusavirERP logosu"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover flex-shrink-0"
+            />
             <div>
               <p className="text-sm font-bold text-slate-800">MusavirERP</p>
               <p className="text-xs text-slate-500 hidden sm:block">Mükellef Portalı</p>
@@ -358,7 +366,7 @@ export default function MukellefPanelPage() {
                 {raporlar.map((r) => (
                   <div key={r.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-xl">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">{r.tip.replace("_", " ")}</p>
+                      <p className="text-xs font-semibold text-slate-800">{RAPOR_TIP_LABELS[r.tip] ?? r.tip}</p>
                       <p className="text-xs text-slate-500">{r.donem} · {formatTarih(r.olusturmaTarihi)}</p>
                     </div>
                     <div className="flex items-center gap-2">

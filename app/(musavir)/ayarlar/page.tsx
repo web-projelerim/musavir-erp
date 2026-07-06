@@ -842,10 +842,11 @@ export default function AyarlarPage() {
     vade: "Vade Hatırlatma",
     belge: "Eksik Belge Bildirimi",
     davet: "Mükellef Daveti",
+    beyanname: "Beyanname Hatırlatma",
     rapor: "Rapor Gönderimi",
   };
   const otomatikSeciliTurler = waAuto.global
-    ? (["tahakkuk", "vade", "belge", "davet", "rapor"] as const).filter((k) => waAuto[k]).map((k) => WA_TUR_ETIKET[k])
+    ? (["tahakkuk", "vade", "belge", "davet", "beyanname", "rapor"] as const).filter((k) => waAuto[k]).map((k) => WA_TUR_ETIKET[k])
     : [];
 
   // Save butonu: otomatik gönderim seçiliyse önce onay iste, değilse doğrudan kaydet.
@@ -882,7 +883,7 @@ export default function AyarlarPage() {
       belgeEksikOtomatikGonder: waAuto.belge,
       davetMesajiOtomatikGonder: waAuto.davet,
       // Beyanname hatırlatması müvekkile hiçbir zaman otomatik gitmez — sadece manuel toplu gönderim.
-      beyannameMesajiOtomatikGonder: false,
+      beyannameMesajiOtomatikGonder: waAuto.beyanname,
       raporMesajiOtomatikGonder: waAuto.rapor,
       otomatikGonderimGloballeAcik: waAuto.global,
       mesajSablonlari: waSablonlar,
@@ -1431,6 +1432,7 @@ export default function AyarlarPage() {
                 { key: "vade" as const, etiket: "Vade Hatırlatma", aciklama: "Vade tarihinden 3 gün önce hatırlatma" },
                 { key: "belge" as const, etiket: "Eksik Belge Bildirimi", aciklama: "Belge eksikse müşteriden talep mesajı" },
                 { key: "davet" as const, etiket: "Mükellef Daveti", aciklama: "Yeni mükellefe panel davet mesajı" },
+                { key: "beyanname" as const, etiket: "Beyanname Hatırlatma", aciklama: "Beyanname son tarihi yaklaşınca müşteriye hatırlatma" },
                 { key: "rapor" as const, etiket: "Rapor Gönderimi", aciklama: "Hazır rapor müşteriye sunulduğunda" },
               ].map((tur) => {
                 const otomatik = waAuto[tur.key];

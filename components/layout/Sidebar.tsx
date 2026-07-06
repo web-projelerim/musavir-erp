@@ -14,7 +14,6 @@ import {
   Calculator,
   CreditCard,
   Settings,
-  Building2,
   LogOut,
   ScrollText,
   Send,
@@ -27,18 +26,30 @@ import {
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
 
-const navItems: {
+type NavChild = { label: string; href: string; icon: React.ElementType };
+
+type NavItem = {
   label: string;
   href: string;
   icon: React.ElementType;
   badge: string | number | null;
-}[] = [
+  children?: NavChild[];
+};
+
+const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
   { label: "Müşteriler", href: "/musteriler", icon: Users, badge: null },
   { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
-  { label: "Beyannameler", href: "/beyannameler", icon: ScrollText, badge: null },
-  { label: "Beyanname Takip", href: "/beyanname-takip", icon: ClipboardList, badge: null },
+  {
+    label: "Beyannameler",
+    href: "/beyannameler",
+    icon: ScrollText,
+    badge: null,
+    children: [
+      { label: "Beyanname Takip", href: "/beyanname-takip", icon: ClipboardList },
+    ],
+  },
   { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "Tahsilatlar", href: "/tahsilatlar", icon: Wallet, badge: null },
@@ -61,12 +72,8 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
   const pathname = usePathname();
   const router = useRouter();
   const { gorevler, tebligatlar, gonderimler } = useAppData();
-  const { user, signOut } = useAuth();
+  const { signOut } = useAuth();
   const [aramaText, setAramaText] = useState("");
-
-  const initials = user ? `${user.ad[0] ?? ""}${user.soyad[0] ?? ""}` : "AM";
-  const roleLabel =
-    user?.rol === "musavir" ? "Müşavir" : user?.rol === "personel" ? "Personel" : "Mükellef";
 
   const handleSignOut = async () => {
     await signOut();
@@ -74,9 +81,12 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
     router.replace("/giris");
   };
 
-  const filteredNavItems = navItems.filter((item) =>
-    item.label.toLocaleLowerCase("tr-TR").includes(aramaText.trim().toLocaleLowerCase("tr-TR"))
-  );
+  const q = aramaText.trim().toLocaleLowerCase("tr-TR");
+  const searching = q.length > 0;
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.label.toLocaleLowerCase("tr-TR").includes(q)) return true;
+    return (item.children ?? []).some((c) => c.label.toLocaleLowerCase("tr-TR").includes(q));
+  });
 
   return (
     <>
@@ -98,18 +108,13 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
         )}
       >
       {/* Logo + daralt/genişlet */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-700/50 px-4 py-4">
-        <div className="flex min-w-0 items-center gap-2">
-          {!collapsed && (
-            <img
-              src="/logo-mm.jpg"
-              alt="Mali Müşavir logosu"
-              className="h-8 w-8 flex-shrink-0 rounded-lg object-cover"
-            />
-          )}
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500">
-            <Building2 className="h-4 w-4 text-white" />
-          </div>
+      <div className="flex items-center justify-between gap-2 border-b border-slate-700/50 px-4 py-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <img
+            src="/logo-mm.jpg"
+            alt="MusavirERP logosu"
+            className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+          />
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold leading-tight text-white">MusavirERP</p>
@@ -127,27 +132,10 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
         </button>
       </div>
 
-      {/* Kullanıcı */}
-      <div className="border-b border-slate-700/50 px-4 py-2.5">
-        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
-            <span className="text-xs font-bold text-white">{initials}</span>
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-white">
-                {user ? `${user.ad} ${user.soyad}` : "Ali Müşavir"}
-              </p>
-              <p className="truncate text-xs text-slate-400">{roleLabel}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Hızlı arama */}
       {!collapsed && (
-        <div className="border-b border-slate-700/50 px-3 py-2">
-          <div className="flex items-center gap-2 rounded-lg bg-slate-800 px-2.5 py-1.5">
+        <div className="border-b border-slate-700/50 px-3 py-3">
+          <div className="flex items-center gap-2 rounded-lg bg-slate-800 px-2.5 py-2">
             <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
             <input
               type="text"
@@ -161,12 +149,15 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
       )}
 
       {/* Ana navigasyon */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+      <nav className={cn("flex-1 space-y-0.5 px-3 py-2", collapsed ? "overflow-visible" : "overflow-y-auto")}>
         {filteredNavItems.length === 0 && (
           <p className="px-3 py-2 text-xs text-slate-500">Eşleşen menü yok</p>
         )}
         {filteredNavItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const selfActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const children = item.children ?? [];
+          const hasChildren = children.length > 0;
+          const childActive = children.some((c) => pathname === c.href || pathname.startsWith(c.href + "/"));
           const badgeValue =
             item.badge === "gorevler"
               ? gorevler.filter((g) => g.durum !== "tamamlandi" && g.durum !== "iptal").length
@@ -179,40 +170,103 @@ export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCo
               : null;
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center rounded-lg text-sm transition-colors group",
-                collapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2",
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              )}
-            >
-              <span className={cn("relative flex items-center", !collapsed && "gap-3")}>
-                <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
-                {!collapsed && <span className="font-medium">{item.label}</span>}
-                {collapsed && badgeValue !== null && badgeValue > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                    {badgeValue > 9 ? "9+" : badgeValue}
+            <div key={item.href} className={cn(hasChildren && "group/nav relative")}>
+              <Link
+                href={item.href}
+                onClick={onClose}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  "flex items-center rounded-lg text-sm transition-colors group",
+                  collapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2",
+                  selfActive || (collapsed && childActive)
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                )}
+              >
+                <span className={cn("relative flex items-center", !collapsed && "gap-3")}>
+                  <item.icon className={cn("w-4 h-4 flex-shrink-0", selfActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
+                  {!collapsed && <span className="font-medium">{item.label}</span>}
+                  {collapsed && badgeValue !== null && badgeValue > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                      {badgeValue > 9 ? "9+" : badgeValue}
+                    </span>
+                  )}
+                </span>
+                {!collapsed && badgeValue !== null && badgeValue > 0 && (
+                  <span className={cn(
+                    "text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center",
+                    selfActive ? "bg-blue-500 text-white" : "bg-red-500 text-white"
+                  )}>
+                    {badgeValue}
                   </span>
                 )}
-              </span>
-              {!collapsed && badgeValue !== null && badgeValue > 0 && (
-                <span className={cn(
-                  "text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center",
-                  isActive ? "bg-blue-500 text-white" : "bg-red-500 text-white"
-                )}>
-                  {badgeValue}
-                </span>
+                {!collapsed && (badgeValue === null || badgeValue === 0) && (
+                  <ChevronRight className={cn(
+                    "h-3.5 w-3.5 flex-shrink-0",
+                    selfActive ? "text-blue-200" : "text-slate-500 group-hover:text-white",
+                    hasChildren && "transition-transform group-hover/nav:rotate-90"
+                  )} />
+                )}
+              </Link>
+
+              {/* Alt menü — genişletilmiş modda üstüne gelince açılır */}
+              {hasChildren && !collapsed && (
+                <div className={cn("mt-0.5 space-y-0.5", searching ? "block" : "hidden group-hover/nav:block")}>
+                  {children.map((child) => {
+                    const cActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={onClose}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-lg py-2 pl-11 pr-3 text-sm transition-colors",
+                          cActive ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                        )}
+                      >
+                        <child.icon className={cn("h-3.5 w-3.5 flex-shrink-0", cActive ? "text-white" : "text-slate-500 group-hover:text-white")} />
+                        <span className="font-medium">{child.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-              {!collapsed && (badgeValue === null || badgeValue === 0) && (
-                <ChevronRight className={cn("h-3.5 w-3.5 flex-shrink-0", isActive ? "text-blue-200" : "text-slate-500 group-hover:text-white")} />
+
+              {/* Alt menü — daraltılmış modda sağa açılan kutu */}
+              {hasChildren && collapsed && (
+                <div className="absolute left-full top-0 z-50 ml-1 hidden min-w-[190px] rounded-lg border border-slate-700 bg-slate-800 p-1.5 shadow-xl group-hover/nav:block">
+                  <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{item.label}</p>
+                  <Link
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                      selfActive ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                    )}
+                  >
+                    <item.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                  {children.map((child) => {
+                    const cActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        onClick={onClose}
+                        className={cn(
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                          cActive ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white"
+                        )}
+                      >
+                        <child.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="font-medium">{child.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-            </Link>
+            </div>
           );
         })}
       </nav>

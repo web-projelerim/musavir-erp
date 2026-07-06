@@ -311,6 +311,7 @@ export default function TebligatlarPage() {
       <PageHeader
         title="Tebligatlar"
         subtitle="GİB kaynaklı resmi bildirimler"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Tebligatlar" }]}
         action={
           <Button
             size="sm"

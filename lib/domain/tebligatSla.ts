@@ -15,6 +15,19 @@ function normalize(value: string) {
   return value.toLocaleLowerCase("tr-TR");
 }
 
+/** Bu tebligat bir karşıt inceleme tutanağı mı — tur/başlıkta geçen anahtar kelimelere bakar. */
+export function karsitIncelemeMi(tebligat: Pick<Tebligat, "tur" | "baslik">): boolean {
+  const norm = (s?: string) => s?.toLocaleLowerCase("tr-TR") ?? "";
+  return (
+    norm(tebligat.tur).includes("karşıt") ||
+    norm(tebligat.tur).includes("karsit") ||
+    norm(tebligat.baslik).includes("karşıt") ||
+    norm(tebligat.baslik).includes("karsit") ||
+    norm(tebligat.baslik).includes("inceleme tutanağı") ||
+    norm(tebligat.baslik).includes("inceleme tutanagi")
+  );
+}
+
 export function inferTebligatOnem(tebligat: Pick<Tebligat, "tur" | "baslik">): TebligatOnemDerecesi {
   const text = normalize(`${tebligat.tur} ${tebligat.baslik}`);
   if (/uzlasma|inceleme|ceza|haciz/.test(text)) return "kritik";

@@ -18,9 +18,9 @@ import type { RiskSeviyesi } from "@/lib/types";
 const RISK_SEVIYELERI: RiskSeviyesi[] = ["kritik", "yuksek", "orta", "dusuk"];
 
 export default function RiskPage() {
-  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2, loading } = useAppData();
+  const { musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, tahakkuklar, kdv2, loading } = useAppData();
   const { user } = useAuth();
-  const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
+  const riskListesi = hesaplaRiskListesi({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, tahakkuklar, kdv2 });
 
   const sayac = (seviye: RiskSeviyesi) => riskListesi.filter((risk) => risk.seviye === seviye).length;
   const metrics = [
@@ -57,6 +57,7 @@ export default function RiskPage() {
       <PageHeader
         title="Risk Merkezi"
         subtitle="Müşteri bazlı risk skorları ve uyarı sinyalleri"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Risk Merkezi" }]}
       />
 
       <StatsDrawer

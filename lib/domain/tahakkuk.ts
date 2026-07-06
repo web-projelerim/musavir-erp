@@ -5,7 +5,47 @@ import type {
   TahakkukDurum,
   TahakkukTuru,
   VergiTahakkukTuru,
+  WhatsAppEntegrasyonAyari,
 } from "@/lib/types";
+import { mesajOlustur } from "@/lib/domain/mesajSablonlari";
+import { formatPara } from "@/lib/utils/format";
+
+export interface TurmobHesabi {
+  brut: number;
+  net: number;
+  kdv: number;
+  stopaj: number;
+  tahsil: number;
+  kdvOran: number;
+  stopajOran: number;
+}
+
+/**
+ * Türmob hesabı: KDV dahil brüt tutardan net (matrah), KDV, stopaj ve tahsil
+ * edilecek tutarı türetir. Sadece "hizmet" tahakkukları (mali müşavirlik ücreti
+ * gibi serbest meslek makbuzu mantığındaki kalemler) için anlamlıdır — "vergi"
+ * tahakkukları (KDV/Muhtasar/... borcu) zaten net vergi tutarıdır.
+ *
+ * Formül: net = brüt / (1 + kdvOranı/100); stopaj = net * stopajOranı/100
+ * (stopaj KDV hariç matrah üzerinden hesaplanır — KDV üzerinden değil);
+ * tahsil edilecek = brüt - stopaj.
+ */
+export function hesaplaTurmobTutarlari(input: {
+  brut: number;
+  kdvOrani: number;
+  stopajUygula: boolean;
+  stopajOrani: number;
+}): TurmobHesabi | null {
+  const { brut, kdvOrani, stopajUygula, stopajOrani } = input;
+  if (!Number.isFinite(brut) || brut <= 0) return null;
+  const kdvOran = Number.isFinite(kdvOrani) ? kdvOrani : 0;
+  const stopajOran = stopajUygula && Number.isFinite(stopajOrani) ? stopajOrani : 0;
+  const net = brut / (1 + kdvOran / 100);
+  const kdv = brut - net;
+  const stopaj = net * (stopajOran / 100);
+  const tahsil = brut - stopaj;
+  return { brut, net, kdv, stopaj, tahsil, kdvOran, stopajOran };
+}
 
 export function calculateTahakkukDurum(tahakkuk: Pick<Tahakkuk, "tutar" | "odenenTutar" | "vadeTarihi" | "durum">): TahakkukDurum {
   if (tahakkuk.durum === "iptal" || tahakkuk.durum === "taslak") return tahakkuk.durum;
@@ -144,11 +184,19 @@ export function mergeDerivedVergiTahakkuklari(tahakkuklar: Tahakkuk[], beyanname
   return [...tahakkuklar, ...derived];
 }
 
-export function buildTahakkukWhatsAppMessage(input: {
-  firmaAdi: string;
-  donem: string;
-  tutar: number;
-  panelLinki: string;
-}) {
-  return `Sayin ${input.firmaAdi}, ${input.donem} donemi icin panel uzerinden guncel tahakkukunuz tanimlanmistir. Lutfen kontrol ediniz: ${input.panelLinki}`;
+export function buildTahakkukWhatsAppMessage(
+  input: {
+    firmaAdi: string;
+    donem: string;
+    tutar: number;
+    panelLinki: string;
+  },
+  ayar?: WhatsAppEntegrasyonAyari
+) {
+  return mesajOlustur("tahakkuk", ayar, {
+    firma_adi: input.firmaAdi,
+    donem: input.donem,
+    tutar: formatPara(input.tutar),
+    panel_linki: input.panelLinki,
+  });
 }

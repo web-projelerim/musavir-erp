@@ -56,6 +56,7 @@ export default function YukumluluklerPage() {
       <PageHeader
         title="Yükümlülükler"
         subtitle="Mükellefiyet profillerinden üretilen beyan ve takip yükümlülükleri"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Yükümlülükler" }]}
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

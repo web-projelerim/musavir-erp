@@ -79,7 +79,7 @@ export function useAppData() {
   const resmiGazeteOzetleri = useCollectionData<ResmiGazeteOzeti>(COLLECTIONS.resmiGazeteOzetleri, [], enabled && isStaff, ofisId);
   const gibSyncLogs = useCollectionData<GibSyncLog>(COLLECTIONS.gibSyncLogs, [], enabled && isStaff, ofisId);
   const kdv2 = useCollectionData<KDV2Hesaplama>(COLLECTIONS.kdv2, [], mukellefVeriEnabled, ofisId, mukellefFilter);
-  const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], enabled && isStaff, ofisId);
+  const gonderimler = useCollectionData<GonderimKaydi>(COLLECTIONS.gonderimler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
   const belgeler = useCollectionData<Belge>(COLLECTIONS.belgeler, [], mukellefVeriEnabled, ofisId, mukellefFilter);
   const auditLogs = useCollectionData<AuditLog>(COLLECTIONS.auditLogs, [], enabled && isStaff, ofisId);
   const gibEntegrasyonAyarlari = useCollectionData<GibEntegrasyonAyari>(COLLECTIONS.gibEntegrasyonAyarlari, [], enabled && isStaff, ofisId);

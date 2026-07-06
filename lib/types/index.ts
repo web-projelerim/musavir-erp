@@ -129,6 +129,16 @@ export interface WhatsAppEntegrasyonAyari {
   raporMesajiOtomatikGonder?: boolean;
   // Global anahtar: false ise hiçbir otomatik gönderim olmaz (acil durdurma)
   otomatikGonderimGloballeAcik?: boolean;
+  // Müşavirin düzenlediği mesaj şablonları (tür → metin, {degisken} yer tutuculu).
+  // Boş/tanımsız → lib/domain/mesajSablonlari.ts varsayılanı kullanılır.
+  mesajSablonlari?: {
+    tahakkuk?: string;
+    vade?: string;
+    belge?: string;
+    davet?: string;
+    beyanname?: string;
+    rapor?: string;
+  };
   secretStorageMode: SecretStorageMode;
   sonTestTarihi?: string;
   sonHata?: string;
@@ -514,6 +524,9 @@ export interface Rapor {
   musteriAdi: string;
   tip: RaporTip;
   donem: string;
+  /** Dönem aralığı (ISO tarih, dahil) — rapor içeriğini bu aralığa filtrelemek için. Yoksa (eski kayıtlar) tüm zamanlar gösterilir. */
+  donemBaslangic?: string;
+  donemBitis?: string;
   durum: RaporDurum;
   olusturmaTarihi: string;
   gonderimTarihi?: string;
@@ -811,12 +824,17 @@ export type BildirimTercihleri = Partial<Record<BildirimTip, boolean>>;
 
 export interface Bildirim {
   id: string;
+  ofisId?: string;
   tip: BildirimTip;
   baslik: string;
   mesaj: string;
   durum: BildirimDurum;
   tarih: string;
   link?: string;
+  /** Görsel önceliklendirme için (ör. karşıt inceleme tutanağı → kritik) */
+  onemDerecesi?: "normal" | "yuksek" | "kritik";
+  tebligatId?: string;
+  musteriId?: string;
 }
 
 // ─── Gönderim Kaydı ─────────────────────────────────────────

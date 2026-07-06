@@ -13,7 +13,7 @@ Müşavir, müşteri portföyünü yönetir; beyanname, tebligat, tahakkuk, gör
 - **Stack:** Next.js 14 App Router · TypeScript · Firebase/Firestore · Tailwind CSS
 - **Auth:** Firebase Authentication (+ demo fallback)
 - **Storage:** Firebase Storage (belgeler, raporlar)
-- **Deploy:** Vercel (varsayılan)
+- **Deploy:** Hostinger (GitHub push ile otomatik deploy) — kalıcı Node.js process, `next start`
 
 ---
 
@@ -51,7 +51,7 @@ Müşavir, müşteri portföyünü yönetir; beyanname, tebligat, tahakkuk, gör
 | Ödeme gateway (iyzico/Stripe) | Ayrı lisans ve PCI-DSS uyumu gerekiyor |
 | Resmi Gazete AI özeti (canlı) | Claude API anahtarı + ek maliyet |
 | E-posta SMTP gönderimi | Ayrı SMTP altyapısı; MVP'de WhatsApp öncelikli |
-| Zamanlayıcı / cron job | Vercel Cron veya ayrı worker servisi gerekiyor |
+| Zamanlayıcı / cron job | ✅ Çözüldü: 3 cron da `instrumentation.ts` + node-cron ile çalışıyor (Vercel Cron gerekmez). GİB sync doğrudan `runGibSync()`; vade-hatırlatma + vergi-takvimi-sync loopback HTTP + `CRON_SECRET` ile |
 | SGK/TEDAŞ API entegrasyonları | Kamu API'si yok |
 | Mobil uygulama | Sonraki faz |
 
@@ -407,7 +407,7 @@ Mevcut durum: Serbest metin gönderiliyor → müşteri daha önce mesaj atmış
 ```
 Başarısız gönderim → gonderimler koleksiyonunda durum: "basarisiz"
 → Manuel retry butonu (mevcut UI'da yok — eklenecek)
-→ Otomatik retry: 3 deneme, 5dk arayla (Vercel Cron — MVP dışı)
+→ Otomatik retry: 3 deneme, 5dk arayla (node-cron / Hostinger cron — MVP dışı)
 ```
 
 ### 7.5 Simülasyon Modu
@@ -599,6 +599,16 @@ Her liste sayfasında veri yoksa gösterilmeli:
 - Grid: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`
 - Sidebar: `< md` → drawer (overlay), `≥ md` → sticky side
 
+### 10.9 Yapısal Yön — Dijital Vergi Dairesi (renk değil, yapı)
+
+Genel arayüz yapısı GİB Dijital Vergi Dairesi'nin (dijital.gib.gov.tr) desenlerine **yapısal olarak** yaklaştırılıyor — MusavirERP'nin mevcut mavi/slate renk paleti korunuyor, sadece navigasyon/breadcrumb/kart desenleri benzetiliyor.
+
+- **Breadcrumb zorunlu**: Dashboard hariç her sayfa `PageHeader`'a `breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "<Sayfa Adı>" }]}` vermeli. Detay sayfalarında (ör. müşteri detayı) 3. seviye eklenir: `Ana Sayfa > Müşteriler > {firmaAdı}`.
+- **Sol menü**: üstte hızlı arama kutusu (nav item'ları filtreler) + sağ üstte daralt/genişlet butonu (`ChevronLeft`/`ChevronRight`, durum `localStorage["sidebar-collapsed"]`'da saklanır). Daraltılmış modda label'lar gizlenir, sadece ikon + `title` tooltip + rozet (varsa) gösterilir. Bkz. [Sidebar.tsx](components/layout/Sidebar.tsx), [MusavirShell.tsx](components/layout/MusavirShell.tsx).
+- **Bilgilendirme banner'ı**: kısa, tek-amaçlı bağlamsal notlar için `InfoBanner` bileşeni kullanılır ([InfoBanner.tsx](components/ui/InfoBanner.tsx)) — `variant="info"` (mavi) veya `variant="warning"` (amber). Karmaşık/etkileşimli banner'lar (dismiss, link, badge içeren) için ad-hoc div kalmaya devam eder — `InfoBanner` sadece basit ikon+metin durumları için.
+- **"Hızlı Erişim" kart deseni**: Dashboard'da mini istatistik + tam genişlikte "Git" butonu olan kartlar (DVD'nin "Favorilerim" kartlarının karşılığı) — `Card` bileşeni + `Button variant="outline"` ile, sayı büyük/bold, alt satır açıklama, buton en altta tam genişlik.
+- **Kapsam dışı (bilerek)**: Renk paletini DVD'nin lacivert/mor/camgöbeği tonlarına çevirmek yok; tablo sütun yapılandırma (3 nokta menü) yok; "Geçiş Yapılabilecek Uygulamalar" uygulama-geçiş şeridi yok (MusavirERP tek uygulama).
+
 ---
 
 ## 11. Öncelik Sırası (Aktif Geliştirme)
@@ -614,7 +624,7 @@ Her liste sayfasında veri yoksa gösterilmeli:
 ### 🟡 P2 — Önemli Eksik
 5. **WhatsApp şablon mesaj** — ✅ Kod hazır; `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` env var'larını ayarlamak yeterli
 6. **Başarısız WhatsApp retry butonu** — gonderimler sayfasında manuel retry
-7. **Cron/zamanlayıcı** — Günlük GİB sync, vade hatırlatma (Vercel Cron)
+7. **Cron/zamanlayıcı** — ✅ Tamamlandı. `instrumentation.ts` içinde node-cron ile 4 iş: GİB sync (`GIB_SYNC_SCHEDULE`, vars. saatlik), vergi-takvimi-sync (`VERGI_TAKVIMI_SCHEDULE`, vars. 06:00), vade-hatırlatma (`VADE_HATIRLATMA_SCHEDULE`, vars. 09:00), beyanname-hatırlatma (`BEYANNAME_HATIRLATMA_SCHEDULE`, vars. 08:00 — sadece müşavire: bildirim + müşavir WhatsApp). Son üçü loopback HTTP + `CRON_SECRET` ile route'u tetikler. `CRON_INTERNAL_URL`/`NEXT_PUBLIC_APP_URL`/`PORT` ile taban URL ayarlanabilir
 
 ### 🟢 P3 — İyileştirme
 8. **Luca CSV export** — Standart format çıktı

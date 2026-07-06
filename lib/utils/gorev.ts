@@ -1,10 +1,20 @@
-import type { Gorev, GorevNot } from "@/lib/types";
+import type { AltGorev, Gorev, GorevNot } from "@/lib/types";
 
 function createId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}`;
+}
+
+/** Görev termin tarihi geçmiş mi ve hâlâ açık mı (tamamlanmadı/iptal edilmedi). */
+export function isGorevGecikti(gorev: Pick<Gorev, "terminTarihi" | "durum">): boolean {
+  const bugun = new Date().toISOString().split("T")[0];
+  return gorev.terminTarihi < bugun && gorev.durum !== "tamamlandi" && gorev.durum !== "iptal";
+}
+
+export function createAltGorev(baslik: string): AltGorev {
+  return { id: createId("ag"), baslik: baslik.trim(), tamamlandi: false };
 }
 
 export function normalizeGorevNotlar(notlar: Gorev["notlar"]): GorevNot[] {
@@ -28,7 +38,7 @@ export function normalizeGorevNotlar(notlar: Gorev["notlar"]): GorevNot[] {
   return [];
 }
 
-export function createGorevNot(metin: string, yazar = "Ali Musavir"): GorevNot {
+export function createGorevNot(metin: string, yazar?: string): GorevNot {
   return {
     id: createId("note"),
     metin: metin.trim(),

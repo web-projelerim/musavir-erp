@@ -4,21 +4,25 @@ import type {
   KDV2Hesaplama,
   Musteri,
   RiskSeviyesi,
+  Tahakkuk,
   Tahsilat,
   Tebligat,
 } from "@/lib/types";
+import { buildTebligatSlaFields, karsitIncelemeMi } from "@/lib/domain/tebligatSla";
 
 export interface HesaplanmisRiskSinyali {
   tip:
     | "islenmemis_tebligat"
     | "gecikmis_beyanname"
     | "gecikmis_tahsilat"
+    | "gecikmis_tahakkuk"
     | "gecikmis_pesinat"
     | "gecikmis_gorev"
     | "kritik_gorev"
     | "kdv2_kontrol"
     | "yaklasan_vade"
-    | "karsit_inceleme";
+    | "karsit_inceleme"
+    | "gecikmis_tebligat_yaniti";
   label: string;
   aciklama: string;
   puan: number;
@@ -31,6 +35,10 @@ export interface HesaplanmisRisk {
   skor: number;
   seviye: RiskSeviyesi;
   sinyaller: HesaplanmisRiskSinyali[];
+  /** Yaklaşan (henüz geçmemiş) işler içinde vadeye en az gün kalan.
+   *  Yaklaşan iş yoksa undefined. 0 = bugün, 1 = yarın. Gösterimde "en acil"
+   *  vurgusu (yanıp sönme) için kullanılır. */
+  enYakinVadeGun?: number;
 }
 
 export interface RiskHesaplamaInput {
@@ -39,6 +47,7 @@ export interface RiskHesaplamaInput {
   beyannameler: Beyanname[];
   gorevler: Gorev[];
   tahsilatlar: Tahsilat[];
+  tahakkuklar?: Tahakkuk[];
   kdv2?: KDV2Hesaplama[];
 }
 
@@ -96,17 +105,23 @@ export function hesaplaMusteriRisk({
   beyannameler,
   gorevler,
   tahsilatlar,
+  tahakkuklar = [],
   kdv2 = [],
 }: MusteriRiskHesaplamaInput): HesaplanmisRisk {
   const musteriTebligatlari = tebligatlar.filter((t) => t.musteriId === musteri.id);
   const musteriBeyannameleri = beyannameler.filter((b) => b.musteriId === musteri.id);
   const musteriGorevleri = gorevler.filter((g) => g.musteriId === musteri.id);
   const musteriTahsilatlari = tahsilatlar.filter((t) => t.musteriId === musteri.id);
+  const musteriTahakkuklari = tahakkuklar.filter((t) => t.musteriId === musteri.id);
   const musteriKdv2 = kdv2.filter((k) => k.musteriId === musteri.id);
 
   const sinyaller: HesaplanmisRiskSinyali[] = [];
 
-  const islenmemisTebligat = musteriTebligatlari.filter((t) => t.durum === "yeni" || t.durum === "bekliyor");
+  // Karşıt inceleme tutanakları kendi (aciliyet tabanlı) sinyalinde ayrıca sayıldığı için
+  // burada tekrar sayılmaz — aksi halde çifte puanlama olur ve aciliyet ölçeği bozulur.
+  const islenmemisTebligat = musteriTebligatlari.filter(
+    (t) => (t.durum === "yeni" || t.durum === "bekliyor") && !karsitIncelemeMi(t)
+  );
   const tebligatPuani = sinyalPuani(25, islenmemisTebligat.length, 5, 40);
   if (tebligatPuani > 0) {
     sinyaller.push({
@@ -150,6 +165,23 @@ export function hesaplaMusteriRisk({
       puan: tahsilatPuani,
       renk: "text-amber-600 bg-amber-50",
       adet: gecikmisTahsilatlar.length || undefined,
+    });
+  }
+
+  const gecikmisTahakkuklar = musteriTahakkuklari.filter(
+    (t) =>
+      t.durum === "gecikti" ||
+      (t.durum !== "odendi" && t.durum !== "iptal" && t.durum !== "taslak" && gecmisTarihMi(t.vadeTarihi))
+  );
+  const tahakkukPuani = sinyalPuani(20, gecikmisTahakkuklar.length, 5, 35);
+  if (tahakkukPuani > 0) {
+    sinyaller.push({
+      tip: "gecikmis_tahakkuk",
+      label: "Gecikmiş tahakkuk",
+      aciklama: `${gecikmisTahakkuklar.length} tahakkuk vadesini aştı`,
+      puan: tahakkukPuani,
+      renk: "text-red-600 bg-red-50",
+      adet: gecikmisTahakkuklar.length,
     });
   }
 
@@ -242,6 +274,51 @@ export function hesaplaMusteriRisk({
       if (g < enYakinGun) enYakinGun = g;
     }
   }
+  for (const t of musteriTahakkuklari.filter((t) => t.durum === "bekliyor" || t.durum === "kismi")) {
+    const g = vadeyeKalanGun(t.vadeTarihi, now);
+    if (g === null || g < 0) continue;
+    const p = aciliyetPuani(g);
+    if (p > 0) {
+      aciliyetToplam += p;
+      acilAdet += 1;
+      if (g < enYakinGun) enYakinGun = g;
+    }
+  }
+
+  // ── Tebligat / karşıt inceleme SLA aciliyeti ─────────────────────────────
+  // Açık (yeni/bekliyor) tebligatların "kritikSonTarih"ine göre aynı aciliyetPuani
+  // ölçeği kullanılır — böylece 1 gün kalan beyanname, 3 gün kalan karşıt
+  // incelemeden daha riskli sayılır (sabit/flat bir puan değil).
+  const acikTebligatlar = musteriTebligatlari.filter((t) => t.durum === "yeni" || t.durum === "bekliyor");
+  let karsitAciliyetToplam = 0;
+  let karsitEnYakinGun = Infinity;
+  let karsitGecikenAdet = 0;
+  let digerGecikenTebligatAdet = 0;
+
+  for (const t of acikTebligatlar) {
+    const kritikSonTarih = t.kritikSonTarih ?? buildTebligatSlaFields(t).kritikSonTarih;
+    const g = vadeyeKalanGun(kritikSonTarih, now);
+    if (g === null) continue;
+    const karsit = karsitIncelemeMi(t);
+
+    if (g < 0) {
+      if (karsit) karsitGecikenAdet += 1;
+      else digerGecikenTebligatAdet += 1;
+      continue;
+    }
+
+    const p = aciliyetPuani(g);
+    if (p === 0) continue;
+
+    if (karsit) {
+      karsitAciliyetToplam += p;
+      if (g < karsitEnYakinGun) karsitEnYakinGun = g;
+    } else {
+      aciliyetToplam += p;
+      acilAdet += 1;
+      if (g < enYakinGun) enYakinGun = g;
+    }
+  }
   // Toplam aciliyet puanı 80 ile sınırlı
   const aciliyetPuaniToplam = Math.min(80, aciliyetToplam);
   if (aciliyetPuaniToplam > 0) {
@@ -259,24 +336,35 @@ export function hesaplaMusteriRisk({
     });
   }
 
-  // ── Karşıt inceleme tutanakları (tebligat tipinde "karşıt inceleme" geçenler) ──
-  // Her zaman kritik öncelikli; mevcut tebligat sinyalinin üstüne ekstra puan
-  const karsitIncelemeler = musteriTebligatlari.filter(
-    (t) =>
-      (t.durum === "yeni" || t.durum === "bekliyor") &&
-      (t.tur?.toLocaleLowerCase("tr-TR").includes("karşıt") ||
-        t.tur?.toLocaleLowerCase("tr-TR").includes("karsit") ||
-        t.baslik?.toLocaleLowerCase("tr-TR").includes("karşıt") ||
-        t.baslik?.toLocaleLowerCase("tr-TR").includes("karsit"))
-  );
-  if (karsitIncelemeler.length > 0) {
+  // ── Karşıt inceleme tutanağı — aciliyet ölçeğinden gelen puan (sabit değil) ──
+  const karsitAciliyetPuani = Math.min(50, karsitAciliyetToplam);
+  if (karsitAciliyetPuani > 0) {
+    const gunStr =
+      karsitEnYakinGun <= 0 ? "bugün" :
+      karsitEnYakinGun === 1 ? "yarın" :
+      `${karsitEnYakinGun} gün içinde`;
     sinyaller.push({
       tip: "karsit_inceleme",
       label: "Karşıt İnceleme Tutanağı",
-      aciklama: `${karsitIncelemeler.length} karşıt inceleme tutanağı — daima kritik öncelik`,
-      puan: 40, // sabit yüksek puan
+      aciklama: `Yanıt süresi ${gunStr} doluyor — kısa SLA nedeniyle yüksek öncelikli`,
+      puan: karsitAciliyetPuani,
       renk: "text-red-700 bg-red-100",
-      adet: karsitIncelemeler.length,
+    });
+  }
+
+  // ── Süresi geçmiş tebligat yanıtları — kaçırılmış yasal süre, en riskli durum ──
+  const gecikenTebligatToplam = karsitGecikenAdet + digerGecikenTebligatAdet;
+  if (gecikenTebligatToplam > 0) {
+    sinyaller.push({
+      tip: "gecikmis_tebligat_yaniti",
+      label: "Süresi geçmiş tebligat yanıtı",
+      aciklama:
+        karsitGecikenAdet > 0
+          ? `${gecikenTebligatToplam} tebligatın yanıt süresi geçti (${karsitGecikenAdet} karşıt inceleme dahil)`
+          : `${gecikenTebligatToplam} tebligatın yanıt süresi geçti`,
+      puan: sinyalPuani(karsitGecikenAdet > 0 ? 45 : 30, gecikenTebligatToplam, 10, 60),
+      renk: "text-red-700 bg-red-100",
+      adet: gecikenTebligatToplam,
     });
   }
 
@@ -287,6 +375,7 @@ export function hesaplaMusteriRisk({
     skor,
     seviye: riskSeviyesiFromSkor(skor),
     sinyaller,
+    enYakinVadeGun: enYakinGun === Infinity ? undefined : enYakinGun,
   };
 }
 

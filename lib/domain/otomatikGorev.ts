@@ -8,6 +8,7 @@ import type {
   Tahsilat,
   Tebligat,
 } from "@/lib/types";
+import { buildTebligatSlaFields } from "@/lib/domain/tebligatSla";
 
 export type OtomatikGorevKaynak = "tebligat" | "beyanname" | "tahsilat" | "belge";
 
@@ -168,6 +169,10 @@ export function hesaplaOtomatikGorevOnerileri({
 
       const musteri = musteriBul(musteriler, tebligat.musteriId, tebligat.musteriAdi);
       const acil = /uzlasma|inceleme|ceza|haciz/i.test(normalize(`${tebligat.tur} ${tebligat.baslik}`));
+      // Görevin termini gerçek SLA yanıt süresine (kritikSonTarih) bağlanır — sabit 1-2 gün sezgisi değil.
+      const kritikSonTarih =
+        tebligat.kritikSonTarih ?? buildTebligatSlaFields(tebligat).kritikSonTarih ?? isoDay(addDays(bugun, acil ? 1 : 2));
+      const terminTarihi = kritikSonTarih < isoDay(bugun) ? isoDay(bugun) : kritikSonTarih;
 
       oneriler.push({
         id: `tebligat-${tebligat.id}`,
@@ -178,7 +183,7 @@ export function hesaplaOtomatikGorevOnerileri({
         baslik: `Tebligat incele - ${tebligat.musteriAdi}`,
         aciklama: `${tebligat.baslik}\nTur: ${tebligat.tur}\nTarih: ${tebligat.tarih}`,
         gerekce: "Yeni/islem bekleyen tebligat var",
-        terminTarihi: isoDay(addDays(bugun, acil ? 1 : 2)),
+        terminTarihi,
         oncelik: acil ? "kritik" : "yuksek",
         tip: "tebligat",
         atananKisi: "sorumluPersonel" in musteri ? musteri.sorumluPersonel : "Selin Kaya",

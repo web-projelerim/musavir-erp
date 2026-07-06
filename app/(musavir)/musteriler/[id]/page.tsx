@@ -16,6 +16,7 @@ import { WhatsAppGonderimModal } from "@/components/modals/WhatsAppGonderimModal
 import { GorevDetayDrawer } from "@/components/modals/GorevDetayDrawer";
 import { TahsilatModal } from "@/components/modals/TahsilatModal";
 import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
+import { BelgeTalepModal } from "@/components/modals/BelgeTalepModal";
 import { DavetModal } from "@/components/modals/DavetModal";
 import { TahakkukModal } from "@/components/modals/TahakkukModal";
 import { useToast } from "@/lib/context/ToastContext";
@@ -79,6 +80,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const [showGorevModal, setShowGorevModal] = useState(false);
   const [showMusteriModal, setShowMusteriModal] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
+  const [showBelgeTalepModal, setShowBelgeTalepModal] = useState(false);
   const [showTahsilatModal, setShowTahsilatModal] = useState(false);
   const [showTahakkukModal, setShowTahakkukModal] = useState(false);
   const [showBelgeModal, setShowBelgeModal] = useState(false);
@@ -102,6 +104,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     gibSozlesmeleri: tumSozlesmeler,
     davetler,
     auditLogs,
+    whatsappEntegrasyonAyarlari,
     source,
     loading,
   } = useAppData();
@@ -400,13 +403,13 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
     <div>
       {/* Başlık */}
       <div className="mb-6">
-        <Link
-          href="/musteriler"
-          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 mb-3"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Müşteri Listesi
-        </Link>
+        <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+          <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Ana Sayfa</Link>
+          <span>/</span>
+          <Link href="/musteriler" className="hover:text-blue-600 transition-colors">Müşteriler</Link>
+          <span>/</span>
+          <span className="text-slate-700 font-medium">{musteri.firmaAdi}</span>
+        </nav>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900">{musteri.firmaAdi}</h1>
@@ -609,6 +612,12 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                         <span className="text-slate-500">Tutar: {formatPara(tahakkuk.tutar)}</span>
                         <span className="text-slate-500">Ödenen: {formatPara(tahakkuk.odenenTutar ?? 0)}</span>
                       </div>
+                      {tahakkuk.tahakkukTuru === "hizmet" && tahakkuk.tahsilEdilecek !== undefined && (
+                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Net: {formatPara(tahakkuk.netTutar ?? 0)} · Stopaj: -{formatPara(tahakkuk.stopajTutar ?? 0)}</span>
+                          <span className="font-semibold text-emerald-600">Tahsil edilecek: {formatPara(tahakkuk.tahsilEdilecek)}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -769,13 +778,22 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               <h3 className="text-sm font-semibold text-slate-800">Belgeler</h3>
               <p className="text-xs text-slate-500 mt-0.5">Müşteri dosyaları ve paylaşılan evraklar</p>
             </div>
-            <Button
-              size="sm"
-              icon={<Plus className="w-3.5 h-3.5" />}
-              onClick={() => setShowBelgeModal(true)}
-            >
-              Belge Yükle
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBelgeTalepModal(true)}
+              >
+                Eksik Belge Talep Et
+              </Button>
+              <Button
+                size="sm"
+                icon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => setShowBelgeModal(true)}
+              >
+                Belge Yükle
+              </Button>
+            </div>
           </div>
           {/* Mobil */}
           <div className="md:hidden divide-y divide-slate-100">
@@ -1341,6 +1359,12 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                     <span className="text-xs text-slate-500">Ödenen: {formatPara(item.odenenTutar ?? 0)}</span>
                     <span className="text-xs text-slate-500">Vade: {formatTarih(item.vadeTarihi)}</span>
                   </div>
+                  {item.tahakkukTuru === "hizmet" && item.tahsilEdilecek !== undefined && (
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Net: {formatPara(item.netTutar ?? 0)} · Stopaj: -{formatPara(item.stopajTutar ?? 0)} ·{" "}
+                      <span className="font-semibold text-emerald-600">Tahsil edilecek: {formatPara(item.tahsilEdilecek)}</span>
+                    </p>
+                  )}
                   <div className="mt-1.5">
                     <Badge variant="info">{item.bildirimDurumu}</Badge>
                   </div>
@@ -1379,8 +1403,22 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
                             )}
                           </div>
                         </TableCell>
-                        <TableCell><span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span></TableCell>
-                        <TableCell><span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span></TableCell>
+                        <TableCell>
+                          <span className="text-xs font-semibold text-slate-800">{formatPara(item.tutar)}</span>
+                          {item.tahakkukTuru === "hizmet" && item.tahsilEdilecek !== undefined && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Net: {formatPara(item.netTutar ?? 0)} · Stopaj: -{formatPara(item.stopajTutar ?? 0)}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-slate-600">{formatPara(item.odenenTutar ?? 0)}</span>
+                          {item.tahakkukTuru === "hizmet" && item.tahsilEdilecek !== undefined && (
+                            <p className="text-[11px] font-semibold text-emerald-600 mt-0.5">
+                              Tahsil edilecek: {formatPara(item.tahsilEdilecek)}
+                            </p>
+                          )}
+                        </TableCell>
                         <TableCell><span className="text-xs text-slate-600">{formatTarih(item.vadeTarihi)}</span></TableCell>
                         <TableCell>
                           <TahsilatBadge
@@ -1451,6 +1489,13 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         onClose={() => setShowBelgeModal(false)}
         musteriId={musteri.id}
         onUploaded={handleBelgeUploaded}
+      />
+      <BelgeTalepModal
+        open={showBelgeTalepModal}
+        onClose={() => setShowBelgeTalepModal(false)}
+        musteri={musteri}
+        ayar={whatsappEntegrasyonAyarlari[0]}
+        ofisId={musteri.ofisId}
       />
       <DavetModal
         open={showDavetModal}

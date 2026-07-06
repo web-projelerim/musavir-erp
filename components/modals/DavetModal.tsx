@@ -13,6 +13,8 @@ import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { createDavet } from "@/lib/firebase/repositories";
 import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry, PERSONEL_DEFAULT_YETKILER, TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
 import { getOfisId } from "@/lib/domain/office";
+import { useAppData } from "@/lib/hooks/useAppData";
+import { whatsappGonderimYurut, buildDavetWhatsAppMessage } from "@/lib/domain/whatsappGonderim";
 import type { KullaniciYetki, UserRole } from "@/lib/types";
 
 interface Props {
@@ -26,6 +28,7 @@ interface Props {
 
 export function DavetModal({ open, onClose, defaultRole = "personel", musteriId, musteriAdi, defaultEmail = "" }: Props) {
   const { user } = useAuth();
+  const { musteriler, whatsappEntegrasyonAyarlari } = useAppData();
   const toast = useToast();
   const logAudit = useAuditLog();
   const [role, setRole] = useState<UserRole>(defaultRole);
@@ -85,6 +88,33 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       });
       setCreatedLink(link);
       toast.success("Davet oluşturuldu");
+
+      // WhatsApp davet mesajı — yalnızca mükellef daveti + telefon varsa.
+      // Otomatik / onay-bekle kararı ayarlardan gelir (davetMesajiOtomatikGonder).
+      if (fixedMukellef && musteriId) {
+        const musteri = musteriler.find((m) => m.id === musteriId);
+        const telefon = musteri?.gsm1 || musteri?.telefon;
+        if (telefon) {
+          try {
+            const sonuc = await whatsappGonderimYurut({
+              ayar: whatsappEntegrasyonAyarlari[0],
+              tur: "davet",
+              ofisId: user?.ofisId,
+              musteriId,
+              musteriAdi: musteriAdi ?? musteri?.firmaAdi ?? "",
+              telefon,
+              mesaj: buildDavetWhatsAppMessage({ musteriAdi: musteriAdi ?? musteri?.firmaAdi ?? "", davetLinki: link }, whatsappEntegrasyonAyarlari[0]),
+              sablonId: "davet",
+              icerikRef: token,
+              firebaseAcik: isFirebaseConfigured,
+            });
+            if (sonuc.karar === "otomatik" && sonuc.gonderildi) toast.success("Davet WhatsApp ile gönderildi");
+            else if (sonuc.karar === "onay_bekle") toast.info("Davet mesajı onay kuyruğuna eklendi");
+          } catch {
+            // WhatsApp hatası davet oluşturmayı engellemez
+          }
+        }
+      }
 
       // P3-3: E-posta gönderimi (SMTP env varsa)
       if (emailGonder) {

@@ -182,6 +182,7 @@ export async function createGorev(input: {
   terminTarihi: string;
   oncelik: Gorev["oncelik"];
   tip: Gorev["tip"];
+  durum?: Gorev["durum"];
   altGorevler?: Gorev["altGorevler"];
 }) {
   const gorev: Gorev = {
@@ -195,7 +196,7 @@ export async function createGorev(input: {
     atayanKisi: input.atayanKisi,
     terminTarihi: input.terminTarihi,
     oncelik: input.oncelik,
-    durum: "beklemede",
+    durum: input.durum ?? "beklemede",
     tip: input.tip,
     altGorevler: input.altGorevler,
     createdAt: new Date().toISOString(),
@@ -220,7 +221,7 @@ export async function deleteGorev(id: string) {
   await deleteDocument(COLLECTIONS.gorevler, id);
 }
 
-export async function createRapor(input: Pick<Rapor, "ofisId" | "musteriId" | "musteriAdi" | "tip" | "donem">) {
+export async function createRapor(input: Pick<Rapor, "ofisId" | "musteriId" | "musteriAdi" | "tip" | "donem" | "donemBaslangic" | "donemBitis">) {
   const rapor: Rapor = {
     id: createId("r"),
     ...input,

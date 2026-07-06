@@ -11,7 +11,7 @@ import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGonderimKaydi, createTahakkuk } from "@/lib/firebase/repositories";
-import { buildTahakkukPanelLink, buildTahakkukWhatsAppMessage } from "@/lib/domain/tahakkuk";
+import { buildTahakkukPanelLink, buildTahakkukWhatsAppMessage, hesaplaTurmobTutarlari } from "@/lib/domain/tahakkuk";
 import { getOfisId } from "@/lib/domain/office";
 import { otomatikGonderimKarari } from "@/lib/domain/otomatikGonderim";
 import { sendWhatsAppMessages } from "@/lib/integrations/whatsapp/provider";
@@ -62,17 +62,17 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
   const selectedMusteri = musteriler.find((m) => m.id === form.musteriId);
 
   // Türmob hesabı: Brüt KDV dahil → Net (matrah), KDV, Stopaj, Tahsil edilecek
+  // Sadece "hizmet" (mali müşavirlik ücreti vb.) tahakkuklarında anlamlı — "vergi"
+  // tahakkukları (KDV/Muhtasar/... borcu) zaten net vergi tutarıdır, stopaj/KDV ayrıştırması yapılmaz.
   const hesap = useMemo(() => {
-    const brut = Number(form.tutar) || 0;
-    const kdvOran = Number(form.kdvOrani) || 0;
-    const stopajOran = form.stopajUygula ? Number(form.stopajOrani) || 0 : 0;
-    if (brut <= 0) return null;
-    const net = brut / (1 + kdvOran / 100);
-    const kdv = brut - net;
-    const stopaj = net * (stopajOran / 100);
-    const tahsil = brut - stopaj;
-    return { brut, net, kdv, stopaj, tahsil, kdvOran, stopajOran };
-  }, [form.tutar, form.kdvOrani, form.stopajUygula, form.stopajOrani]);
+    if (form.tahakkukTuru !== "hizmet") return null;
+    return hesaplaTurmobTutarlari({
+      brut: Number(form.tutar) || 0,
+      kdvOrani: Number(form.kdvOrani) || 0,
+      stopajUygula: form.stopajUygula,
+      stopajOrani: Number(form.stopajOrani) || 0,
+    });
+  }, [form.tahakkukTuru, form.tutar, form.kdvOrani, form.stopajUygula, form.stopajOrani]);
 
   const f = (field: keyof typeof form) => ({
     value: form[field] as string,
@@ -132,7 +132,7 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
             donem: form.donem,
             tutar,
             panelLinki,
-          });
+          }, whatsappAyar);
 
           if (karar === "pasif") {
             // Ayarlardan pasif edilmiş — gönderim oluşturma
@@ -259,7 +259,14 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
               ]}
             />
           )}
-          <Input label="Brüt Tutar (KDV dahil)" type="number" min="0" step="0.01" {...f("tutar")} required />
+          <Input
+            label={form.tahakkukTuru === "hizmet" ? "Brüt Tutar (KDV dahil)" : "Tutar"}
+            type="number"
+            min="0"
+            step="0.01"
+            {...f("tutar")}
+            required
+          />
         </div>
 
         {/* "Diğer" hizmet türü için serbest metin */}
@@ -272,39 +279,41 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
           />
         )}
 
-        {/* KDV oranı + stopaj seçimi */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Select
-            label="KDV Oranı"
-            value={form.kdvOrani}
-            onChange={(e) => setForm((p) => ({ ...p, kdvOrani: e.target.value }))}
-            options={[
-              { value: "0", label: "%0 (İstisna)" },
-              { value: "1", label: "%1" },
-              { value: "10", label: "%10" },
-              { value: "20", label: "%20" },
-            ]}
-          />
-          <Select
-            label="Stopaj"
-            value={form.stopajUygula ? "uygula" : "uygulama"}
-            onChange={(e) => setForm((p) => ({ ...p, stopajUygula: e.target.value === "uygula" }))}
-            options={[
-              { value: "uygula", label: "Uygulanacak" },
-              { value: "uygulama", label: "Uygulanmayacak" },
-            ]}
-          />
-          <Select
-            label="Stopaj Oranı"
-            value={form.stopajOrani}
-            disabled={!form.stopajUygula}
-            onChange={(e) => setForm((p) => ({ ...p, stopajOrani: e.target.value }))}
-            options={[
-              { value: "10", label: "%10" },
-              { value: "20", label: "%20 (SMMM)" },
-            ]}
-          />
-        </div>
+        {/* KDV oranı + stopaj seçimi — sadece hizmet tahakkukunda anlamlı (Türmob hesabı) */}
+        {form.tahakkukTuru === "hizmet" && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Select
+              label="KDV Oranı"
+              value={form.kdvOrani}
+              onChange={(e) => setForm((p) => ({ ...p, kdvOrani: e.target.value }))}
+              options={[
+                { value: "0", label: "%0 (İstisna)" },
+                { value: "1", label: "%1" },
+                { value: "10", label: "%10" },
+                { value: "20", label: "%20" },
+              ]}
+            />
+            <Select
+              label="Stopaj"
+              value={form.stopajUygula ? "uygula" : "uygulama"}
+              onChange={(e) => setForm((p) => ({ ...p, stopajUygula: e.target.value === "uygula" }))}
+              options={[
+                { value: "uygula", label: "Uygulanacak" },
+                { value: "uygulama", label: "Uygulanmayacak" },
+              ]}
+            />
+            <Select
+              label="Stopaj Oranı"
+              value={form.stopajOrani}
+              disabled={!form.stopajUygula}
+              onChange={(e) => setForm((p) => ({ ...p, stopajOrani: e.target.value }))}
+              options={[
+                { value: "10", label: "%10" },
+                { value: "20", label: "%20 (SMMM)" },
+              ]}
+            />
+          </div>
+        )}
 
         {/* Türmob hesap kartı */}
         {hesap && (

@@ -119,6 +119,7 @@ export default function TahakkuklarPage() {
       <PageHeader
         title="Vergi Tahakkukları"
         subtitle="Resmi vergi tahakkuklarını izleyin. Hizmet tahakkukları müşteriler sayfasından yönetilir."
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Tahakkuklar" }]}
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" icon={<Download className="h-4 w-4" />} onClick={() => handleLucaExport(filtered)}>

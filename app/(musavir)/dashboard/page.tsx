@@ -14,6 +14,7 @@ import {
   Plus,
   MessageCircle,
   Sparkles,
+  Send,
   X,
 } from "lucide-react";
 import {
@@ -31,6 +32,8 @@ import {
 } from "recharts";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { InfoBanner } from "@/components/ui/InfoBanner";
 import { StatsDrawer } from "@/components/layout/StatsDrawer";
 import { Badge, RiskBadge, BeyannameBadge, TahsilatBadge } from "@/components/ui/Badge";
 import { RiskMetre } from "@/components/ui/RiskMetre";
@@ -122,8 +125,9 @@ export default function DashboardPage() {
   const [dismissedGazete, setDismissedGazete] = useState<string[]>([]);
   const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
+  const [gazeteHata, setGazeteHata] = useState(false);
   const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
-  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, kdv2, resmiGazeteOzetleri, gibSyncLogs, loading } = useAppData();
+  const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, tahakkuklar, kdv2, resmiGazeteOzetleri, gibSyncLogs, gonderimler, loading } = useAppData();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -147,7 +151,10 @@ export default function DashboardPage() {
     })()
       .then((r) => (r.ok ? r.json() : r.json().then((d) => { if (!d?.ok) return null; return d; })))
       .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> } | null) => {
-        if (!data) return;
+        if (!data || !data.ok) {
+          setGazeteHata(true);
+          return;
+        }
         if (data.ok && Array.isArray(data.maddeler) && data.maddeler.length > 0) {
           const items: ResmiGazeteOzeti[] = data.maddeler.map((m, i) => ({
             id: `gazete-dynamic-${bugun}-${i}`,
@@ -169,7 +176,7 @@ export default function DashboardPage() {
           } catch {}
         }
       })
-      .catch(() => {})
+      .catch(() => setGazeteHata(true))
       .finally(() => setGazeteYukleniyor(false));
   }, []);
 
@@ -227,7 +234,7 @@ export default function DashboardPage() {
   });
   const hazirRaporlar = raporlar.filter((r) => r.durum === "hazir");
   const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
-  const riskListesi = hesaplaRiskListesi({ musteriler: aktifMusteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
+  const riskListesi = hesaplaRiskListesi({ musteriler: aktifMusteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, tahakkuklar, kdv2 });
   const kritikRiskler = riskListesi.filter(
     (risk) => risk.seviye === "kritik" || risk.seviye === "yuksek"
   );
@@ -408,6 +415,51 @@ export default function DashboardPage() {
         metrics={metrics}
       />
 
+      {/* Hızlı Erişim — mini özet + doğrudan ilgili sayfaya giden buton */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <div className="flex items-center gap-2 text-slate-800">
+            <Users className="h-4 w-4 text-blue-600" />
+            <h3 className="text-sm font-semibold">Müşteri Portföyü</h3>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{aktifMusteriler.length}</p>
+          <p className="text-xs text-slate-500">{musteriler.length} toplam kayıttan aktif</p>
+          <Link href="/musteriler" className="mt-3 block">
+            <Button variant="outline" size="sm" className="w-full justify-center">
+              Müşterilere Git
+            </Button>
+          </Link>
+        </Card>
+        <Card>
+          <div className="flex items-center gap-2 text-slate-800">
+            <Bell className="h-4 w-4 text-amber-500" />
+            <h3 className="text-sm font-semibold">Tebligat Durumu</h3>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{yeniTebligatlar.length}</p>
+          <p className="text-xs text-slate-500">{tebligatlar.length} toplam kayıttan yeni</p>
+          <Link href="/tebligatlar" className="mt-3 block">
+            <Button variant="outline" size="sm" className="w-full justify-center">
+              Tebligatlara Git
+            </Button>
+          </Link>
+        </Card>
+        <Card>
+          <div className="flex items-center gap-2 text-slate-800">
+            <Send className="h-4 w-4 text-emerald-600" />
+            <h3 className="text-sm font-semibold">Onay Bekleyen İşlemler</h3>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {gonderimler.filter((g) => g.durum === "bekliyor").length}
+          </p>
+          <p className="text-xs text-slate-500">Gönderim onayı bekliyor</p>
+          <Link href="/onay-bekleyenler" className="mt-3 block">
+            <Button variant="outline" size="sm" className="w-full justify-center">
+              Onay Bekleyenlere Git
+            </Button>
+          </Link>
+        </Card>
+      </div>
+
       {/* Takvim — full-width, dashboard'a girince ilk görünen */}
       <div className="mb-6">
         <MiniTakvim olaylar={takvimOlaylari} />
@@ -416,12 +468,12 @@ export default function DashboardPage() {
       {(gazeteYukleniyor || visibleGazete.length > 0) && (
         <div className="mb-6 space-y-3">
           {gazeteYukleniyor && visibleGazete.length === 0 && (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-500 animate-pulse" />
-                <p className="text-sm text-blue-700">Bugünkü Resmi Gazete özeti hazırlanıyor...</p>
-              </div>
-            </div>
+            <InfoBanner>
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 flex-shrink-0 animate-pulse text-blue-500" />
+                Bugünkü Resmi Gazete özeti hazırlanıyor...
+              </span>
+            </InfoBanner>
           )}
           {visibleGazete.map((item) => (
             <div key={item.id} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
@@ -452,6 +504,14 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!gazeteYukleniyor && gazeteHata && visibleGazete.length === 0 && (
+        <div className="mb-6">
+          <InfoBanner variant="warning">
+            Resmi Gazete özeti şu an alınamadı — kaynak siteye (resmigazete.gov.tr) erişilemiyor olabilir. Sayfayı daha sonra yenileyerek tekrar deneyebilirsiniz.
+          </InfoBanner>
         </div>
       )}
 
@@ -549,12 +609,14 @@ export default function DashboardPage() {
             {kritikRiskler.map((risk) => {
               const m = risk.musteri;
               const tone = riskTonu(risk.skor);
+              const acil = risk.skor >= 90 || (risk.enYakinVadeGun !== undefined && risk.enYakinVadeGun <= 1);
+              const pulse = acil ? "animate-pulse" : tone.pulse;
               return (
-                <MobileCard key={m.id} className={`${tone.bg} ${tone.border} ${tone.pulse}`}>
+                <MobileCard key={m.id} className={`${tone.bg} ${tone.border} ${pulse}`}>
                   <div className="flex items-start justify-between gap-3">
                     <Link href={`/musteriler/${m.id}`} className="min-w-0">
                       <p className={`text-sm font-semibold ${tone.text}`}>
-                        {risk.skor >= 90 && "🚨 "}
+                        {acil && "🚨 "}
                         {m.firmaAdi}
                       </p>
                       <p className="mt-1 text-xs font-mono text-slate-500">{displayVknTckn(m.vknTckn, user)}</p>
@@ -586,12 +648,14 @@ export default function DashboardPage() {
               {kritikRiskler.map((risk) => {
                 const m = risk.musteri;
                 const tone = riskTonu(risk.skor);
+                const acil = risk.skor >= 90 || (risk.enYakinVadeGun !== undefined && risk.enYakinVadeGun <= 1);
+                const pulse = acil ? "animate-pulse" : tone.pulse;
                 return (
-                <TableRow key={m.id} className={`${tone.bg} ${tone.pulse}`}>
+                <TableRow key={m.id} className={`${tone.bg} ${pulse}`}>
                   <TableCell>
                     <Link href={`/musteriler/${m.id}`} className="group">
                       <p className={`font-medium text-xs group-hover:text-blue-600 transition-colors ${tone.text}`}>
-                        {risk.skor >= 90 && "🚨 "}
+                        {acil && "🚨 "}
                         {m.firmaAdi}
                       </p>
                       <p className="text-slate-500 text-xs font-mono mt-0.5">{displayVknTckn(m.vknTckn, user)}</p>

@@ -25,7 +25,7 @@ import {
   updateGorev as updateGorevFirebase,
   updateGorevDurum as updateGorevDurumFirebase,
 } from "@/lib/firebase/repositories";
-import { normalizeGorevNotlar } from "@/lib/utils/gorev";
+import { isGorevGecikti, normalizeGorevNotlar } from "@/lib/utils/gorev";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { formatTarih } from "@/lib/utils/format";
@@ -70,7 +70,9 @@ export default function GorevlerPage() {
   const [activeTab,      setActiveTab]      = useState<FilterTab>("tumu");
   const [aramaText,      setAramaText]      = useState("");
   const [filterOncelik,  setFilterOncelik]  = useState("tumu");
+  const [filterTip,      setFilterTip]      = useState<"tumu" | GorevTip>("tumu");
   const [showYeniModal,  setShowYeniModal]  = useState(false);
+  const [yeniModalDurum, setYeniModalDurum] = useState<GorevDurum | undefined>(undefined);
   const [otomatikLoading,setOtomatikLoading]= useState(false);
   const [seciliGorev,    setSeciliGorev]    = useState<Gorev | null>(null);
   const [quickTitle,     setQuickTitle]     = useState("");
@@ -96,15 +98,18 @@ export default function GorevlerPage() {
   // ── Filtreleme ────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const search = aramaText.toLowerCase();
-    return gorevler.filter(g => {
-      const matchSearch   = !search || g.baslik.toLowerCase().includes(search) || g.musteriAdi.toLowerCase().includes(search);
-      const matchTab      = activeTab === "tumu"
-        ? g.durum !== "tamamlandi" && g.durum !== "iptal"
-        : g.durum === activeTab;
-      const matchOncelik  = filterOncelik === "tumu" || g.oncelik === filterOncelik;
-      return matchSearch && matchTab && matchOncelik;
-    });
-  }, [gorevler, aramaText, activeTab, filterOncelik]);
+    return gorevler
+      .filter(g => {
+        const matchSearch   = !search || g.baslik.toLowerCase().includes(search) || g.musteriAdi.toLowerCase().includes(search);
+        const matchTab      = activeTab === "tumu"
+          ? g.durum !== "tamamlandi" && g.durum !== "iptal"
+          : g.durum === activeTab;
+        const matchOncelik  = filterOncelik === "tumu" || g.oncelik === filterOncelik;
+        const matchTip      = filterTip === "tumu" || g.tip === filterTip;
+        return matchSearch && matchTab && matchOncelik && matchTip;
+      })
+      .sort((a, b) => a.terminTarihi.localeCompare(b.terminTarihi));
+  }, [gorevler, aramaText, activeTab, filterOncelik, filterTip]);
 
   // ── Tablo görünümü için tip bazlı gruplar ─────────────────────────────────
   const grupluGorevler = useMemo(() => {
@@ -276,8 +281,6 @@ export default function GorevlerPage() {
     }
   };
 
-  const today = new Date().toISOString().split("T")[0];
-
   if (loading) return <PageLoading />;
 
   return (
@@ -286,6 +289,7 @@ export default function GorevlerPage() {
         <PageHeader
           title="Görev Yönetimi"
           subtitle={`${tabCounts.tumu} bekleyen görev`}
+          breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Görevler" }]}
           action={
             <div className="flex items-center gap-2">
               {/* Kanban / Tablo toggle */}
@@ -312,7 +316,7 @@ export default function GorevlerPage() {
               >
                 Otomatik ({otomatikOneriler.length})
               </Button>
-              <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowYeniModal(true)}>
+              <Button icon={<Plus className="w-4 h-4" />} onClick={() => { setYeniModalDurum(undefined); setShowYeniModal(true); }}>
                 Yeni Görev
               </Button>
             </div>
@@ -404,6 +408,16 @@ export default function GorevlerPage() {
               <option value="normal">🟡 Normal</option>
               <option value="dusuk">🟢 Düşük</option>
             </select>
+            <select
+              value={filterTip}
+              onChange={e => setFilterTip(e.target.value as "tumu" | GorevTip)}
+              className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none"
+            >
+              <option value="tumu">Tüm Türler</option>
+              {TIP_SIRA.map(tip => (
+                <option key={tip} value={tip}>{TIP_LABEL[tip]}</option>
+              ))}
+            </select>
             <span className="text-xs text-slate-400">{filtered.length} görev</span>
           </div>
         </div>
@@ -432,13 +446,17 @@ export default function GorevlerPage() {
                   </div>
 
                   <div className="flex flex-col gap-2 flex-1">
-                    {kolonGorevler.map(gorev => (
+                    {kolonGorevler.map(gorev => {
+                      const gecikti = isGorevGecikti(gorev);
+                      return (
                       <div
                         key={gorev.id}
                         draggable
                         onDragStart={e => e.dataTransfer.setData("text/plain", gorev.id)}
                         onClick={() => setSeciliGorev(gorev)}
-                        className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                        className={`bg-white rounded-xl border p-3.5 shadow-sm hover:shadow-md transition-shadow cursor-pointer group ${
+                          gecikti ? "border-red-300 border-l-4 border-l-red-500" : "border-slate-200"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-bold text-slate-900 leading-snug flex-1">{gorev.baslik}</p>
@@ -454,9 +472,14 @@ export default function GorevlerPage() {
                         <div className="flex items-center gap-1 mt-2">
                           <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 ${gorev.oncelik === "kritik" ? "text-red-500" : gorev.oncelik === "yuksek" ? "text-amber-500" : "text-slate-400"}`} />
                           <span className="text-xs text-slate-500">{ONCELIK_LABEL[gorev.oncelik] ?? gorev.oncelik}</span>
+                          {gecikti && (
+                            <span className="ml-auto text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5 py-0.5">
+                              Gecikti
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100">
-                          <div className="flex items-center gap-1 text-xs text-slate-400">
+                          <div className={`flex items-center gap-1 text-xs ${gecikti ? "text-red-500 font-semibold" : "text-slate-400"}`}>
                             <Calendar className="w-3 h-3" />
                             {formatTarih(gorev.terminTarihi)}
                           </div>
@@ -469,12 +492,13 @@ export default function GorevlerPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => setShowYeniModal(true)}
+                    onClick={() => { setYeniModalDurum(kolon.key); setShowYeniModal(true); }}
                     className="mt-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/60 px-3 py-2.5 text-xs font-medium text-slate-500 transition-colors hover:border-blue-400 hover:bg-white hover:text-blue-600"
                   >
                     <Plus className="w-3.5 h-3.5" /> Kart ekle
@@ -507,7 +531,7 @@ export default function GorevlerPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowYeniModal(true)}
+                      onClick={() => { setYeniModalDurum(undefined); setShowYeniModal(true); }}
                       className="text-xs font-medium text-slate-500 border border-slate-200 bg-white px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                       Detaylı
@@ -554,7 +578,7 @@ export default function GorevlerPage() {
                       </TableHead>
                       <TableBody>
                         {tipGorevleri.map(gorev => {
-                          const isOverdue = gorev.terminTarihi < today && gorev.durum !== "tamamlandi" && gorev.durum !== "iptal";
+                          const isOverdue = isGorevGecikti(gorev);
                           return (
                             <TableRow
                               key={gorev.id}
@@ -650,6 +674,7 @@ export default function GorevlerPage() {
       <YeniGorevModal
         open={showYeniModal}
         onClose={() => setShowYeniModal(false)}
+        initialDurum={yeniModalDurum}
         onCreated={gorev => { if (source !== "firebase") setGorevler(prev => [gorev, ...prev]); }}
         onSuccess={() => toast.success("Görev listesi güncellendi")}
       />

@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed:firebase": "npx tsx scripts/seed-firebase.ts",
+    "postinstall": "node scripts/sync-pdf-worker.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "vitest run --config vitest.rules.config.ts"

@@ -28,10 +28,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/firebase/verifyToken";
 import { assertMusterilerInOffice } from "@/lib/firebase/officeScope";
 import { rateLimitDistributed } from "@/lib/security/rateLimit";
-
-const META_API = "https://graph.facebook.com/v19.0";
-const DEFAULT_TEMPLATE = "musavir_hatirlatma";
-const DEFAULT_LANG = "tr";
+import { whatsappGonder, whatsappYapilandirildi } from "@/lib/integrations/whatsapp/server";
 
 interface MesajItem {
   musteriId: string;
@@ -50,96 +47,6 @@ interface SendBody {
   templateName?: string;
 }
 
-// Telefon numarasını E.164 formatına çevir (Türkiye: +90...)
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("0") && digits.length === 11) {
-    return `+90${digits.slice(1)}`;
-  }
-  if (digits.startsWith("90") && digits.length === 12) {
-    return `+${digits}`;
-  }
-  if (!phone.startsWith("+")) {
-    return `+${digits}`;
-  }
-  return phone.replace(/\s/g, "");
-}
-
-function buildTextPayload(to: string, body: string) {
-  return {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: { preview_url: false, body },
-  };
-}
-
-function buildTemplatePayload(
-  to: string,
-  templateName: string,
-  params: string[]
-) {
-  return {
-    messaging_product: "whatsapp",
-    to,
-    type: "template",
-    template: {
-      name: templateName,
-      language: { code: DEFAULT_LANG },
-      components: [
-        {
-          type: "body",
-          parameters: params.map((text) => ({ type: "text", text })),
-        },
-      ],
-    },
-  };
-}
-
-async function sendSingle(
-  phoneNumberId: string,
-  accessToken: string,
-  item: MesajItem,
-  useTemplate: boolean,
-  templateName: string
-): Promise<{ musteriId: string; basarili: boolean; hataMesaji?: string }> {
-  const to = normalizePhone(item.phone);
-
-  const payload =
-    useTemplate && item.templateParams && item.templateParams.length > 0
-      ? buildTemplatePayload(to, templateName, item.templateParams)
-      : buildTextPayload(to, item.body);
-
-  try {
-    const res = await fetch(`${META_API}/${phoneNumberId}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      return { musteriId: item.musteriId, basarili: true };
-    }
-
-    const errData = await res.json().catch(() => ({}));
-    const errMsg =
-      errData?.error?.message ??
-      errData?.error?.error_data?.details ??
-      `HTTP ${res.status}`;
-    return { musteriId: item.musteriId, basarili: false, hataMesaji: errMsg };
-  } catch (err) {
-    return {
-      musteriId: item.musteriId,
-      basarili: false,
-      hataMesaji: err instanceof Error ? err.message : "Bilinmeyen hata",
-    };
-  }
-}
-
 export async function POST(req: NextRequest) {
   const actor = await requireStaff(req);
   if (!actor) {
@@ -152,10 +59,7 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
     );
   }
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-  if (!accessToken || !phoneNumberId) {
+  if (!whatsappYapilandirildi()) {
     return NextResponse.json(
       {
         ok: false,
@@ -169,11 +73,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body: SendBody = await req.json();
-    const {
-      messages,
-      useTemplate = false,
-      templateName = DEFAULT_TEMPLATE,
-    } = body;
+    const { messages, useTemplate = false, templateName } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "messages dizisi boş" }, { status: 400 });
@@ -195,9 +95,16 @@ export async function POST(req: NextRequest) {
     }
 
     const results = await Promise.all(
-      messages.map((m) =>
-        sendSingle(phoneNumberId, accessToken, m, useTemplate, templateName)
-      )
+      messages.map(async (m) => {
+        const sonuc = await whatsappGonder({
+          phone: m.phone,
+          body: m.body,
+          useTemplate,
+          templateParams: m.templateParams,
+          templateName,
+        });
+        return { musteriId: m.musteriId, basarili: sonuc.ok, hataMesaji: sonuc.hataMesaji };
+      })
     );
 
     const basarili = results.filter((r) => r.basarili).length;

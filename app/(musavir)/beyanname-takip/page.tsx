@@ -368,6 +368,7 @@ export default function BeyannameTakipPage() {
       <PageHeader
         title="Beyanname Takip"
         subtitle="Aylık beyanname durumlarını takip edin"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Beyanname Takip" }]}
         action={
           <div className="flex items-center gap-2">
             <button

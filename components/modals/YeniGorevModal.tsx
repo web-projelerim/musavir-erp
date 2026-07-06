@@ -12,24 +12,27 @@ import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGorev } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
-import type { AltGorev, Gorev, GorevOncelik, GorevTip } from "@/lib/types";
+import { createAltGorev } from "@/lib/utils/gorev";
+import type { AltGorev, Gorev, GorevDurum, GorevOncelik, GorevTip } from "@/lib/types";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   musteriId?: string;
+  /** Kanban'da belirli bir kolondan "Kart ekle" tıklandığında, görev doğrudan o durumla oluşturulsun. */
+  initialDurum?: GorevDurum;
   onCreated?: (gorev: Gorev) => void;
   onSuccess?: () => void;
 }
 
-export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess }: Props) {
+export function YeniGorevModal({ open, onClose, musteriId, initialDurum, onCreated, onSuccess }: Props) {
   const toast = useToast();
   const { user } = useAuth();
   const logAudit = useAuditLog();
   const [loading, setLoading] = useState(false);
   const today = new Date().toISOString().split("T")[0];
-  const { musteriler, kullanicilar } = useAppData();
+  const { musteriler } = useAppData();
 
   const currentUserFullName = user ? `${user.ad} ${user.soyad}`.trim() : "";
 
@@ -41,6 +44,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
     terminTarihi: new Date().toISOString().split("T")[0],
     oncelik: "normal",
     tip: "beyanname",
+    durum: initialDurum ?? "beklemede",
   });
 
   const [form, setForm] = useState(bosForm);
@@ -49,10 +53,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
 
   const altGorevEkle = () => {
     if (!yeniAltGorev.trim()) return;
-    setAltGorevler((prev) => [
-      ...prev,
-      { id: `ag-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, baslik: yeniAltGorev.trim(), tamamlandi: false },
-    ]);
+    setAltGorevler((prev) => [...prev, createAltGorev(yeniAltGorev)]);
     setYeniAltGorev("");
   };
 
@@ -67,7 +68,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
       setYeniAltGorev("");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, musteriId, currentUserFullName]);
+  }, [open, musteriId, currentUserFullName, initialDurum]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +95,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           terminTarihi: form.terminTarihi,
           oncelik: form.oncelik as GorevOncelik,
           tip: form.tip as GorevTip,
+          durum: form.durum as GorevDurum,
           altGorevler: altGorevler.length > 0 ? altGorevler : undefined,
         });
       } else {
@@ -109,7 +111,7 @@ export function YeniGorevModal({ open, onClose, musteriId, onCreated, onSuccess 
           atayanKisi,
           terminTarihi: form.terminTarihi,
           oncelik: form.oncelik as GorevOncelik,
-          durum: "beklemede",
+          durum: form.durum as GorevDurum,
           tip: form.tip as GorevTip,
           altGorevler: altGorevler.length > 0 ? altGorevler : undefined,
           createdAt: new Date().toISOString(),

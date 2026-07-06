@@ -198,6 +198,7 @@ export default function KDV2Page() {
       <PageHeader
         title="KDV2 Hesaplama"
         subtitle="Tevkifatlı KDV hesaplama ve kayıt modülü"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "KDV2 Hesaplama" }]}
       />
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">

@@ -12,6 +12,13 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { createGonderimKaydi } from "@/lib/firebase/repositories";
 import { sendWhatsAppMessages } from "@/lib/integrations/whatsapp/provider";
 import { formatTarih } from "@/lib/utils/format";
+import { SABLON_ETIKETLERI, mesajOlustur } from "@/lib/domain/mesajSablonlari";
+import {
+  buildBeyannameWhatsAppMessage,
+  buildRaporWhatsAppMessage,
+  buildVadeWhatsAppMessage,
+} from "@/lib/domain/whatsappGonderim";
+import type { MesajTuru } from "@/lib/domain/otomatikGonderim";
 import { MessageCircle, Send, CheckCircle2, X, Users } from "lucide-react";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 
@@ -24,32 +31,18 @@ interface Props {
   onSuccess?: (raporIds: string[]) => void;
 }
 
-const SABLONLAR = [
-  {
-    id: "s1",
-    ad: "Beyanname Hatırlatma",
-    icerik: "Sayın {firma_adi}, {beyan_turu} beyannamenizin son tarihi {son_tarih}'dir. Lütfen gerekli belgeleri hazırlayın.",
-  },
-  {
-    id: "s2",
-    ad: "Rapor Gönderimi",
-    icerik: "Sayın {firma_adi}, {donem} dönemi {rapor_turu} raporunuz hazırlanmıştır. Raporunuza portal üzerinden erişebilirsiniz.",
-  },
-  {
-    id: "s3",
-    ad: "Tahsilat Hatırlatma",
-    icerik: "Sayın {firma_adi}, {donem} dönemi müşavirlik ücretinizin vade tarihi {vade_tarihi}'dir.",
-  },
-];
+/** Manuel toplu gönderimde seçilebilecek mesaj türleri — metinleri Ayarlar > Entegrasyonlar > WhatsApp'taki merkezî şablonlardan gelir. */
+const MANUEL_TURLER: MesajTuru[] = ["beyanname", "rapor", "vade"];
 
 export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, raporIds = [], onSuccess }: Props) {
   const toast = useToast();
   const logAudit = useAuditLog();
-  const { musteriler, beyannameler, tahsilatlar, raporlar, tebligatlar, gorevler, kdv2 } = useAppData();
-  const riskMap = riskMapOlustur({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, kdv2 });
+  const { musteriler, beyannameler, tahsilatlar, raporlar, tebligatlar, gorevler, tahakkuklar, kdv2, whatsappEntegrasyonAyarlari } = useAppData();
+  const riskMap = riskMapOlustur({ musteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, tahakkuklar, kdv2 });
+  const waAyar = whatsappEntegrasyonAyarlari[0];
   const [step, setStep] = useState<"secim" | "onay" | "gonderiliyor" | "sonuc">("secim");
   const [seciliMusteriler, setSeciliMusteriler] = useState<string[]>(musteriId ? [musteriId] : []);
-  const [secilenSablon, setSecilenSablon] = useState(SABLONLAR[0].id);
+  const [secilenSablon, setSecilenSablon] = useState<MesajTuru>("beyanname");
   const [gonderimSonuclari, setGonderimSonuclari] = useState<{ musteriId: string; basarili: boolean }[]>([]);
   /** true → Meta onaylı template, false → serbest metin (oturum içi) */
   const [useTemplate, setUseTemplate] = useState(false);
@@ -66,15 +59,31 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
     const tahsilat = tahsilatlar.find((t) => t.musteriId === musteriId && t.durum !== "odendi");
     const relatedRaporIds = raporIds.length > 0 ? raporIds : raporId ? [raporId] : [];
     const rapor = raporlar.find((r) => relatedRaporIds.includes(r.id)) ?? raporlar.find((r) => r.musteriId === musteriId);
-    const sablon = SABLONLAR.find((s) => s.id === secilenSablon)!;
+    const musteriAdi = musteri?.firmaAdi ?? "Mükellef";
 
-    return sablon.icerik
-      .replaceAll("{firma_adi}", musteri?.firmaAdi ?? "Mükellef")
-      .replaceAll("{beyan_turu}", beyan?.tur ?? "ilgili")
-      .replaceAll("{son_tarih}", beyan?.sonTarih ? formatTarih(beyan.sonTarih) : "yaklaşan")
-      .replaceAll("{donem}", rapor?.donem ?? tahsilat?.donem ?? "ilgili")
-      .replaceAll("{rapor_turu}", rapor?.tip.replace("_", " ") ?? "rapor")
-      .replaceAll("{vade_tarihi}", tahsilat?.vadeTarihi ? formatTarih(tahsilat.vadeTarihi) : "belirtilen");
+    switch (secilenSablon) {
+      case "rapor":
+        return buildRaporWhatsAppMessage(
+          { musteriAdi, donem: rapor?.donem ?? tahsilat?.donem ?? "ilgili", raporTuru: rapor?.tip.replace("_", " ") ?? "rapor" },
+          waAyar
+        );
+      case "vade":
+        return buildVadeWhatsAppMessage(
+          { musteriAdi, tutar: tahsilat?.tutar, vadeTarihi: tahsilat?.vadeTarihi ? formatTarih(tahsilat.vadeTarihi) : undefined },
+          waAyar
+        );
+      case "beyanname":
+      default:
+        return buildBeyannameWhatsAppMessage(
+          {
+            musteriAdi,
+            tur: beyan?.tur ?? "ilgili",
+            donem: beyan?.donem ?? "ilgili",
+            sonTarih: beyan?.sonTarih ? formatTarih(beyan.sonTarih) : "yaklaşan",
+          },
+          waAyar
+        );
+    }
   };
 
   const handleGonder = async () => {
@@ -143,7 +152,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
       action: "send",
       entityType: "gonderim",
       entityId: `whatsapp-${Date.now()}`,
-      entityLabel: SABLONLAR.find((s) => s.id === secilenSablon)?.ad,
+      entityLabel: SABLON_ETIKETLERI[secilenSablon],
       summary: `${basarili}/${sonuclar.length} WhatsApp mesajı gönderildi`,
       after: {
         kanal: "whatsapp",
@@ -171,9 +180,8 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
     onClose();
   };
 
-  const sablon = SABLONLAR.find((s) => s.id === secilenSablon)!;
   const previewMusteriId = seciliMusteriler[0];
-  const previewText = previewMusteriId ? fillTemplate(previewMusteriId) : sablon.icerik;
+  const previewText = previewMusteriId ? fillTemplate(previewMusteriId) : mesajOlustur(secilenSablon, waAyar, {});
 
   return (
     <Modal open={open} onClose={handleKapat} title="WhatsApp Toplu Gönderim" size="lg">
@@ -297,25 +305,25 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
           </div>
 
           <div className="space-y-2 mb-4">
-            {SABLONLAR.map((s) => (
+            {MANUEL_TURLER.map((tur) => (
               <label
-                key={s.id}
+                key={tur}
                 className={`block p-3 rounded-xl border cursor-pointer transition-colors ${
-                  secilenSablon === s.id ? "bg-blue-50 border-blue-300" : "border-slate-200 hover:bg-slate-50"
+                  secilenSablon === tur ? "bg-blue-50 border-blue-300" : "border-slate-200 hover:bg-slate-50"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <input
                     type="radio"
                     name="sablon"
-                    value={s.id}
-                    checked={secilenSablon === s.id}
-                    onChange={() => setSecilenSablon(s.id)}
+                    value={tur}
+                    checked={secilenSablon === tur}
+                    onChange={() => setSecilenSablon(tur)}
                     className="text-blue-600"
                   />
-                  <span className="text-sm font-semibold text-slate-800">{s.ad}</span>
+                  <span className="text-sm font-semibold text-slate-800">{SABLON_ETIKETLERI[tur]}</span>
                 </div>
-                <p className="text-xs text-slate-500 ml-5">{s.icerik}</p>
+                <p className="text-xs text-slate-500 ml-5">{mesajOlustur(tur, waAyar, {})}</p>
               </label>
             ))}
           </div>
@@ -331,7 +339,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
           <div className="bg-slate-50 rounded-xl p-3 mb-4">
             <p className="text-xs text-slate-500 mb-1">Özet:</p>
             <p className="text-xs text-slate-700">
-              <strong>{seciliMusteriler.length}</strong> müşteriye <strong>{sablon.ad}</strong> şablonu gönderilecek.
+              <strong>{seciliMusteriler.length}</strong> müşteriye <strong>{SABLON_ETIKETLERI[secilenSablon]}</strong> şablonu gönderilecek.
             </p>
           </div>
 

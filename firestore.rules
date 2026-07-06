@@ -309,7 +309,9 @@ service cloud.firestore {
     // ─── Gönderimler ──────────────────────────────────────────────────────────
 
     match /gonderimler/{id} {
-      allow read:   if sameOffice(resource.data.ofisId);
+      // Mükellef kendisine ait gönderim kayıtlarını (panel bildirimleri dahil) okuyabilir.
+      allow read:   if sameOffice(resource.data.ofisId) ||
+                      isMukellefFor(resource.data.musteriId);
       allow create: if writingToOwnOffice();
       allow update: if sameOffice(resource.data.ofisId);
       allow delete: if isMusavir() && sameOffice(resource.data.ofisId);

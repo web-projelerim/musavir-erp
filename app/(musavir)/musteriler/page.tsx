@@ -227,6 +227,7 @@ export default function MusterilerPage() {
       <PageHeader
         title="Müşteriler"
         subtitle={`${filteredKayitlar.length} müşteri gösteriliyor`}
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Müşteriler" }]}
         action={
           <div className="flex flex-wrap gap-2">
             {canWrite && (
@@ -473,7 +474,6 @@ export default function MusterilerPage() {
                   <SortHeader field="firmaAdi" label="Firma" />
                   <TableHeadCell>VKN/TCKN</TableHeadCell>
                   <SortHeader field="yaklasanSorumluluk" label="Yaklaşan Sorumluluk" />
-                  <TableHeadCell>Hizmet Tahakkuku</TableHeadCell>
                   <TableHeadCell>Tahsilat</TableHeadCell>
                   <TableHeadCell>Görev Durumu</TableHeadCell>
                   <TableHeadCell>Son Tebligat</TableHeadCell>
@@ -484,17 +484,16 @@ export default function MusterilerPage() {
               </TableHead>
               <TableBody>
                 {filteredKayitlar.length === 0 ? (
-                  <TableEmpty colSpan={10} message="Arama kriterlerine uyan müşteri bulunamadı" />
+                  <TableEmpty colSpan={9} message="Arama kriterlerine uyan müşteri bulunamadı" />
                 ) : (
                   filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
                     const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;
-                    const hizmet = hizmetTahakkukMap.get(m.id);
                     return (
                       <TableRow key={m.id}>
                         <TableCell>
-                          <div>
-                            <p className="font-semibold text-slate-800 text-sm">{m.firmaAdi}</p>
-                            <p className="text-slate-400 text-xs mt-0.5">{m.yetkiliAd}</p>
+                          <div className="max-w-[220px]">
+                            <p className="font-semibold text-slate-800 text-sm truncate" title={m.firmaAdi}>{m.firmaAdi}</p>
+                            <p className="text-slate-400 text-xs mt-0.5 truncate">{m.yetkiliAd}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -519,20 +518,6 @@ export default function MusterilerPage() {
                             </div>
                           ) : (
                             <span className="text-xs text-emerald-600 font-medium">Sorumluluk yok</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {hizmet && hizmet.adet > 0 ? (
-                            <div>
-                              <p className={`text-xs font-semibold ${hizmet.gecikmisMi ? "text-red-600" : "text-blue-600"}`}>
-                                {formatPara(hizmet.toplam)}
-                              </p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">
-                                {hizmet.adet} tahakkuk{hizmet.gecikmisMi ? " · gecikmiş" : ""}
-                              </p>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
                           )}
                         </TableCell>
                         <TableCell>

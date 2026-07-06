@@ -48,6 +48,7 @@ export default function MukellefPanelPage() {
     odemeler: tumOdemeler,
     belgeler: tumBelgeler,
     gorevler: tumGorevler,
+    gonderimler: tumGonderimler,
     kdv2,
     loading,
   } = useAppData();
@@ -93,12 +94,17 @@ export default function MukellefPanelPage() {
   const odemeler = tumOdemeler.filter((o) => o.musteriId === musteri.id);
   const gorevler = tumGorevler.filter((g) => g.musteriId === musteri.id);
   const belgeler = localBelgeler.filter((b) => b.musteriId === musteri.id && b.gorunurluk === "mukellef");
+  // Müşavirin talep ettiği eksik belgeler (panel kanalı)
+  const belgeTalepleri = tumGonderimler
+    .filter((g) => g.musteriId === musteri.id && g.kanal === "panel" && g.sablonId === "belge")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const risk = hesaplaMusteriRisk({
     musteri,
     gorevler,
     beyannameler: beyanlar,
     tahsilatlar,
     tebligatlar,
+    tahakkuklar,
     kdv2,
   });
 
@@ -371,6 +377,27 @@ export default function MukellefPanelPage() {
               </div>
             )}
           </Card>
+
+          {/* Müşavirin talep ettiği eksik belgeler */}
+          {belgeTalepleri.length > 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                Talep Edilen Belgeler
+              </h3>
+              <div className="space-y-2">
+                {belgeTalepleri.map((t) => (
+                  <div key={t.id} className="rounded-xl border border-amber-200 bg-white p-3">
+                    <p className="text-xs text-slate-700">{t.mesaj}</p>
+                    <p className="mt-1 text-[10px] text-slate-400">{formatTarih(t.createdAt)}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] text-amber-700">
+                Belgeleri aşağıdaki “Belge Yükle” ile iletebilirsiniz.
+              </p>
+            </Card>
+          )}
 
           {/* Belgeler */}
           <Card>

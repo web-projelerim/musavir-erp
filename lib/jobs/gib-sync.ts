@@ -19,6 +19,7 @@ import { getAdminDb, adminUpsert } from "@/lib/firebase/admin";
 import { gibDecrypt } from "@/lib/integrations/gib/encrypt";
 import { fetchTebligatlar, fetchBeyannameler, fetchBorcListesi } from "@/lib/integrations/gib/ivd-client";
 import { tebligatBildirimleriOlustur } from "@/lib/domain/tebligatBildirim";
+import { buildTebligatSlaFields } from "@/lib/domain/tebligatSla";
 import type { GibEntegrasyonAyari, Musteri, Beyanname, Tahakkuk, Tebligat } from "@/lib/types";
 
 export interface GibSyncSonuc {
@@ -182,10 +183,11 @@ export async function runGibSync(opts: GibSyncOptions = {}): Promise<GibSyncSonu
         for (const t of tebligatlar) {
           const enriched = { ...t, ofisId: musteri.ofisId ?? envOfisId, musteriId: musteri.id || t.musteriId, musteriAdi: t.musteriAdi || musteri.firmaAdi };
           const id = stableTebligatId(enriched.musteriId, enriched.tarih, enriched.baslik);
-          yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...enriched }));
+          const withSla = { ...enriched, ...buildTebligatSlaFields({ id, ...enriched } as Tebligat) };
+          yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...withSla }));
           // Bildirim + WhatsApp gönderim kuyruğu (karşıt inceleme → kritik)
           yazmaGorevleri.push(
-            tebligatBildirimleriOlustur({ id, ...enriched } as Tebligat, musteri).catch((e) =>
+            tebligatBildirimleriOlustur({ id, ...withSla } as Tebligat, musteri).catch((e) =>
               console.error("[gib-sync] tebligatBildirim hatası:", e)
             )
           );
@@ -281,10 +283,11 @@ export async function runGibSync(opts: GibSyncOptions = {}): Promise<GibSyncSonu
               musteriAdi: t.musteriAdi || musteri.firmaAdi,
             };
             const id = stableTebligatId(enriched.musteriId, enriched.tarih, enriched.baslik);
-            yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...enriched }));
+            const withSla = { ...enriched, ...buildTebligatSlaFields({ id, ...enriched } as Tebligat) };
+            yazmaGorevleri.push(adminUpsert("tebligatlar", id, { id, ...withSla }));
             // Bildirim + WhatsApp gönderim kuyruğu (karşıt inceleme → kritik)
             yazmaGorevleri.push(
-              tebligatBildirimleriOlustur({ id, ...enriched } as Tebligat, musteri).catch((e) =>
+              tebligatBildirimleriOlustur({ id, ...withSla } as Tebligat, musteri).catch((e) =>
                 console.error("[gib-sync] tebligatBildirim hatası:", e)
               )
             );

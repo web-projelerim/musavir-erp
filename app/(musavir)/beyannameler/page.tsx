@@ -397,6 +397,7 @@ export default function BeyannamellerPage() {
       <PageHeader
         title="Beyannameler"
         subtitle="Tüm beyannameleri takip edin, iş akışını yönetin"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Beyannameler" }]}
         action={
           <div className="flex items-center gap-2">
             {gibSyncLoading && gibSyncProgress && (

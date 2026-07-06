@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, FileText, CheckSquare, CreditCard, Dot, Receipt } from "lucide-react";
 import Link from "next/link";
+import { isoToLocalDateStr, localDateStr } from "@/lib/utils/takvimTarih";
 
 export interface TakvimOlay {
   tarih: string; // ISO
@@ -66,12 +67,6 @@ function OlayIcon({ tur }: { tur?: TakvimOlay["tur"] }) {
   return <Dot className="w-3.5 h-3.5" />;
 }
 
-function isoToLocalDateStr(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 function formatTarihStr(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   return `${d} ${AY_ADLARI[m - 1]} ${y}`;
@@ -79,7 +74,7 @@ function formatTarihStr(dateStr: string): string {
 
 export function MiniTakvim({ olaylar }: Props) {
   const today = new Date();
-  const todayStr = isoToLocalDateStr(today.toISOString());
+  const todayStr = localDateStr(today);
 
   const [gosterilen, setGosterilen] = useState({
     yil: today.getFullYear(),

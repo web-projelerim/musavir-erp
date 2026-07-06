@@ -24,6 +24,8 @@ import { authHeaders } from "@/lib/firebase/client";
 import { syncClaimsFor } from "@/lib/firebase/syncClaims";
 import { TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
 import { BILDIRIM_TIP_LABELS, TUM_BILDIRIM_TIPLERI } from "@/lib/domain/bildirim";
+import { VARSAYILAN_SABLONLAR, SABLON_ETIKETLERI, SABLON_DEGISKENLERI } from "@/lib/domain/mesajSablonlari";
+import type { MesajTuru } from "@/lib/domain/otomatikGonderim";
 import {
   createAuditLog,
   createEntegrasyonLog,
@@ -211,6 +213,9 @@ export default function AyarlarPage() {
     rapor: false,
   });
   const [waSaving, setWaSaving] = useState(false);
+  const [waConfirmOpen, setWaConfirmOpen] = useState(false);
+  const [waSablonlar, setWaSablonlar] = useState<Record<MesajTuru, string>>({ ...VARSAYILAN_SABLONLAR });
+  const [waSablonAcik, setWaSablonAcik] = useState(false);
   const [gibSecrets, setGibSecrets] = useState({
     ivdSifre: "",
     ebeyannameParola: "",
@@ -265,6 +270,15 @@ export default function AyarlarPage() {
         davet: wa.davetMesajiOtomatikGonder ?? false,
         beyanname: wa.beyannameMesajiOtomatikGonder ?? false,
         rapor: wa.raporMesajiOtomatikGonder ?? false,
+      });
+      const s = wa.mesajSablonlari ?? {};
+      setWaSablonlar({
+        tahakkuk: s.tahakkuk ?? VARSAYILAN_SABLONLAR.tahakkuk,
+        vade: s.vade ?? VARSAYILAN_SABLONLAR.vade,
+        belge: s.belge ?? VARSAYILAN_SABLONLAR.belge,
+        davet: s.davet ?? VARSAYILAN_SABLONLAR.davet,
+        beyanname: s.beyanname ?? VARSAYILAN_SABLONLAR.beyanname,
+        rapor: s.rapor ?? VARSAYILAN_SABLONLAR.rapor,
       });
     }
   }, [whatsappEntegrasyonAyarlari]);
@@ -821,7 +835,30 @@ export default function AyarlarPage() {
     }
   };
 
+  // Kaydetme anında "otomatik" seçili mesaj türleri (global açıkken).
+  // Bu türler kaydedilince artık müşavir onayı olmadan tüm müvekkillere gider.
+  const WA_TUR_ETIKET: Record<string, string> = {
+    tahakkuk: "Tahakkuk Bildirimi",
+    vade: "Vade Hatırlatma",
+    belge: "Eksik Belge Bildirimi",
+    davet: "Mükellef Daveti",
+    rapor: "Rapor Gönderimi",
+  };
+  const otomatikSeciliTurler = waAuto.global
+    ? (["tahakkuk", "vade", "belge", "davet", "rapor"] as const).filter((k) => waAuto[k]).map((k) => WA_TUR_ETIKET[k])
+    : [];
+
+  // Save butonu: otomatik gönderim seçiliyse önce onay iste, değilse doğrudan kaydet.
+  const handleSaveWhatsAppClick = () => {
+    if (otomatikSeciliTurler.length > 0) {
+      setWaConfirmOpen(true);
+    } else {
+      handleSaveWhatsApp();
+    }
+  };
+
   const handleSaveWhatsApp = async () => {
+    setWaConfirmOpen(false);
     setWaSaving(true);
     const ofisId = whatsappEntegrasyonAyarlari[0]?.ofisId ?? gibDraftSafe?.ofisId ?? "";
     const existing = whatsappEntegrasyonAyarlari[0];
@@ -844,9 +881,11 @@ export default function AyarlarPage() {
       vadeHatirlatmaOtomatikGonder: waAuto.vade,
       belgeEksikOtomatikGonder: waAuto.belge,
       davetMesajiOtomatikGonder: waAuto.davet,
-      beyannameMesajiOtomatikGonder: waAuto.beyanname,
+      // Beyanname hatırlatması müvekkile hiçbir zaman otomatik gitmez — sadece manuel toplu gönderim.
+      beyannameMesajiOtomatikGonder: false,
       raporMesajiOtomatikGonder: waAuto.rapor,
       otomatikGonderimGloballeAcik: waAuto.global,
+      mesajSablonlari: waSablonlar,
       secretStorageMode: "not_configured",
       updatedBy: user?.id ?? "musavir",
     };
@@ -1392,7 +1431,6 @@ export default function AyarlarPage() {
                 { key: "vade" as const, etiket: "Vade Hatırlatma", aciklama: "Vade tarihinden 3 gün önce hatırlatma" },
                 { key: "belge" as const, etiket: "Eksik Belge Bildirimi", aciklama: "Belge eksikse müşteriden talep mesajı" },
                 { key: "davet" as const, etiket: "Mükellef Daveti", aciklama: "Yeni mükellefe panel davet mesajı" },
-                { key: "beyanname" as const, etiket: "Beyanname Hatırlatma", aciklama: "Beyanname son tarihi yaklaştığında" },
                 { key: "rapor" as const, etiket: "Rapor Gönderimi", aciklama: "Hazır rapor müşteriye sunulduğunda" },
               ].map((tur) => {
                 const otomatik = waAuto[tur.key];
@@ -1445,15 +1483,105 @@ export default function AyarlarPage() {
             </div>
           </div>
 
+          {/* Mesaj şablonları — düzenlenebilir metinler */}
+          <div className="mt-5 rounded-xl border border-slate-200 p-4">
+            <button
+              type="button"
+              onClick={() => setWaSablonAcik((v) => !v)}
+              className="flex w-full items-center justify-between gap-3"
+            >
+              <div className="text-left">
+                <h4 className="text-sm font-semibold text-slate-800">Mesaj Şablonları</h4>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Her mesaj türünün metnini düzenleyin. <span className="font-mono">{"{degisken}"}</span> yer tutucuları gönderim anında doldurulur.
+                </p>
+              </div>
+              <span className="flex-shrink-0 text-xs font-medium text-blue-600">{waSablonAcik ? "Gizle" : "Düzenle"}</span>
+            </button>
+
+            {waSablonAcik && (
+              <div className="mt-4 space-y-3">
+                {(["tahakkuk", "vade", "belge", "davet", "beyanname", "rapor"] as MesajTuru[]).map((tur) => (
+                  <div key={tur} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-slate-800">{SABLON_ETIKETLERI[tur]}</p>
+                      <button
+                        type="button"
+                        onClick={() => setWaSablonlar((p) => ({ ...p, [tur]: VARSAYILAN_SABLONLAR[tur] }))}
+                        className="text-[11px] text-slate-500 hover:text-blue-600"
+                      >
+                        Varsayılana dön
+                      </button>
+                    </div>
+                    <textarea
+                      value={waSablonlar[tur]}
+                      onChange={(e) => setWaSablonlar((p) => ({ ...p, [tur]: e.target.value }))}
+                      rows={3}
+                      className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-slate-400">Değişken ekle:</span>
+                      {SABLON_DEGISKENLERI[tur].map((v) => (
+                        <button
+                          type="button"
+                          key={v}
+                          onClick={() => setWaSablonlar((p) => ({ ...p, [tur]: `${p[tur]} {${v}}` }))}
+                          className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 hover:bg-blue-100 hover:text-blue-700"
+                        >
+                          {`{${v}}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="mt-4 flex items-center justify-between">
             <div className="flex flex-wrap gap-2">
               <Badge variant={config?.tahakkukMesajiAktif ? "success" : "neutral"}>Tahakkuk bildirim {config?.tahakkukMesajiAktif ? "açık" : "kapalı"}</Badge>
               <Badge variant={config?.vadeHatirlatmaAktif ? "success" : "neutral"}>Vade hatırlatma {config?.vadeHatirlatmaAktif ? "açık" : "kapalı"}</Badge>
             </div>
-            <Button size="sm" loading={waSaving} onClick={handleSaveWhatsApp}>
+            <Button size="sm" loading={waSaving} onClick={handleSaveWhatsAppClick}>
               Kaydet
             </Button>
           </div>
+
+          {waConfirmOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setWaConfirmOpen(false)}>
+              <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-4">
+                  <span className="inline-flex rounded-xl bg-amber-50 p-2 text-amber-600 text-lg">⚠️</span>
+                  <span className="text-sm font-semibold text-slate-900">Otomatik gönderimi onayla</span>
+                </div>
+                <div className="px-6 py-5">
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    Aşağıdaki mesaj türleri <strong>WhatsApp üzerinden tüm müvekkillere onayınız olmadan otomatik gönderilecek</strong>. Emin misiniz?
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {otomatikSeciliTurler.map((etiket) => (
+                      <li key={etiket} className="flex items-center gap-2 text-sm text-slate-800">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {etiket}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                    Onay-bekle seçtiğiniz türler etkilenmez; onlar yine kuyruğa düşer ve sizin onayınızı bekler.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+                  <Button variant="secondary" size="sm" onClick={() => setWaConfirmOpen(false)} disabled={waSaving}>
+                    Vazgeç
+                  </Button>
+                  <Button size="sm" loading={waSaving} onClick={handleSaveWhatsApp}>
+                    Evet, otomatik gönderime onay veriyorum
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
       );
     }
@@ -1504,7 +1632,11 @@ export default function AyarlarPage() {
 
   return (
     <div>
-      <PageHeader title="Ayarlar" subtitle="Sistem, entegrasyon ve operasyon ayarları" />
+      <PageHeader
+        title="Ayarlar"
+        subtitle="Sistem, entegrasyon ve operasyon ayarları"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Ayarlar" }]}
+      />
 
       {/* Mobilde yatay scroll tab, masaüstünde yan sidebar */}
       <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">

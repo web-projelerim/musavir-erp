@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,9 @@ import {
   Send,
   ClipboardList,
   Wallet,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -50,13 +53,16 @@ const bottomItems = [
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
-export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { gorevler, tebligatlar, gonderimler } = useAppData();
   const { user, signOut } = useAuth();
+  const [aramaText, setAramaText] = useState("");
 
   const initials = user ? `${user.ad[0] ?? ""}${user.soyad[0] ?? ""}` : "AM";
   const roleLabel =
@@ -67,6 +73,10 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     onClose?.();
     router.replace("/giris");
   };
+
+  const filteredNavItems = navItems.filter((item) =>
+    item.label.toLocaleLowerCase("tr-TR").includes(aramaText.trim().toLocaleLowerCase("tr-TR"))
+  );
 
   return (
     <>
@@ -81,41 +91,74 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-screen w-60 flex-col bg-slate-900 shadow-2xl transition-transform duration-200 lg:z-40 lg:translate-x-0 lg:shadow-none",
+          "fixed left-0 top-0 z-50 flex h-screen flex-col bg-slate-900 shadow-2xl transition-[transform,width] duration-200 lg:z-40 lg:translate-x-0 lg:shadow-none",
+          collapsed ? "lg:w-16" : "lg:w-60",
+          "w-60",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-700/50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-4 h-4 text-white" />
+      {/* Logo + daralt/genişlet */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-700/50 px-4 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500">
+            <Building2 className="h-4 w-4 text-white" />
           </div>
-          <div>
-            <p className="text-white font-semibold text-sm leading-tight">MusavirERP</p>
-            <p className="text-slate-400 text-xs">Mali Müşavir Paneli</p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight text-white">MusavirERP</p>
+              <p className="truncate text-xs text-slate-400">Mali Müşavir Paneli</p>
+            </div>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
+          className="hidden flex-shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white lg:block"
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
       </div>
 
       {/* Kullanıcı */}
-      <div className="px-4 py-3 border-b border-slate-700/50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">{initials}</span>
+      <div className="border-b border-slate-700/50 px-4 py-2.5">
+        <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
+            <span className="text-xs font-bold text-white">{initials}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-medium truncate">
-              {user ? `${user.ad} ${user.soyad}` : "Ali Müşavir"}
-            </p>
-            <p className="text-slate-400 text-xs truncate">{roleLabel}</p>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-white">
+                {user ? `${user.ad} ${user.soyad}` : "Ali Müşavir"}
+              </p>
+              <p className="truncate text-xs text-slate-400">{roleLabel}</p>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Hızlı arama */}
+      {!collapsed && (
+        <div className="border-b border-slate-700/50 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg bg-slate-800 px-2.5 py-1.5">
+            <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+            <input
+              type="text"
+              value={aramaText}
+              onChange={(e) => setAramaText(e.target.value)}
+              placeholder="Hızlı arama..."
+              className="w-full min-w-0 bg-transparent text-xs text-white placeholder-slate-400 outline-none"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Ana navigasyon */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+        {filteredNavItems.length === 0 && (
+          <p className="px-3 py-2 text-xs text-slate-500">Eşleşen menü yok</p>
+        )}
+        {filteredNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           const badgeValue =
             item.badge === "gorevler"
@@ -133,18 +176,25 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={onClose}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group",
+                "flex items-center rounded-lg text-sm transition-colors group",
+                collapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2",
                 isActive
                   ? "bg-blue-600 text-white"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               )}
             >
-              <span className="flex items-center gap-3">
+              <span className={cn("relative flex items-center", !collapsed && "gap-3")}>
                 <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
-                <span className="font-medium">{item.label}</span>
+                {!collapsed && <span className="font-medium">{item.label}</span>}
+                {collapsed && badgeValue !== null && badgeValue > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                    {badgeValue > 9 ? "9+" : badgeValue}
+                  </span>
+                )}
               </span>
-              {badgeValue !== null && badgeValue > 0 && (
+              {!collapsed && badgeValue !== null && badgeValue > 0 && (
                 <span className={cn(
                   "text-xs px-1.5 py-0.5 rounded-full font-medium min-w-[20px] text-center",
                   isActive ? "bg-blue-500 text-white" : "bg-red-500 text-white"
@@ -158,7 +208,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       </nav>
 
       {/* Alt butonlar */}
-      <div className="px-3 py-3 border-t border-slate-700/50 space-y-0.5">
+      <div className="px-3 py-2 border-t border-slate-700/50 space-y-0.5">
         {bottomItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -166,25 +216,31 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={onClose}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group",
+                "flex items-center rounded-lg text-sm transition-colors group",
+                collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                 isActive
                   ? "bg-blue-600 text-white"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               )}
             >
               <item.icon className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-white" />
-              <span className="font-medium">{item.label}</span>
+              {!collapsed && <span className="font-medium">{item.label}</span>}
             </Link>
           );
         })}
         <button
           type="button"
           onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-red-900/30 hover:text-red-400 transition-colors group"
+          title={collapsed ? "Çıkış Yap" : undefined}
+          className={cn(
+            "flex items-center rounded-lg text-sm text-slate-300 hover:bg-red-900/30 hover:text-red-400 transition-colors group",
+            collapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2"
+          )}
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
-          <span className="font-medium">Çıkış Yap</span>
+          {!collapsed && <span className="font-medium">Çıkış Yap</span>}
         </button>
       </div>
       </aside>

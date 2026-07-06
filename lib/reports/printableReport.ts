@@ -3,9 +3,9 @@ import type { Beyanname, Gorev, Musteri, Rapor, RiskSeviyesi, Tahsilat, Tebligat
 import { formatPara, formatTarih } from "@/lib/utils/format";
 
 const RAPOR_TIP_LABELS: Record<Rapor["tip"], string> = {
-  gelir_gider: "Gelir - Gider Ozeti",
+  gelir_gider: "Gelir - Gider Özeti",
   vergi_beyan: "Vergi ve Beyan Durumu",
-  operasyon: "Operasyon Ozeti",
+  operasyon: "Operasyon Özeti",
   risk: "Risk Raporu",
 };
 
@@ -86,14 +86,14 @@ export function buildPrintableReportHtml(payload: PrintableReportPayload) {
   <header>
     <p class="muted">MusavirERP</p>
     <h1>${escapeHtml(rapor.musteriAdi)} - ${escapeHtml(RAPOR_TIP_LABELS[rapor.tip])}</h1>
-    <p class="muted">${escapeHtml(rapor.donem)} donemi | Olusturma: ${escapeHtml(formatTarih(rapor.olusturmaTarihi))}</p>
+    <p class="muted">${escapeHtml(rapor.donem)} dönemi | Oluşturma: ${escapeHtml(formatTarih(rapor.olusturmaTarihi))}</p>
   </header>
 
   <section class="meta">
-    <div class="metric"><span>Acik gorev</span><strong>${acikGorevler.length}</strong></div>
+    <div class="metric"><span>Açık görev</span><strong>${acikGorevler.length}</strong></div>
     <div class="metric"><span>Bekleyen beyan</span><strong>${bekleyenBeyan.length}</strong></div>
     <div class="metric"><span>Yeni tebligat</span><strong>${yeniTebligat.length}</strong></div>
-    <div class="metric"><span>Tahsilat orani</span><strong>%${tahsilatToplam ? Math.round((odenenToplam / tahsilatToplam) * 100) : 0}</strong></div>
+    <div class="metric"><span>Tahsilat oranı</span><strong>%${tahsilatToplam ? Math.round((odenenToplam / tahsilatToplam) * 100) : 0}</strong></div>
   </section>
 
   <h2>Firma Bilgileri</h2>
@@ -106,56 +106,56 @@ export function buildPrintableReportHtml(payload: PrintableReportPayload) {
     ${row("Risk Seviyesi", risk ? `${risk.seviye} (${risk.skor}/100)` : "-")}
   </table>
 
-  <h2>Gorev Ozeti</h2>
+  <h2>Görev Özeti</h2>
   <table>
-    <thead><tr><th>Baslik</th><th>Atanan</th><th>Termin</th><th>Oncelik</th><th>Durum</th></tr></thead>
+    <thead><tr><th>Başlık</th><th>Atanan</th><th>Termin</th><th>Öncelik</th><th>Durum</th></tr></thead>
     <tbody>
       ${simpleRows(
         gorevler,
         (gorev) => `<tr><td>${escapeHtml(gorev.baslik)}</td><td>${escapeHtml(gorev.atananKisi)}</td><td>${escapeHtml(formatTarih(gorev.terminTarihi))}</td><td>${escapeHtml(gorev.oncelik)}</td><td>${escapeHtml(gorev.durum)}</td></tr>`,
-        "Gorev bulunmuyor"
+        "Görev bulunmuyor"
       )}
     </tbody>
   </table>
 
-  <h2>Beyanname Ozeti</h2>
+  <h2>Beyanname Özeti</h2>
   <table>
-    <thead><tr><th>Tur</th><th>Donem</th><th>Son Tarih</th><th>Vergi</th><th>Durum</th></tr></thead>
+    <thead><tr><th>Tür</th><th>Dönem</th><th>Son Tarih</th><th>Vergi</th><th>Durum</th></tr></thead>
     <tbody>
       ${simpleRows(
         beyannameler,
         (beyan) => `<tr><td>${escapeHtml(beyan.tur)}</td><td>${escapeHtml(beyan.donem)}</td><td>${escapeHtml(formatTarih(beyan.sonTarih))}</td><td>${escapeHtml(beyan.vergiTutari ? formatPara(beyan.vergiTutari) : "-")}</td><td>${escapeHtml(beyan.durum)}</td></tr>`,
-        "Beyanname kaydi bulunmuyor"
+        "Beyanname kaydı bulunmuyor"
       )}
     </tbody>
   </table>
 
-  <h2>Tahsilat Ozeti</h2>
+  <h2>Tahsilat Özeti</h2>
   <table>
-    <thead><tr><th>Donem</th><th>Tutar</th><th>Odenen</th><th>Vade</th><th>Durum</th></tr></thead>
+    <thead><tr><th>Dönem</th><th>Tutar</th><th>Ödenen</th><th>Vade</th><th>Durum</th></tr></thead>
     <tbody>
       ${simpleRows(
         tahsilatlar,
         (tahsilat) => `<tr><td>${escapeHtml(tahsilat.donem)}</td><td>${escapeHtml(formatPara(tahsilat.tutar))}</td><td>${escapeHtml(formatPara(tahsilat.durum === "odendi" ? tahsilat.tutar : tahsilat.odenenTutar ?? 0))}</td><td>${escapeHtml(formatTarih(tahsilat.vadeTarihi))}</td><td>${escapeHtml(tahsilat.durum)}</td></tr>`,
-        "Tahsilat kaydi bulunmuyor"
+        "Tahsilat kaydı bulunmuyor"
       )}
     </tbody>
   </table>
 
-  <h2>Tebligat Ozeti</h2>
+  <h2>Tebligat Özeti</h2>
   <table>
-    <thead><tr><th>Tarih</th><th>Baslik</th><th>Tur</th><th>Durum</th><th>Not</th></tr></thead>
+    <thead><tr><th>Tarih</th><th>Başlık</th><th>Tür</th><th>Durum</th><th>Not</th></tr></thead>
     <tbody>
       ${simpleRows(
         tebligatlar,
         (tebligat) => `<tr><td>${escapeHtml(formatTarih(tebligat.tarih))}</td><td>${escapeHtml(tebligat.baslik)}</td><td>${escapeHtml(tebligat.tur)}</td><td>${escapeHtml(tebligat.durum)}</td><td>${escapeHtml(tebligat.notlar ?? "-")}</td></tr>`,
-        "Tebligat kaydi bulunmuyor"
+        "Tebligat kaydı bulunmuyor"
       )}
     </tbody>
   </table>
 
   <footer>
-    Bu rapor MusavirERP tarafindan olusturulmustur. Yazdir penceresinde "PDF olarak kaydet" secenegi ile PDF dosyasi alinabilir.
+    Bu rapor MusavirERP tarafından oluşturulmuştur. Yazdır penceresinde "PDF olarak kaydet" seçeneği ile PDF dosyası alınabilir.
   </footer>
 </body>
 </html>`;

@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Check, X, Send, MessageCircle, Mail, Phone } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { InfoBanner } from "@/components/ui/InfoBanner";
 import { Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty } from "@/components/ui/Table";
 import { MobileCard, MobileField, MobileList } from "@/components/ui/MobileList";
 import { PageLoading } from "@/components/ui/PageLoading";
@@ -129,6 +131,7 @@ export default function OnayBekleyenlerPage() {
       <PageHeader
         title="Onay Bekleyen Mesajlar"
         subtitle={`${bekleyenler.length} mesaj müşavir onayı bekliyor`}
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Onay Bekleyenler" }]}
         action={
           <div className="flex gap-2">
             {selected.size > 0 && (
@@ -144,6 +147,14 @@ export default function OnayBekleyenlerPage() {
           </div>
         }
       />
+
+      <InfoBanner className="mb-5">
+        <span>
+          <Link href="/ayarlar" className="font-semibold underline hover:no-underline">Ayarlar → Entegrasyonlar → WhatsApp</Link> altındaki
+          "Otomatik Gönderim Ayarları"nda her mesaj türü için "Onay Bekle" seçilirse mesajlar buraya düşer.
+          Onayladığınızda mesaj hemen gönderilir; reddederseniz kaydı silinir.
+        </span>
+      </InfoBanner>
 
       {bekleyenler.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-12 text-center">

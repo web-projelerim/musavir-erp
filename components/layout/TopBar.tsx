@@ -200,6 +200,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                     onClick={() => handleBildirimOku(bil.id)}
                     className={cn(
                       "px-4 py-3 hover:bg-slate-50 cursor-pointer",
+                      bil.onemDerecesi === "kritik" ? "border-l-4 border-l-red-500" : "",
                       bil.durum === "okunmamis" && "bg-blue-50/50"
                     )}
                   >
@@ -208,7 +209,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
                       )}
                       <div className={bil.durum === "okundu" ? "ml-3.5" : ""}>
-                        <p className="text-xs font-semibold text-slate-800">{bil.baslik}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-semibold text-slate-800">{bil.baslik}</p>
+                          {bil.onemDerecesi === "kritik" && (
+                            <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5 py-0.5">
+                              Kritik
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500 mt-0.5">{bil.mesaj}</p>
                         <p className="text-xs text-slate-400 mt-1">{formatSureGecmis(bil.tarih)}</p>
                       </div>

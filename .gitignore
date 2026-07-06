@@ -35,3 +35,6 @@ devserver.err.log
 *.tsbuildinfo
 next-env.d.ts
 firebase-debug.log
+
+# Claude Code — kişisel/yerel tercihler, paylaşılmaz
+.claude/settings.local.json

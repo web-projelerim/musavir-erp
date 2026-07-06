@@ -24,7 +24,9 @@ import {
   restoreCaptchaCookie,
   getLoginCookieForCaching,
 } from "@/lib/integrations/gib/ivd-client";
-import type { BeyannameType } from "@/lib/types";
+import { tebligatBildirimleriOlustur } from "@/lib/domain/tebligatBildirim";
+import { buildTebligatSlaFields } from "@/lib/domain/tebligatSla";
+import type { BeyannameType, Tebligat } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -176,7 +178,7 @@ export async function POST(req: NextRequest) {
     .get();
 
   const musteriler = musteriSnap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as { id: string; vknTckn?: string; firmaAdi?: string }))
+    .map((d) => ({ id: d.id, ...d.data() } as { id: string; vknTckn?: string; firmaAdi?: string; gsm1?: string; telefon?: string }))
     .filter((m) => m.vknTckn);
 
   if (musteriler.length === 0) {
@@ -206,14 +208,20 @@ export async function POST(req: NextRequest) {
           const stableId = `teb-gib-${musteri.id}-${teb.tarih.slice(0, 10)}-${teb.baslik.slice(0, 30)}`
             .toLowerCase()
             .replace(/[^a-z0-9-]/g, "-");
-          await adminUpsert("tebligatlar", stableId, {
+          const withSla = {
             ...teb,
             id: stableId,
             ofisId,
             musteriId: musteri.id,
             musteriAdi: firmaAdi,
             vknTckn: vkn,
-          });
+            ...buildTebligatSlaFields({ ...teb, id: stableId, ofisId, musteriId: musteri.id, musteriAdi: firmaAdi, vknTckn: vkn }),
+          };
+          await adminUpsert("tebligatlar", stableId, withSla);
+          // Bildirim + WhatsApp gönderim (karşıt inceleme → kritik) — manuel senkron yolunda daha önce hiç tetiklenmiyordu
+          await tebligatBildirimleriOlustur(withSla, { id: musteri.id, firmaAdi, gsm1: musteri.gsm1, telefon: musteri.telefon ?? "" }).catch((e) =>
+            console.warn("[GİB Bulk Sync] tebligatBildirim hatası:", e)
+          );
           toplamKayit++;
         }
       }

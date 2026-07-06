@@ -37,9 +37,11 @@ import {
   updateRaporDurum,
 } from "@/lib/firebase/repositories";
 import { uploadRaporPdf } from "@/lib/firebase/storage";
+import { whatsappGonderimYurut, buildRaporWhatsAppMessage } from "@/lib/domain/whatsappGonderim";
 import { buildReportPdfBlob } from "@/lib/reports/pdfReport";
 import { openPrintableReport } from "@/lib/reports/printableReport";
 import { formatTarih } from "@/lib/utils/format";
+import { donemAraligiHesapla, donemIcindeMi } from "@/lib/utils/donem";
 import type { Rapor } from "@/lib/types";
 
 const AY_ADLARI_FULL = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
@@ -92,7 +94,9 @@ export default function RaporlarPage() {
     tahsilatlar,
     tebligatlar,
     gonderimler,
+    tahakkuklar,
     kdv2,
+    whatsappEntegrasyonAyarlari,
     loading,
   } = useAppData();
   const [raporlar, setRaporlar] = useState<Rapor[]>(loadedRaporlar);
@@ -113,17 +117,28 @@ export default function RaporlarPage() {
 
   const getRaporPayload = (rapor: Rapor) => {
     const musteri = musteriler.find((m) => m.id === rapor.musteriId);
-    const raporGorevler = gorevler.filter((g) => g.musteriId === rapor.musteriId);
-    const raporBeyanlar = beyannameler.filter((b) => b.musteriId === rapor.musteriId);
-    const raporTahsilatlar = tahsilatlar.filter((t) => t.musteriId === rapor.musteriId);
-    const raporTebligatlar = tebligatlar.filter((t) => t.musteriId === rapor.musteriId);
+    const { donemBaslangic, donemBitis } = rapor;
+    // Rapor gövdesi (görev/beyanname/tahsilat/tebligat listeleri) seçilen döneme (aylık/yıllık) filtrelenir.
+    // Dönem aralığı yoksa (eski rapor kayıtları) filtrelenmeden tüm zamanlar gösterilir.
+    const raporGorevler = gorevler.filter((g) => g.musteriId === rapor.musteriId && donemIcindeMi(g.terminTarihi, donemBaslangic, donemBitis));
+    const raporBeyanlar = beyannameler.filter((b) => b.musteriId === rapor.musteriId && donemIcindeMi(b.sonTarih, donemBaslangic, donemBitis));
+    const raporTahsilatlar = tahsilatlar.filter((t) => t.musteriId === rapor.musteriId && donemIcindeMi(t.vadeTarihi, donemBaslangic, donemBitis));
+    const raporTebligatlar = tebligatlar.filter((t) => t.musteriId === rapor.musteriId && donemIcindeMi(t.tarih, donemBaslangic, donemBitis));
+    const raporTahakkuklar = tahakkuklar.filter((t) => t.musteriId === rapor.musteriId && donemIcindeMi(t.vadeTarihi, donemBaslangic, donemBitis));
+    // Risk skoru her zaman güncel/tüm-zaman veriye göre hesaplanır — "bu dönemde risk neydi" değil "şu an ne kadar riskli" sorusuna cevap verir.
+    const musteriGorevleriTumu = gorevler.filter((g) => g.musteriId === rapor.musteriId);
+    const musteriBeyanlarTumu = beyannameler.filter((b) => b.musteriId === rapor.musteriId);
+    const musteriTahsilatlarTumu = tahsilatlar.filter((t) => t.musteriId === rapor.musteriId);
+    const musteriTebligatlarTumu = tebligatlar.filter((t) => t.musteriId === rapor.musteriId);
+    const musteriTahakkuklarTumu = tahakkuklar.filter((t) => t.musteriId === rapor.musteriId);
     const risk = musteri
       ? hesaplaMusteriRisk({
           musteri,
-          gorevler: raporGorevler,
-          beyannameler: raporBeyanlar,
-          tahsilatlar: raporTahsilatlar,
-          tebligatlar: raporTebligatlar,
+          gorevler: musteriGorevleriTumu,
+          beyannameler: musteriBeyanlarTumu,
+          tahsilatlar: musteriTahsilatlarTumu,
+          tebligatlar: musteriTebligatlarTumu,
+          tahakkuklar: musteriTahakkuklarTumu,
           kdv2,
         })
       : undefined;
@@ -167,7 +182,12 @@ export default function RaporlarPage() {
     setShowRaporModal(true);
   };
 
-  const handleRaporUret = async (tip: string, musteriId: string, donem: string) => {
+  const handleRaporUret = async (
+    tip: string,
+    musteriId: string,
+    donem: string,
+    donemAraligi?: { baslangic: string; bitis: string }
+  ) => {
     const musteri = musteriler.find((m) => m.id === musteriId) ?? musteriler[0];
 
     if (!musteri) {
@@ -184,6 +204,8 @@ export default function RaporlarPage() {
       musteriAdi: musteri.firmaAdi,
       tip: tip as Rapor["tip"],
       donem,
+      donemBaslangic: donemAraligi?.baslangic,
+      donemBitis: donemAraligi?.bitis,
       durum: "uretiliyor",
       olusturmaTarihi: new Date().toISOString(),
     };
@@ -196,6 +218,8 @@ export default function RaporlarPage() {
           musteriAdi: yeniRapor.musteriAdi,
           tip: yeniRapor.tip,
           donem: yeniRapor.donem,
+          donemBaslangic: yeniRapor.donemBaslangic,
+          donemBitis: yeniRapor.donemBitis,
         });
         yeniRapor.id = created.id;
       } catch (error) {
@@ -210,8 +234,30 @@ export default function RaporlarPage() {
     toast.info("Rapor üretiliyor...", `${RAPOR_TIP_LABELS[tip]} hazırlanıyor`);
     setTimeout(() => {
       finalizeRapor(yeniRapor)
-        .then(() => {
+        .then(async () => {
           toast.success("Rapor hazır!", "PDF dosyası oluşturuldu ve gönderim için hazır");
+          // Rapor hazır → ayara göre otomatik WhatsApp gönder veya onay kuyruğuna al
+          const telefon = musteri.gsm1 || musteri.telefon;
+          if (telefon) {
+            try {
+              const sonuc = await whatsappGonderimYurut({
+                ayar: whatsappEntegrasyonAyarlari[0],
+                tur: "rapor",
+                ofisId: user?.ofisId,
+                musteriId: musteri.id,
+                musteriAdi: musteri.firmaAdi,
+                telefon,
+                mesaj: buildRaporWhatsAppMessage({ musteriAdi: musteri.firmaAdi, donem, raporTuru: RAPOR_TIP_LABELS[tip] }, whatsappEntegrasyonAyarlari[0]),
+                sablonId: "rapor",
+                icerikRef: yeniRapor.id,
+                firebaseAcik: isFirebaseConfigured,
+              });
+              if (sonuc.karar === "otomatik" && sonuc.gonderildi) toast.success("Rapor WhatsApp ile gönderildi", musteri.firmaAdi);
+              else if (sonuc.karar === "onay_bekle") toast.info("Rapor mesajı onay kuyruğuna eklendi", musteri.firmaAdi);
+            } catch {
+              /* WhatsApp hatası rapor üretimini engellemez */
+            }
+          }
         })
         .catch((error) => {
           console.error(error);
@@ -315,6 +361,7 @@ export default function RaporlarPage() {
       <PageHeader
         title="Rapor Merkezi"
         subtitle="Rapor üretimi ve gönderim yönetimi"
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Raporlar" }]}
         action={
           <div className="flex items-center gap-2">
             {selected.length > 0 && (
@@ -769,7 +816,8 @@ export default function RaporlarPage() {
             <Button
               onClick={() => {
                 const donem = donemTipi === "aylik" ? monthToDonem(secilenDonem) : `Yıllık ${secilenYil}`;
-                handleRaporUret(raporModalTip, secilenMusteriId, donem);
+                const aralik = donemAraligiHesapla(donemTipi, secilenDonem, secilenYil);
+                handleRaporUret(raporModalTip, secilenMusteriId, donem, aralik ?? undefined);
               }}
               disabled={!secilenMusteriId || (donemTipi === "aylik" ? !secilenDonem : !secilenYil)}
             >

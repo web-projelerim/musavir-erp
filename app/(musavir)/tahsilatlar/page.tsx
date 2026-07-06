@@ -152,6 +152,7 @@ export default function TahsilatlarPage() {
       <PageHeader
         title="Tahsilatlar"
         subtitle={`${bakiyeler.length} müşteri · ${tahsilatlar.length} kayıt`}
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Tahsilatlar" }]}
         action={
           secili.size > 0 ? (
             <Button

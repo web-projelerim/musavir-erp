@@ -19,9 +19,11 @@ import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/lib/context/ToastContext";
+import { useAuth } from "@/lib/context/AuthContext";
+import { useAppData } from "@/lib/hooks/useAppData";
 import type { Gorev, GorevDurum, GorevNot, GorevOncelik, GorevTip } from "@/lib/types";
 import { formatTarih, formatSureGecmis } from "@/lib/utils/format";
-import { createGorevNot, normalizeGorevNotlar } from "@/lib/utils/gorev";
+import { createAltGorev, createGorevNot, isGorevGecikti, normalizeGorevNotlar } from "@/lib/utils/gorev";
 
 interface Props {
   gorev: Gorev | null;
@@ -63,12 +65,17 @@ export function GorevDetayDrawer({
   onGorevSil,
 }: Props) {
   const toast = useToast();
+  const { user } = useAuth();
+  const { musteriler } = useAppData();
+  const currentUserFullName = user ? `${user.ad} ${user.soyad}`.trim() : undefined;
   const [not, setNot] = useState("");
   const [notlar, setNotlar] = useState<GorevNot[]>([]);
   const [saving, setSaving] = useState(false);
+  const [yeniAltGorev, setYeniAltGorev] = useState("");
   const [editForm, setEditForm] = useState({
     baslik: "",
     aciklama: "",
+    musteriId: "",
     atananKisi: "",
     terminTarihi: "",
     oncelik: "normal" as GorevOncelik,
@@ -78,10 +85,12 @@ export function GorevDetayDrawer({
   useEffect(() => {
     if (!gorev) return;
     setNot("");
+    setYeniAltGorev("");
     setNotlar(normalizeGorevNotlar(gorev.notlar));
     setEditForm({
       baslik: gorev.baslik,
       aciklama: gorev.aciklama ?? "",
+      musteriId: gorev.musteriId,
       atananKisi: gorev.atananKisi,
       terminTarihi: gorev.terminTarihi.slice(0, 10),
       oncelik: gorev.oncelik,
@@ -106,7 +115,7 @@ export function GorevDetayDrawer({
 
   const handleNotEkle = async () => {
     if (!not.trim()) return;
-    const yeniNot = createGorevNot(not);
+    const yeniNot = createGorevNot(not, currentUserFullName);
     const eskiNotlar = notlar;
 
     setNotlar((prev) => [...prev, yeniNot]);
@@ -143,9 +152,12 @@ export function GorevDetayDrawer({
 
     setSaving(true);
     try {
+      const seciliMusteri = musteriler.find((m) => m.id === editForm.musteriId);
       await onGorevGuncelle?.(gorev.id, {
         baslik: editForm.baslik.trim(),
         aciklama: editForm.aciklama.trim(),
+        musteriId: editForm.musteriId,
+        musteriAdi: seciliMusteri?.firmaAdi ?? gorev.musteriAdi,
         atananKisi: editForm.atananKisi.trim(),
         terminTarihi: editForm.terminTarihi,
         oncelik: editForm.oncelik,
@@ -176,6 +188,19 @@ export function GorevDetayDrawer({
     }
   };
 
+  const handleAltGorevEkle = () => {
+    if (!yeniAltGorev.trim() || !onGorevGuncelle) return;
+    const yeni = [...(gorev.altGorevler ?? []), createAltGorev(yeniAltGorev)];
+    setYeniAltGorev("");
+    void onGorevGuncelle(gorev.id, { altGorevler: yeni });
+  };
+
+  const handleAltGorevSil = (id: string) => {
+    if (!onGorevGuncelle) return;
+    const yeni = (gorev.altGorevler ?? []).filter((a) => a.id !== id);
+    void onGorevGuncelle(gorev.id, { altGorevler: yeni });
+  };
+
   const inputClass =
     "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500";
 
@@ -199,7 +224,14 @@ export function GorevDetayDrawer({
 
         <div className="flex-1 overflow-y-auto">
           <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Durum</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</p>
+              {isGorevGecikti(gorev) && (
+                <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-1.5 py-0.5">
+                  Gecikti
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               {DURUM_SIRALAMA.map((d) => (
                 <button
@@ -225,7 +257,7 @@ export function GorevDetayDrawer({
               { icon: Building2, label: "Müşteri", value: gorev.musteriAdi },
               { icon: User, label: "Atanan", value: gorev.atananKisi },
               { icon: Calendar, label: "Termin", value: formatTarih(gorev.terminTarihi) },
-              { icon: Tag, label: "Tür", value: gorev.tip },
+              { icon: Tag, label: "Tür", value: TIP_LABEL[gorev.tip] },
               {
                 icon: AlertCircle,
                 label: "Öncelik",
@@ -241,6 +273,9 @@ export function GorevDetayDrawer({
                 ),
               },
               { icon: Clock, label: "Oluşturma", value: formatSureGecmis(gorev.createdAt) },
+              ...(gorev.tamamlanmaTarihi
+                ? [{ icon: CheckCircle, label: "Tamamlanma", value: formatTarih(gorev.tamamlanmaTarihi) }]
+                : []),
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-center gap-3">
                 <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
@@ -269,6 +304,16 @@ export function GorevDetayDrawer({
               className={`${inputClass} resize-none`}
               placeholder="Açıklama"
             />
+            <select
+              value={editForm.musteriId}
+              onChange={(e) => setEditForm((prev) => ({ ...prev, musteriId: e.target.value }))}
+              className={inputClass}
+            >
+              <option value="">— Müşteri seçin (isteğe bağlı) —</option>
+              {musteriler.map((m) => (
+                <option key={m.id} value={m.id}>{m.firmaAdi}</option>
+              ))}
+            </select>
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="date"
@@ -315,22 +360,27 @@ export function GorevDetayDrawer({
           </div>
 
           {/* Alt görevler / Checklist */}
-          {gorev.altGorevler && gorev.altGorevler.length > 0 && (
-            <div className="px-5 py-4 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Alt Görevler ({gorev.altGorevler.filter((a) => a.tamamlandi).length}/{gorev.altGorevler.length})
-                </p>
+          <div className="px-5 py-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Alt Görevler
+                {gorev.altGorevler && gorev.altGorevler.length > 0
+                  ? ` (${gorev.altGorevler.filter((a) => a.tamamlandi).length}/${gorev.altGorevler.length})`
+                  : ""}
+              </p>
+              {gorev.altGorevler && gorev.altGorevler.length > 0 && (
                 <div className="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 transition-all"
                     style={{ width: `${(gorev.altGorevler.filter((a) => a.tamamlandi).length / gorev.altGorevler.length) * 100}%` }}
                   />
                 </div>
-              </div>
-              <ul className="space-y-1.5">
+              )}
+            </div>
+            {gorev.altGorevler && gorev.altGorevler.length > 0 && (
+              <ul className="space-y-1.5 mb-2">
                 {gorev.altGorevler.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+                  <li key={a.id} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-50 group">
                     <input
                       type="checkbox"
                       checked={a.tamamlandi}
@@ -348,11 +398,31 @@ export function GorevDetayDrawer({
                     <span className={`flex-1 text-sm ${a.tamamlandi ? "line-through text-slate-400" : "text-slate-800"}`}>
                       {a.baslik}
                     </span>
+                    <button
+                      onClick={() => handleAltGorevSil(a.id)}
+                      className="flex-shrink-0 p-0.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Alt görevi sil"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </li>
                 ))}
               </ul>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={yeniAltGorev}
+                onChange={(e) => setYeniAltGorev(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAltGorevEkle()}
+                placeholder="Alt görev ekle... (Enter)"
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Button size="sm" onClick={handleAltGorevEkle} disabled={!yeniAltGorev.trim()}>
+                Ekle
+              </Button>
             </div>
-          )}
+          </div>
 
           <div className="px-5 py-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">

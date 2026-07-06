@@ -3,641 +3,1278 @@ export interface VergiDairesiGrup {
   daireler: string[];
 }
 
+/**
+ * GİB resmi "Defterdarlık ve Vergi Daireleri Listesi" kaynağından (2026-06-18 tarihli
+ * resmi liste) üretildi — il/ilçe adı değil, gerçek vergi dairesi/müdürlüğü adları.
+ * Sadece bağımsız tahsil/tescil yetkisi olan daireler (859 Vergi Dairesi Müdürlüğü +
+ * Eskişehir Defterdarlığı) listelenir; bunlara bağlı şubeler (kendi başına tescil
+ * yetkisi olmayan 218 hizmet noktası) dahil edilmedi.
+ */
 export const VERGI_DAIRESI_GRUPLARI: VergiDairesiGrup[] = [
-  // ─── İSTANBUL ────────────────────────────────────────────────────────────────
-  {
-    grup: "İstanbul (Avrupa)",
-    daireler: [
-      "Arnavutköy",
-      "Avcılar",
-      "Bağcılar",
-      "Bahçelievler",
-      "Bakırköy",
-      "Başakşehir",
-      "Bayrampaşa",
-      "Beşiktaş",
-      "Beylikdüzü",
-      "Beyoğlu",
-      "Büyükçekmece",
-      "Çatalca",
-      "Esenler",
-      "Esenyurt",
-      "Eyüpsultan",
-      "Fatih",
-      "Gaziosmanpaşa",
-      "Güngören",
-      "Kâğıthane",
-      "Küçükçekmece",
-      "Sarıyer",
-      "Silivri",
-      "Sultangazi",
-      "Şişli",
-      "Zeytinburnu",
-    ],
-  },
-  {
-    grup: "İstanbul (Anadolu)",
-    daireler: [
-      "Adalar",
-      "Ataşehir",
-      "Beykoz",
-      "Çekmeköy",
-      "Kadıköy",
-      "Kartal",
-      "Maltepe",
-      "Pendik",
-      "Sancaktepe",
-      "Sultanbeyli",
-      "Şile",
-      "Tuzla",
-      "Ümraniye",
-      "Üsküdar",
-    ],
-  },
-
-  // ─── ANKARA ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Ankara",
-    daireler: [
-      "Altındağ",
-      "Ankara İhtisas",
-      "Çankaya",
-      "Dikimevi",
-      "Etimesgut",
-      "Gazi",
-      "Keçiören",
-      "Kızılbel",
-      "Mamak",
-      "Mithatpaşa",
-      "Öveçler",
-      "Polatlı",
-      "Pursaklar",
-      "Sincan",
-      "Ulus",
-      "Yenikent",
-      "Yenimahalle",
-    ],
-  },
-
-  // ─── İZMİR ───────────────────────────────────────────────────────────────────
-  {
-    grup: "İzmir",
-    daireler: [
-      "Alsancak",
-      "Balçova",
-      "Bayındır",
-      "Bergama",
-      "Bornova",
-      "Buca",
-      "Çiğli",
-      "Foça",
-      "Gaziemir",
-      "İzmir İhtisas",
-      "Karşıyaka",
-      "Kemalpaşa",
-      "Konak",
-      "Menemen",
-      "Narlıdere",
-      "Ödemiş",
-      "Selçuk",
-      "Tire",
-      "Torbalı",
-      "Urla",
-    ],
-  },
-
-  // ─── ADANA ───────────────────────────────────────────────────────────────────
   {
     grup: "Adana",
     daireler: [
-      "Adana İhtisas",
-      "Ceyhan",
-      "Kozan",
-      "Seyhan",
-      "Yüreğir",
+      "5 Ocak Vergi Dairesi Müdürlüğü",
+      "Adana İhtisas Vergi Dairesi Müdürlüğü",
+      "Aladağ Vergi Dairesi Müdürlüğü",
+      "Ceyhan Vergi Dairesi Müdürlüğü",
+      "Feke Vergi Dairesi Müdürlüğü",
+      "Karaisalı Vergi Dairesi Müdürlüğü",
+      "Karataş Vergi Dairesi Müdürlüğü",
+      "Kozan Vergi Dairesi Müdürlüğü",
+      "Pozantı Vergi Dairesi Müdürlüğü",
+      "Saimbeyli Vergi Dairesi Müdürlüğü",
+      "Seyhan Vergi Dairesi Müdürlüğü",
+      "Tufanbeyli Vergi Dairesi Müdürlüğü",
+      "Yumurtalık Vergi Dairesi Müdürlüğü",
+      "Yüreğir Vergi Dairesi Müdürlüğü",
+      "Ziyapaşa Vergi Dairesi Müdürlüğü",
+      "Çukurova Vergi Dairesi Müdürlüğü",
+      "İmamoğlu Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── ADIYAMAN ────────────────────────────────────────────────────────────────
   {
     grup: "Adıyaman",
-    daireler: ["Adıyaman", "Besni", "Kahta"],
+    daireler: [
+      "Adıyaman Vergi Dairesi Müdürlüğü",
+      "Besni Vergi Dairesi Müdürlüğü",
+      "Gölbaşı Vergi Dairesi Müdürlüğü",
+      "Kahta Vergi Dairesi Müdürlüğü",
+      "Karakuş Vergi Dairesi Müdürlüğü",
+      "Sincik Vergi Dairesi Müdürlüğü",
+      "Çelikhan Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── AFYONKARAHİSAR ──────────────────────────────────────────────────────────
   {
     grup: "Afyonkarahisar",
-    daireler: ["Afyonkarahisar", "Dinar", "Emirdağ", "Sandıklı"],
+    daireler: [
+      "Başmakçı Vergi Dairesi Müdürlüğü",
+      "Bolvadin Vergi Dairesi Müdürlüğü",
+      "Dazkırı Vergi Dairesi Müdürlüğü",
+      "Dinar Vergi Dairesi Müdürlüğü",
+      "Emirdağ Vergi Dairesi Müdürlüğü",
+      "Evciler Vergi Dairesi Müdürlüğü",
+      "Kocatepe Vergi Dairesi Müdürlüğü",
+      "Sandıklı Vergi Dairesi Müdürlüğü",
+      "Sinanpaşa Vergi Dairesi Müdürlüğü",
+      "Sultandağı Vergi Dairesi Müdürlüğü",
+      "Tınaztepe Vergi Dairesi Müdürlüğü",
+      "Çay Vergi Dairesi Müdürlüğü",
+      "Çiğiltepe Vergi Dairesi Müdürlüğü",
+      "Çobanlar Vergi Dairesi Müdürlüğü",
+      "İhsaniye Vergi Dairesi Müdürlüğü",
+      "İscehisar Vergi Dairesi Müdürlüğü",
+      "Şuhut Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── AĞRI ────────────────────────────────────────────────────────────────────
   {
     grup: "Ağrı",
-    daireler: ["Ağrı", "Doğubayazıt", "Patnos"],
+    daireler: [
+      "Ağrı Vergi Dairesi Müdürlüğü",
+      "Diyadin Vergi Dairesi Müdürlüğü",
+      "Doğubeyazıt Vergi Dairesi Müdürlüğü",
+      "Eleşkirt Vergi Dairesi Müdürlüğü",
+      "Patnos Vergi Dairesi Müdürlüğü",
+      "Tutak Vergi Dairesi Müdürlüğü",
+      "İshakpaşa Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── AKSARAY ─────────────────────────────────────────────────────────────────
-  {
-    grup: "Aksaray",
-    daireler: ["Aksaray"],
-  },
-
-  // ─── AMASYA ──────────────────────────────────────────────────────────────────
   {
     grup: "Amasya",
-    daireler: ["Amasya", "Merzifon", "Suluova"],
+    daireler: [
+      "Amasya Vergi Dairesi Müdürlüğü",
+      "Göynücek Vergi Dairesi Müdürlüğü",
+      "Gümüşhacıköy Vergi Dairesi Müdürlüğü",
+      "Merzifon Vergi Dairesi Müdürlüğü",
+      "Suluova Vergi Dairesi Müdürlüğü",
+      "Taşova Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ANTALYA ─────────────────────────────────────────────────────────────────
+  {
+    grup: "Ankara",
+    daireler: [
+      "100. Yıl İhtisas Vergi Dairesi Müdürlüğü",
+      "Akyurt Vergi Dairesi Müdürlüğü",
+      "Anadolu İhtisas Vergi Dairesi Müdürlüğü",
+      "Ankara Kurumlar Vergi Dairesi Müdürlüğü",
+      "Ankara İhtisas Vergi Dairesi Müdürlüğü",
+      "Ayaş Vergi Dairesi Müdürlüğü",
+      "Bala Vergi Dairesi Müdürlüğü",
+      "Başkent Vergi Dairesi Müdürlüğü",
+      "Beypazarı Vergi Dairesi Müdürlüğü",
+      "Beytepe Vergi Dairesi Müdürlüğü",
+      "Cumhuriyet Vergi Dairesi Müdürlüğü",
+      "Dikimevi Vergi Dairesi Müdürlüğü",
+      "Doğanbey Vergi Dairesi Müdürlüğü",
+      "Dışkapı Vergi Dairesi Müdürlüğü",
+      "Elmadağ Vergi Dairesi Müdürlüğü",
+      "Etimesgut Vergi Dairesi Müdürlüğü",
+      "Gölbaşı Vergi Dairesi Müdürlüğü",
+      "Harçlar Vergi Dairesi Müdürlüğü",
+      "Haymana Vergi Dairesi Müdürlüğü",
+      "Hitit Vergi Dairesi Müdürlüğü",
+      "Kahramankazan Vergi Dairesi Müdürlüğü",
+      "Kalecik Vergi Dairesi Müdürlüğü",
+      "Kavaklıdere Vergi Dairesi Müdürlüğü",
+      "Keçiören Vergi Dairesi Müdürlüğü",
+      "Kızılbey Vergi Dairesi Müdürlüğü",
+      "Kızılcahamam Vergi Dairesi Müdürlüğü",
+      "Maltepe Vergi Dairesi Müdürlüğü",
+      "Mithatpaşa Vergi Dairesi Müdürlüğü",
+      "Muhammet Karagüzel Vergi Dairesi Müdürlüğü",
+      "Nallıhan Vergi Dairesi Müdürlüğü",
+      "Ostim Vergi Dairesi Müdürlüğü",
+      "Polatlı Vergi Dairesi Müdürlüğü",
+      "Seğmenler Vergi Dairesi Müdürlüğü",
+      "Sincan Vergi Dairesi Müdürlüğü",
+      "Ulus Vergi Dairesi Müdürlüğü",
+      "Veraset ve İntikal Vergi Dairesi Müdürlüğü",
+      "Yahya Galip Vergi Dairesi Müdürlüğü",
+      "Yenimahalle Vergi Dairesi Müdürlüğü",
+      "Yeğenbey Vergi Dairesi Müdürlüğü",
+      "Yıldırım Beyazıt Vergi Dairesi Müdürlüğü",
+      "Çankaya Vergi Dairesi Müdürlüğü",
+      "Çubuk Vergi Dairesi Müdürlüğü",
+      "İvedik Vergi Dairesi Müdürlüğü",
+      "Şereflikoçhisar Vergi Dairesi Müdürlüğü",
+    ],
+  },
   {
     grup: "Antalya",
     daireler: [
-      "Aksu",
-      "Alanya",
-      "Antalya",
-      "Elmalı",
-      "Kaş",
-      "Kepez",
-      "Konyaaltı",
-      "Kumluca",
-      "Manavgat",
-      "Serik",
+      "Akseki Vergi Dairesi Müdürlüğü",
+      "Alanya Vergi Dairesi Müdürlüğü",
+      "Antalya Kurumlar Vergi Dairesi Müdürlüğü",
+      "Antalya İhtisas Vergi Dairesi Müdürlüğü",
+      "Demre Vergi Dairesi Müdürlüğü",
+      "Düden Vergi Dairesi Müdürlüğü",
+      "Elmalı Vergi Dairesi Müdürlüğü",
+      "Falez Vergi Dairesi Müdürlüğü",
+      "Finike Vergi Dairesi Müdürlüğü",
+      "Gazipaşa Vergi Dairesi Müdürlüğü",
+      "Kalekapı Vergi Dairesi Müdürlüğü",
+      "Kaş Vergi Dairesi Müdürlüğü",
+      "Kemer Vergi Dairesi Müdürlüğü",
+      "Korkuteli Vergi Dairesi Müdürlüğü",
+      "Kumluca Vergi Dairesi Müdürlüğü",
+      "Manavgat Vergi Dairesi Müdürlüğü",
+      "Muratpaşa Vergi Dairesi Müdürlüğü",
+      "Serik Vergi Dairesi Müdürlüğü",
+      "Üçkapılar Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── ARDAHAN ─────────────────────────────────────────────────────────────────
-  {
-    grup: "Ardahan",
-    daireler: ["Ardahan"],
-  },
-
-  // ─── ARTVİN ──────────────────────────────────────────────────────────────────
   {
     grup: "Artvin",
-    daireler: ["Artvin", "Hopa"],
+    daireler: [
+      "Ardanuç Vergi Dairesi Müdürlüğü",
+      "Arhavi Vergi Dairesi Müdürlüğü",
+      "Artvin Vergi Dairesi Müdürlüğü",
+      "Borçka Vergi Dairesi Müdürlüğü",
+      "Hopa Vergi Dairesi Müdürlüğü",
+      "Yusufeli Vergi Dairesi Müdürlüğü",
+      "Şavşat Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── AYDIN ───────────────────────────────────────────────────────────────────
   {
     grup: "Aydın",
-    daireler: ["Aydın", "Didim", "Efeler", "Kuşadası", "Nazilli", "Söke"],
+    daireler: [
+      "Bozdoğan Vergi Dairesi Müdürlüğü",
+      "Buharkent Vergi Dairesi Müdürlüğü",
+      "Didim Vergi Dairesi Müdürlüğü",
+      "Efeler Vergi Dairesi Müdürlüğü",
+      "Germencik Vergi Dairesi Müdürlüğü",
+      "Güzelhisar Vergi Dairesi Müdürlüğü",
+      "Karacasu Vergi Dairesi Müdürlüğü",
+      "Karpuzlu Vergi Dairesi Müdürlüğü",
+      "Koçarlı Vergi Dairesi Müdürlüğü",
+      "Kuyucak Vergi Dairesi Müdürlüğü",
+      "Kuşadası Vergi Dairesi Müdürlüğü",
+      "Köşk Vergi Dairesi Müdürlüğü",
+      "Nazilli Vergi Dairesi Müdürlüğü",
+      "Sultanhisar Vergi Dairesi Müdürlüğü",
+      "Söke Vergi Dairesi Müdürlüğü",
+      "Yenipazar Vergi Dairesi Müdürlüğü",
+      "Çine Vergi Dairesi Müdürlüğü",
+      "İncirliova Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BALIKESİR ───────────────────────────────────────────────────────────────
   {
     grup: "Balıkesir",
-    daireler: ["Altıeylül", "Ayvalık", "Bandırma", "Edremit", "Karesi"],
+    daireler: [
+      "Ayvalık Vergi Dairesi Müdürlüğü",
+      "Bandırma Vergi Dairesi Müdürlüğü",
+      "Bigadiç Vergi Dairesi Müdürlüğü",
+      "Burhaniye Vergi Dairesi Müdürlüğü",
+      "Dursunbey Vergi Dairesi Müdürlüğü",
+      "Edremit Vergi Dairesi Müdürlüğü",
+      "Erdek Vergi Dairesi Müdürlüğü",
+      "Gömeç Vergi Dairesi Müdürlüğü",
+      "Gönen Vergi Dairesi Müdürlüğü",
+      "Havran Vergi Dairesi Müdürlüğü",
+      "Karesi Vergi Dairesi Müdürlüğü",
+      "Kepsut Vergi Dairesi Müdürlüğü",
+      "Koca Seyit Vergi Dairesi Müdürlüğü",
+      "Kurtdereli Vergi Dairesi Müdürlüğü",
+      "Manyas Vergi Dairesi Müdürlüğü",
+      "Marmara Vergi Dairesi Müdürlüğü",
+      "Savaştepe Vergi Dairesi Müdürlüğü",
+      "Susurluk Vergi Dairesi Müdürlüğü",
+      "Sındırgı Vergi Dairesi Müdürlüğü",
+      "İvrindi Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BARTIN ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Bartın",
-    daireler: ["Bartın"],
-  },
-
-  // ─── BATMAN ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Batman",
-    daireler: ["Batman"],
-  },
-
-  // ─── BAYBURT ─────────────────────────────────────────────────────────────────
-  {
-    grup: "Bayburt",
-    daireler: ["Bayburt"],
-  },
-
-  // ─── BİLECİK ─────────────────────────────────────────────────────────────────
   {
     grup: "Bilecik",
-    daireler: ["Bilecik", "Bozüyük"],
+    daireler: [
+      "Bilecik Vergi Dairesi Müdürlüğü",
+      "Bozüyük Vergi Dairesi Müdürlüğü",
+      "Gölpazarı Vergi Dairesi Müdürlüğü",
+      "Kayı Vergi Dairesi Müdürlüğü",
+      "Osmaneli Vergi Dairesi Müdürlüğü",
+      "Söğüt Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BİNGÖL ──────────────────────────────────────────────────────────────────
   {
     grup: "Bingöl",
-    daireler: ["Bingöl"],
+    daireler: [
+      "Bingöl Vergi Dairesi Müdürlüğü",
+      "Genç Vergi Dairesi Müdürlüğü",
+      "Karlıova Vergi Dairesi Müdürlüğü",
+      "Solhan Vergi Dairesi Müdürlüğü",
+      "Yüzen Ada Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BİTLİS ──────────────────────────────────────────────────────────────────
   {
     grup: "Bitlis",
-    daireler: ["Bitlis", "Tatvan"],
+    daireler: [
+      "Adilcevaz Vergi Dairesi Müdürlüğü",
+      "Ahlat Vergi Dairesi Müdürlüğü",
+      "Bitlis Vergi Dairesi Müdürlüğü",
+      "Güroymak Vergi Dairesi Müdürlüğü",
+      "Hizan Vergi Dairesi Müdürlüğü",
+      "Tatvan Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BOLU ────────────────────────────────────────────────────────────────────
   {
     grup: "Bolu",
-    daireler: ["Bolu", "Gerede"],
+    daireler: [
+      "Bolu Vergi Dairesi Müdürlüğü",
+      "Gerede Vergi Dairesi Müdürlüğü",
+      "Göynük Vergi Dairesi Müdürlüğü",
+      "Köroğlu Vergi Dairesi Müdürlüğü",
+      "Mengen Vergi Dairesi Müdürlüğü",
+      "Mudurnu Vergi Dairesi Müdürlüğü",
+      "Yeniçağa Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BURDUR ──────────────────────────────────────────────────────────────────
   {
     grup: "Burdur",
-    daireler: ["Burdur", "Bucak"],
+    daireler: [
+      "Bucak Vergi Dairesi Müdürlüğü",
+      "Burdur Vergi Dairesi Müdürlüğü",
+      "Gölhisar Vergi Dairesi Müdürlüğü",
+      "Karamanlı Vergi Dairesi Müdürlüğü",
+      "Salda Vergi Dairesi Müdürlüğü",
+      "Tefenni Vergi Dairesi Müdürlüğü",
+      "Yeşilova Vergi Dairesi Müdürlüğü",
+      "Çavdır Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── BURSA ───────────────────────────────────────────────────────────────────
   {
     grup: "Bursa",
     daireler: [
-      "Bursa İhtisas",
-      "Gemlik",
-      "İnegöl",
-      "İznik",
-      "Mudanya",
-      "Mustafakemalpaşa",
-      "Nilüfer",
-      "Osmangazi",
-      "Yıldırım",
+      "Bursa Veraset ve Harçlar Vergi Dairesi Müdürlüğü",
+      "Bursa İhtisas Vergi Dairesi Müdürlüğü",
+      "Ertuğrulgazi Vergi Dairesi Müdürlüğü",
+      "Gemlik Vergi Dairesi Müdürlüğü",
+      "Gökdere Vergi Dairesi Müdürlüğü",
+      "Karacabey Vergi Dairesi Müdürlüğü",
+      "Kozahan Vergi Dairesi Müdürlüğü",
+      "Mudanya Vergi Dairesi Müdürlüğü",
+      "Mustafakemalpaşa Vergi Dairesi Müdürlüğü",
+      "Nilüfer Vergi Dairesi Müdürlüğü",
+      "Orhaneli Vergi Dairesi Müdürlüğü",
+      "Orhangazi Vergi Dairesi Müdürlüğü",
+      "Osmangazi Vergi Dairesi Müdürlüğü",
+      "Setbaşı Vergi Dairesi Müdürlüğü",
+      "Uludağ Vergi Dairesi Müdürlüğü",
+      "Yenişehir Vergi Dairesi Müdürlüğü",
+      "Yeşil Vergi Dairesi Müdürlüğü",
+      "Yıldırım Vergi Dairesi Müdürlüğü",
+      "Çekirge Vergi Dairesi Müdürlüğü",
+      "İnegöl Vergi Dairesi Müdürlüğü",
+      "İznik Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── ÇANAKKALE ───────────────────────────────────────────────────────────────
   {
     grup: "Çanakkale",
-    daireler: ["Biga", "Çan", "Çanakkale", "Gelibolu"],
+    daireler: [
+      "Ayvacık Vergi Dairesi Müdürlüğü",
+      "Bayramiç Vergi Dairesi Müdürlüğü",
+      "Biga Vergi Dairesi Müdürlüğü",
+      "Bozcaada Vergi Dairesi Müdürlüğü",
+      "Eceabat Vergi Dairesi Müdürlüğü",
+      "Ezine Vergi Dairesi Müdürlüğü",
+      "Gelibolu Vergi Dairesi Müdürlüğü",
+      "Gökçeada Vergi Dairesi Müdürlüğü",
+      "Lapseki Vergi Dairesi Müdürlüğü",
+      "Yenice Vergi Dairesi Müdürlüğü",
+      "Çan Vergi Dairesi Müdürlüğü",
+      "Çanakkale Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ÇANKIRI ─────────────────────────────────────────────────────────────────
   {
     grup: "Çankırı",
-    daireler: ["Çankırı"],
+    daireler: [
+      "Ilgaz Vergi Dairesi Müdürlüğü",
+      "Karatekin Vergi Dairesi Müdürlüğü",
+      "Orta Vergi Dairesi Müdürlüğü",
+      "Çankırı Vergi Dairesi Müdürlüğü",
+      "Çerkeş Vergi Dairesi Müdürlüğü",
+      "Şabanözü Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ÇORUM ───────────────────────────────────────────────────────────────────
   {
     grup: "Çorum",
-    daireler: ["Alaca", "Çorum", "Sungurlu"],
+    daireler: [
+      "Akşemseddin Vergi Dairesi Müdürlüğü",
+      "Alaca Vergi Dairesi Müdürlüğü",
+      "Bayat Vergi Dairesi Müdürlüğü",
+      "Hasanpaşa Vergi Dairesi Müdürlüğü",
+      "Kargı Vergi Dairesi Müdürlüğü",
+      "Mecitözü Vergi Dairesi Müdürlüğü",
+      "Osmancık Vergi Dairesi Müdürlüğü",
+      "Sungurlu Vergi Dairesi Müdürlüğü",
+      "Çorum Vergi Dairesi Müdürlüğü",
+      "İskilip Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── DENİZLİ ─────────────────────────────────────────────────────────────────
   {
     grup: "Denizli",
-    daireler: ["Acıpayam", "Çivril", "Denizli", "Merkezefendi", "Pamukkale"],
+    daireler: [
+      "Acıpayam Vergi Dairesi Müdürlüğü",
+      "Babadağ Vergi Dairesi Müdürlüğü",
+      "Bayramyeri Vergi Dairesi Müdürlüğü",
+      "Bekilli Vergi Dairesi Müdürlüğü",
+      "Bozkurt Vergi Dairesi Müdürlüğü",
+      "Buldan Vergi Dairesi Müdürlüğü",
+      "Denizli İhtisas Vergi Dairesi Müdürlüğü",
+      "Gökpınar Vergi Dairesi Müdürlüğü",
+      "Güney Vergi Dairesi Müdürlüğü",
+      "Honaz Vergi Dairesi Müdürlüğü",
+      "Kale Vergi Dairesi Müdürlüğü",
+      "Pamukkale Vergi Dairesi Müdürlüğü",
+      "Sarayköy Vergi Dairesi Müdürlüğü",
+      "Saraylar Vergi Dairesi Müdürlüğü",
+      "Serinhisar Vergi Dairesi Müdürlüğü",
+      "Tavas Vergi Dairesi Müdürlüğü",
+      "Çal Vergi Dairesi Müdürlüğü",
+      "Çameli Vergi Dairesi Müdürlüğü",
+      "Çardak Vergi Dairesi Müdürlüğü",
+      "Çivril Vergi Dairesi Müdürlüğü",
+      "Çınar Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── DİYARBAKIR ──────────────────────────────────────────────────────────────
   {
     grup: "Diyarbakır",
-    daireler: ["Bağlar", "Bismil", "Ergani", "Sur", "Yenişehir"],
+    daireler: [
+      "Bismil Vergi Dairesi Müdürlüğü",
+      "Cahit Sıtkı Tarancı Vergi Dairesi Müdürlüğü",
+      "Ergani Vergi Dairesi Müdürlüğü",
+      "Gökalp Vergi Dairesi Müdürlüğü",
+      "Hani Vergi Dairesi Müdürlüğü",
+      "Kayapınar Vergi Dairesi Müdürlüğü",
+      "Lice Vergi Dairesi Müdürlüğü",
+      "Silvan Vergi Dairesi Müdürlüğü",
+      "Süleyman Nazif Vergi Dairesi Müdürlüğü",
+      "Çermik Vergi Dairesi Müdürlüğü",
+      "Çınar Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── DÜZCE ───────────────────────────────────────────────────────────────────
-  {
-    grup: "Düzce",
-    daireler: ["Akçakoca", "Düzce"],
-  },
-
-  // ─── EDİRNE ──────────────────────────────────────────────────────────────────
   {
     grup: "Edirne",
-    daireler: ["Edirne", "İpsala", "Keşan", "Uzunköprü"],
+    daireler: [
+      "Arda Vergi Dairesi Müdürlüğü",
+      "Enez Vergi Dairesi Müdürlüğü",
+      "Havsa Vergi Dairesi Müdürlüğü",
+      "Keşan Vergi Dairesi Müdürlüğü",
+      "Kırkpınar Vergi Dairesi Müdürlüğü",
+      "Meriç Vergi Dairesi Müdürlüğü",
+      "Tunca Vergi Dairesi Müdürlüğü",
+      "Uzunköprü Vergi Dairesi Müdürlüğü",
+      "İpsala Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ELAZIĞ ──────────────────────────────────────────────────────────────────
   {
     grup: "Elazığ",
-    daireler: ["Elazığ", "Karakoçan"],
+    daireler: [
+      "Elazığ Vergi Dairesi Müdürlüğü",
+      "Harput Vergi Dairesi Müdürlüğü",
+      "Hazar Vergi Dairesi Müdürlüğü",
+      "Karakoçan Vergi Dairesi Müdürlüğü",
+      "Kovancılar Vergi Dairesi Müdürlüğü",
+      "Palu Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ERZİNCAN ────────────────────────────────────────────────────────────────
   {
     grup: "Erzincan",
-    daireler: ["Erzincan"],
+    daireler: [
+      "Ergan Vergi Dairesi Müdürlüğü",
+      "Fevzipaşa Vergi Dairesi Müdürlüğü",
+      "Tercan Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ERZURUM ─────────────────────────────────────────────────────────────────
   {
     grup: "Erzurum",
-    daireler: ["Aziziye", "Erzurum", "Horasan", "Pasinler"],
+    daireler: [
+      "Aziziye Vergi Dairesi Müdürlüğü",
+      "Aşkale Vergi Dairesi Müdürlüğü",
+      "Horasan Vergi Dairesi Müdürlüğü",
+      "Hınıs Vergi Dairesi Müdürlüğü",
+      "Karayazı Vergi Dairesi Müdürlüğü",
+      "Kazımkarabekir Vergi Dairesi Müdürlüğü",
+      "Oltu Vergi Dairesi Müdürlüğü",
+      "Palandöken Vergi Dairesi Müdürlüğü",
+      "Pasinler Vergi Dairesi Müdürlüğü",
+      "İspir Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ESKİŞEHİR ───────────────────────────────────────────────────────────────
   {
     grup: "Eskişehir",
-    daireler: ["Eskişehir", "Odunpazarı", "Tepebaşı"],
+    daireler: [
+      "Eskişehir Defterdarlığı (*)",
+    ],
   },
-
-  // ─── GAZİANTEP ───────────────────────────────────────────────────────────────
   {
     grup: "Gaziantep",
     daireler: [
-      "Gaziantep İhtisas",
-      "İslahiye",
-      "Nizip",
-      "Nurdağı",
-      "Şahinbey",
-      "Şehitkamil",
+      "Araban Vergi Dairesi Müdürlüğü",
+      "Gaziantep İhtisas Vergi Dairesi Müdürlüğü",
+      "Gazikent Vergi Dairesi Müdürlüğü",
+      "Kozanlı Vergi Dairesi Müdürlüğü",
+      "Nizip Vergi Dairesi Müdürlüğü",
+      "Nurdağı Vergi Dairesi Müdürlüğü",
+      "Oğuzeli Vergi Dairesi Müdürlüğü",
+      "Suburcu Vergi Dairesi Müdürlüğü",
+      "Yavuzeli Vergi Dairesi Müdürlüğü",
+      "İslahiye Vergi Dairesi Müdürlüğü",
+      "Şahinbey Vergi Dairesi Müdürlüğü",
+      "Şehitkamil Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── GİRESUN ─────────────────────────────────────────────────────────────────
   {
     grup: "Giresun",
-    daireler: ["Giresun", "Tirebolu"],
+    daireler: [
+      "Ada Vergi Dairesi Müdürlüğü",
+      "Bulancak Vergi Dairesi Müdürlüğü",
+      "Dereli Vergi Dairesi Müdürlüğü",
+      "Espiye Vergi Dairesi Müdürlüğü",
+      "Eynesil Vergi Dairesi Müdürlüğü",
+      "Giresun Vergi Dairesi Müdürlüğü",
+      "Görele Vergi Dairesi Müdürlüğü",
+      "Keşap Vergi Dairesi Müdürlüğü",
+      "Piraziz Vergi Dairesi Müdürlüğü",
+      "Tirebolu Vergi Dairesi Müdürlüğü",
+      "Yağlıdere Vergi Dairesi Müdürlüğü",
+      "Şebinkarahisar Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── GÜMÜŞHANE ───────────────────────────────────────────────────────────────
   {
     grup: "Gümüşhane",
-    daireler: ["Gümüşhane"],
+    daireler: [
+      "Gümüşhane Vergi Dairesi Müdürlüğü",
+      "Kelkit Vergi Dairesi Müdürlüğü",
+      "Kürtün Vergi Dairesi Müdürlüğü",
+      "Torul Vergi Dairesi Müdürlüğü",
+      "Şiran Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── HAKKARİ ─────────────────────────────────────────────────────────────────
   {
     grup: "Hakkari",
-    daireler: ["Hakkari", "Yüksekova"],
+    daireler: [
+      "Hakkari Vergi Dairesi Müdürlüğü",
+      "Yüksekova Vergi Dairesi Müdürlüğü",
+      "Şemdinli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── HATAY ───────────────────────────────────────────────────────────────────
   {
     grup: "Hatay",
     daireler: [
-      "Antakya",
-      "Dörtyol",
-      "İskenderun",
-      "Kırıkhan",
-      "Reyhanlı",
-      "Samandağ",
+      "23 Temmuz Vergi Dairesi Müdürlüğü",
+      "Akdeniz Vergi Dairesi Müdürlüğü",
+      "Altınözü Vergi Dairesi Müdürlüğü",
+      "Antakya Vergi Dairesi Müdürlüğü",
+      "Asım Gündüz Vergi Dairesi Müdürlüğü",
+      "Belen Vergi Dairesi Müdürlüğü",
+      "Dörtyol Vergi Dairesi Müdürlüğü",
+      "Erzin Vergi Dairesi Müdürlüğü",
+      "Hassa Vergi Dairesi Müdürlüğü",
+      "Kumlu Vergi Dairesi Müdürlüğü",
+      "Kırıkhan Vergi Dairesi Müdürlüğü",
+      "Reyhanlı Vergi Dairesi Müdürlüğü",
+      "Sahil Vergi Dairesi Müdürlüğü",
+      "Samandağ Vergi Dairesi Müdürlüğü",
+      "Yayladağı Vergi Dairesi Müdürlüğü",
+      "Şükrükanatlı Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── IĞDIR ───────────────────────────────────────────────────────────────────
-  {
-    grup: "Iğdır",
-    daireler: ["Iğdır"],
-  },
-
-  // ─── ISPARTA ─────────────────────────────────────────────────────────────────
   {
     grup: "Isparta",
-    daireler: ["Eğirdir", "Isparta"],
+    daireler: [
+      "Davraz Vergi Dairesi Müdürlüğü",
+      "Eğirdir Vergi Dairesi Müdürlüğü",
+      "Gelendost Vergi Dairesi Müdürlüğü",
+      "Gülkent Vergi Dairesi Müdürlüğü",
+      "Kaymakkapı Vergi Dairesi Müdürlüğü",
+      "Keçiborlu Vergi Dairesi Müdürlüğü",
+      "Senirkent Vergi Dairesi Müdürlüğü",
+      "Yalvaç Vergi Dairesi Müdürlüğü",
+      "Şarkikaraağaç Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KAHRAMANMARAŞ ───────────────────────────────────────────────────────────
   {
-    grup: "Kahramanmaraş",
-    daireler: ["Dulkadiroğlu", "Elbistan", "Onikişubat"],
+    grup: "Mersin",
+    daireler: [
+      "Anamur Vergi Dairesi Müdürlüğü",
+      "Aydıncık Vergi Dairesi Müdürlüğü",
+      "Bozyazı Vergi Dairesi Müdürlüğü",
+      "Erdemli Vergi Dairesi Müdürlüğü",
+      "Gülnar Vergi Dairesi Müdürlüğü",
+      "Kızılmurat Vergi Dairesi Müdürlüğü",
+      "Liman Vergi Dairesi Müdürlüğü",
+      "Mersin İhtisas Vergi Dairesi Müdürlüğü",
+      "Mut Vergi Dairesi Müdürlüğü",
+      "Silifke Vergi Dairesi Müdürlüğü",
+      "Toros Vergi Dairesi Müdürlüğü",
+      "Uray Vergi Dairesi Müdürlüğü",
+      "İstiklal Vergi Dairesi Müdürlüğü",
+      "Şehitkerim Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KARABÜK ─────────────────────────────────────────────────────────────────
   {
-    grup: "Karabük",
-    daireler: ["Karabük"],
+    grup: "İstanbul",
+    daireler: [
+      "Adalar Vergi Dairesi Müdürlüğü",
+      "Alemdağ Vergi Dairesi Müdürlüğü",
+      "Anadolu Kurumlar Vergi Dairesi Müdürlüğü",
+      "Atışalanı Vergi Dairesi Müdürlüğü",
+      "Avcılar Vergi Dairesi Müdürlüğü",
+      "Bakırköy Vergi Dairesi Müdürlüğü",
+      "Bayrampaşa Vergi Dairesi Müdürlüğü",
+      "Başakşehir Vergi Dairesi Müdürlüğü",
+      "Beyazıt Vergi Dairesi Müdürlüğü",
+      "Beykoz Vergi Dairesi Müdürlüğü",
+      "Beylikdüzü Vergi Dairesi Müdürlüğü",
+      "Beyoğlu Vergi Dairesi Müdürlüğü",
+      "Beşiktaş Vergi Dairesi Müdürlüğü",
+      "Boğaziçi Kurumlar Vergi Dairesi Müdürlüğü",
+      "Büyük Mükellefler Vergi Dairesi Müdürlüğü",
+      "Büyükçekmece Vergi Dairesi Müdürlüğü",
+      "Davutpaşa Vergi Dairesi Müdürlüğü",
+      "Erenköy Vergi Dairesi Müdürlüğü",
+      "Esenler Vergi Dairesi Müdürlüğü",
+      "Esenyurt Vergi Dairesi Müdürlüğü",
+      "Fatih Vergi Dairesi Müdürlüğü",
+      "Gaziosmanpaşa Vergi Dairesi Müdürlüğü",
+      "Göztepe Vergi Dairesi Müdürlüğü",
+      "Güneşli Vergi Dairesi Müdürlüğü",
+      "Güngören Vergi Dairesi Müdürlüğü",
+      "Haliç İhtisas Vergi Dairesi Müdürlüğü",
+      "Halkalı Vergi Dairesi Müdürlüğü",
+      "Hisar Veraset ve Harçlar Vergi Dairesi Müdürlüğü",
+      "Hocapaşa Vergi Dairesi Müdürlüğü",
+      "Kadıköy Vergi Dairesi Müdürlüğü",
+      "Kartal Vergi Dairesi Müdürlüğü",
+      "Kasımpaşa Vergi Dairesi Müdürlüğü",
+      "Kağıthane Vergi Dairesi Müdürlüğü",
+      "Kocamustafapaşa Vergi Dairesi Müdürlüğü",
+      "Kocasinan Vergi Dairesi Müdürlüğü",
+      "Kozyatağı Vergi Dairesi Müdürlüğü",
+      "Küçükköy Vergi Dairesi Müdürlüğü",
+      "Küçükyalı Vergi Dairesi Müdürlüğü",
+      "Küçükçekmece Vergi Dairesi Müdürlüğü",
+      "Marmara Kurumlar Vergi Dairesi Müdürlüğü",
+      "Maslak Vergi Dairesi Müdürlüğü",
+      "Mecidiyeköy Vergi Dairesi Müdürlüğü",
+      "Merter Vergi Dairesi Müdürlüğü",
+      "Nakil Vasıtaları Vergi Dairesi Müdürlüğü",
+      "Pendik Vergi Dairesi Müdürlüğü",
+      "Rıhtım Veraset ve Harçlar Vergi Dairesi Müdürlüğü",
+      "Sarıgazi Vergi Dairesi Müdürlüğü",
+      "Sarıyer Vergi Dairesi Müdürlüğü",
+      "Silivri Vergi Dairesi Müdürlüğü",
+      "Sultanbeyli Vergi Dairesi Müdürlüğü",
+      "Tuna Vergi Dairesi Müdürlüğü",
+      "Tuzla Vergi Dairesi Müdürlüğü",
+      "Vatan İhtisas Vergi Dairesi Müdürlüğü",
+      "Yakacık Vergi Dairesi Müdürlüğü",
+      "Yeditepe Veraset ve Harçlar Vergi Dairesi Müdürlüğü",
+      "Yenibosna Vergi Dairesi Müdürlüğü",
+      "Yenikapı Vergi Dairesi Müdürlüğü",
+      "Zeytinburnu Vergi Dairesi Müdürlüğü",
+      "Zincirlikuyu Vergi Dairesi Müdürlüğü",
+      "Çamlıca İhtisas Vergi Dairesi Müdürlüğü",
+      "Ümraniye Vergi Dairesi Müdürlüğü",
+      "Üsküdar Vergi Dairesi Müdürlüğü",
+      "İkitelli Vergi Dairesi Müdürlüğü",
+      "Şile Vergi Dairesi Müdürlüğü",
+      "Şişli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KARAMAN ─────────────────────────────────────────────────────────────────
   {
-    grup: "Karaman",
-    daireler: ["Karaman"],
+    grup: "İzmir",
+    daireler: [
+      "9 Eylül Vergi Dairesi Müdürlüğü",
+      "Aliağa Vergi Dairesi Müdürlüğü",
+      "Balçova Vergi Dairesi Müdürlüğü",
+      "Bayındır Vergi Dairesi Müdürlüğü",
+      "Belkahve Vergi Dairesi Müdürlüğü",
+      "Bergama Vergi Dairesi Müdürlüğü",
+      "Beydağ Vergi Dairesi Müdürlüğü",
+      "Bornova Vergi Dairesi Müdürlüğü",
+      "Dikili Vergi Dairesi Müdürlüğü",
+      "Ege Vergi Dairesi Müdürlüğü",
+      "Foça Vergi Dairesi Müdürlüğü",
+      "Gaziemir Vergi Dairesi Müdürlüğü",
+      "Hasan Tahsin Vergi Dairesi Müdürlüğü",
+      "Kadifekale Vergi Dairesi Müdürlüğü",
+      "Karaburun Vergi Dairesi Müdürlüğü",
+      "Karşıyaka Vergi Dairesi Müdürlüğü",
+      "Kemalpaşa Vergi Dairesi Müdürlüğü",
+      "Kemeraltı Vergi Dairesi Müdürlüğü",
+      "Kiraz Vergi Dairesi Müdürlüğü",
+      "Konak Vergi Dairesi Müdürlüğü",
+      "Kordon Vergi Dairesi Müdürlüğü",
+      "Kınık Vergi Dairesi Müdürlüğü",
+      "Menderes Vergi Dairesi Müdürlüğü",
+      "Menemen Vergi Dairesi Müdürlüğü",
+      "Seferihisar Vergi Dairesi Müdürlüğü",
+      "Selçuk Vergi Dairesi Müdürlüğü",
+      "Taşıtlar Vergi Dairesi Müdürlüğü",
+      "Tire Vergi Dairesi Müdürlüğü",
+      "Torbalı Vergi Dairesi Müdürlüğü",
+      "Urla Vergi Dairesi Müdürlüğü",
+      "Yamanlar Vergi Dairesi Müdürlüğü",
+      "Çakabey İhtisas Vergi Dairesi Müdürlüğü",
+      "Çeşme Vergi Dairesi Müdürlüğü",
+      "Çiğli Vergi Dairesi Müdürlüğü",
+      "Ödemiş Vergi Dairesi Müdürlüğü",
+      "İzmir İhtisas Vergi Dairesi Müdürlüğü",
+      "Şirinyer Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KARS ────────────────────────────────────────────────────────────────────
   {
     grup: "Kars",
-    daireler: ["Kars", "Sarıkamış"],
+    daireler: [
+      "Kafkas Vergi Dairesi Müdürlüğü",
+      "Kars Vergi Dairesi Müdürlüğü",
+      "Kağızman Vergi Dairesi Müdürlüğü",
+      "Sarıkamış Vergi Dairesi Müdürlüğü",
+      "Selim Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KASTAMONU ───────────────────────────────────────────────────────────────
   {
     grup: "Kastamonu",
-    daireler: ["Kastamonu", "Taşköprü"],
+    daireler: [
+      "Araç Vergi Dairesi Müdürlüğü",
+      "Atabey Vergi Dairesi Müdürlüğü",
+      "Azdavay Vergi Dairesi Müdürlüğü",
+      "Bozkurt Vergi Dairesi Müdürlüğü",
+      "Cide Vergi Dairesi Müdürlüğü",
+      "Daday Vergi Dairesi Müdürlüğü",
+      "Devrekani Vergi Dairesi Müdürlüğü",
+      "Kastamonu Vergi Dairesi Müdürlüğü",
+      "Taşköprü Vergi Dairesi Müdürlüğü",
+      "Tosya Vergi Dairesi Müdürlüğü",
+      "İnebolu Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KAYSERİ ─────────────────────────────────────────────────────────────────
   {
     grup: "Kayseri",
-    daireler: ["Develi", "Kayseri İhtisas", "Kocasinan", "Melikgazi", "Talas"],
+    daireler: [
+      "Bünyan Vergi Dairesi Müdürlüğü",
+      "Develi Vergi Dairesi Müdürlüğü",
+      "Erciyes Vergi Dairesi Müdürlüğü",
+      "Gevher Nesibe Vergi Dairesi Müdürlüğü",
+      "Kaleönü Vergi Dairesi Müdürlüğü",
+      "Kayseri İhtisas Vergi Dairesi Müdürlüğü",
+      "Kültepe Vergi Dairesi Müdürlüğü",
+      "Mimar Sinan Vergi Dairesi Müdürlüğü",
+      "Pınarbaşı Vergi Dairesi Müdürlüğü",
+      "Sarız Vergi Dairesi Müdürlüğü",
+      "Tomarza Vergi Dairesi Müdürlüğü",
+      "Yahyalı Vergi Dairesi Müdürlüğü",
+      "Yeşilhisar Vergi Dairesi Müdürlüğü",
+      "İncesu Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KİLİS ───────────────────────────────────────────────────────────────────
-  {
-    grup: "Kilis",
-    daireler: ["Kilis"],
-  },
-
-  // ─── KIRIKKALE ───────────────────────────────────────────────────────────────
-  {
-    grup: "Kırıkkale",
-    daireler: ["Kırıkkale"],
-  },
-
-  // ─── KIRKLARELİ ──────────────────────────────────────────────────────────────
   {
     grup: "Kırklareli",
-    daireler: ["Babaeski", "Kırklareli", "Lüleburgaz"],
+    daireler: [
+      "Babaeski Vergi Dairesi Müdürlüğü",
+      "Demirköy Vergi Dairesi Müdürlüğü",
+      "Kırk Şehitler Vergi Dairesi Müdürlüğü",
+      "Kırklareli Vergi Dairesi Müdürlüğü",
+      "Lüleburgaz Vergi Dairesi Müdürlüğü",
+      "Pınarhisar Vergi Dairesi Müdürlüğü",
+      "Vize Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KIRŞEHİR ────────────────────────────────────────────────────────────────
   {
     grup: "Kırşehir",
-    daireler: ["Kırşehir"],
+    daireler: [
+      "Cacabey Vergi Dairesi Müdürlüğü",
+      "Kaman Vergi Dairesi Müdürlüğü",
+      "Kırşehir Vergi Dairesi Müdürlüğü",
+      "Mucur Vergi Dairesi Müdürlüğü",
+      "Çiçekdağı Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KOCAELİ ─────────────────────────────────────────────────────────────────
   {
     grup: "Kocaeli",
-    daireler: ["Derince", "Gebze", "Gölcük", "İzmit", "Kandıra"],
+    daireler: [
+      "Acısu Vergi Dairesi Müdürlüğü",
+      "Alemdar Vergi Dairesi Müdürlüğü",
+      "Derince Vergi Dairesi Müdürlüğü",
+      "Gebze İhtisas Vergi Dairesi Müdürlüğü",
+      "Gölcük Vergi Dairesi Müdürlüğü",
+      "Kandıra Vergi Dairesi Müdürlüğü",
+      "Karamürsel Vergi Dairesi Müdürlüğü",
+      "Kocaeli İhtisas Vergi Dairesi Müdürlüğü",
+      "Körfez Vergi Dairesi Müdürlüğü",
+      "Tepecik Vergi Dairesi Müdürlüğü",
+      "Uluçınar Vergi Dairesi Müdürlüğü",
+      "İlyasbey Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── KONYA ───────────────────────────────────────────────────────────────────
   {
     grup: "Konya",
     daireler: [
-      "Akşehir",
-      "Beyşehir",
-      "Ereğli",
-      "Karatay",
-      "Konya İhtisas",
-      "Meram",
-      "Selçuklu",
+      "Akşehir Vergi Dairesi Müdürlüğü",
+      "Alaaddin Vergi Dairesi Müdürlüğü",
+      "Altınekin Vergi Dairesi Müdürlüğü",
+      "Beyşehir Vergi Dairesi Müdürlüğü",
+      "Bozkır Vergi Dairesi Müdürlüğü",
+      "Cihanbeyli Vergi Dairesi Müdürlüğü",
+      "Doğanhisar Vergi Dairesi Müdürlüğü",
+      "Emirgazi Vergi Dairesi Müdürlüğü",
+      "Ereğli Vergi Dairesi Müdürlüğü",
+      "Hüyük Vergi Dairesi Müdürlüğü",
+      "Ilgın Vergi Dairesi Müdürlüğü",
+      "Kadınhanı Vergi Dairesi Müdürlüğü",
+      "Karapınar Vergi Dairesi Müdürlüğü",
+      "Karatay Vergi Dairesi Müdürlüğü",
+      "Konya İhtisas Vergi Dairesi Müdürlüğü",
+      "Kulu Vergi Dairesi Müdürlüğü",
+      "Meram Vergi Dairesi Müdürlüğü",
+      "Mevlana Vergi Dairesi Müdürlüğü",
+      "Sarayönü Vergi Dairesi Müdürlüğü",
+      "Selçuk Vergi Dairesi Müdürlüğü",
+      "Seydişehir Vergi Dairesi Müdürlüğü",
+      "Yunak Vergi Dairesi Müdürlüğü",
+      "Çumra Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── KÜTAHYA ─────────────────────────────────────────────────────────────────
   {
     grup: "Kütahya",
-    daireler: ["Kütahya", "Simav", "Tavşanlı"],
+    daireler: [
+      "30 Ağustos Vergi Dairesi Müdürlüğü",
+      "Altıntaş Vergi Dairesi Müdürlüğü",
+      "Domaniç Vergi Dairesi Müdürlüğü",
+      "Emet Vergi Dairesi Müdürlüğü",
+      "Gediz Vergi Dairesi Müdürlüğü",
+      "Hisarcık Vergi Dairesi Müdürlüğü",
+      "Simav Vergi Dairesi Müdürlüğü",
+      "Tavşanlı Vergi Dairesi Müdürlüğü",
+      "Çaltepe Vergi Dairesi Müdürlüğü",
+      "Çinili Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── MALATYA ─────────────────────────────────────────────────────────────────
   {
     grup: "Malatya",
-    daireler: ["Battalgazi", "Doğanşehir", "Malatya", "Yeşilyurt"],
+    daireler: [
+      "Akçadağ Vergi Dairesi Müdürlüğü",
+      "Arapgir Vergi Dairesi Müdürlüğü",
+      "Battalgazi Vergi Dairesi Müdürlüğü",
+      "Beydağı Vergi Dairesi Müdürlüğü",
+      "Darende Vergi Dairesi Müdürlüğü",
+      "Doğanşehir Vergi Dairesi Müdürlüğü",
+      "Fırat Vergi Dairesi Müdürlüğü",
+      "Hekimhan Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── MANİSA ──────────────────────────────────────────────────────────────────
   {
     grup: "Manisa",
     daireler: [
-      "Akhisar",
-      "Alaşehir",
-      "Manisa",
-      "Salihli",
-      "Soma",
-      "Turgutlu",
+      "Ahmetli Vergi Dairesi Müdürlüğü",
+      "Akhisar Vergi Dairesi Müdürlüğü",
+      "Alaşehir Vergi Dairesi Müdürlüğü",
+      "Demirci Vergi Dairesi Müdürlüğü",
+      "Gölmarmara Vergi Dairesi Müdürlüğü",
+      "Gördes Vergi Dairesi Müdürlüğü",
+      "Kula Vergi Dairesi Müdürlüğü",
+      "Köprübaşı Vergi Dairesi Müdürlüğü",
+      "Kırkağaç Vergi Dairesi Müdürlüğü",
+      "Manisa İhtisas Vergi Dairesi Müdürlüğü",
+      "Mesir Vergi Dairesi Müdürlüğü",
+      "Salihli Adil Oral Vergi Dairesi Müdürlüğü",
+      "Saruhanlı Vergi Dairesi Müdürlüğü",
+      "Sarıgöl Vergi Dairesi Müdürlüğü",
+      "Selendi Vergi Dairesi Müdürlüğü",
+      "Soma Vergi Dairesi Müdürlüğü",
+      "Turgutlu Vergi Dairesi Müdürlüğü",
+      "Şehit Cihan Güneş Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── MARDİN ──────────────────────────────────────────────────────────────────
+  {
+    grup: "Kahramanmaraş",
+    daireler: [
+      "Afşin Vergi Dairesi Müdürlüğü",
+      "Aksu Vergi Dairesi Müdürlüğü",
+      "Andırın Vergi Dairesi Müdürlüğü",
+      "Aslanbey Vergi Dairesi Müdürlüğü",
+      "Elbistan Vergi Dairesi Müdürlüğü",
+      "Göksun Vergi Dairesi Müdürlüğü",
+      "Nurhak Vergi Dairesi Müdürlüğü",
+      "Pazarcık Vergi Dairesi Müdürlüğü",
+      "Türkoğlu Vergi Dairesi Müdürlüğü",
+      "Çağlayancerit Vergi Dairesi Müdürlüğü",
+    ],
+  },
   {
     grup: "Mardin",
-    daireler: ["Kızıltepe", "Mardin", "Midyat", "Nusaybin"],
+    daireler: [
+      "Dargeçit Vergi Dairesi Müdürlüğü",
+      "Derik Vergi Dairesi Müdürlüğü",
+      "Kızıltepe Vergi Dairesi Müdürlüğü",
+      "Mardin Vergi Dairesi Müdürlüğü",
+      "Mazıdağı Vergi Dairesi Müdürlüğü",
+      "Midyat Vergi Dairesi Müdürlüğü",
+      "Nusaybin Vergi Dairesi Müdürlüğü",
+      "Savur Vergi Dairesi Müdürlüğü",
+      "Ömerli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── MERSİN ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Mersin",
-    daireler: ["Akdeniz", "Erdemli", "Mezitli", "Silifke", "Tarsus", "Toroslar"],
-  },
-
-  // ─── MUĞLA ───────────────────────────────────────────────────────────────────
   {
     grup: "Muğla",
     daireler: [
-      "Bodrum",
-      "Dalaman",
-      "Datça",
-      "Fethiye",
-      "Köyceğiz",
-      "Marmaris",
-      "Milas",
-      "Muğla",
-      "Ortaca",
+      "Bodrum Vergi Dairesi Müdürlüğü",
+      "Dalaman Vergi Dairesi Müdürlüğü",
+      "Datça Vergi Dairesi Müdürlüğü",
+      "Fethiye Vergi Dairesi Müdürlüğü",
+      "Kavaklıdere Vergi Dairesi Müdürlüğü",
+      "Köyceğiz Vergi Dairesi Müdürlüğü",
+      "Marmaris Vergi Dairesi Müdürlüğü",
+      "Milas Vergi Dairesi Müdürlüğü",
+      "Muğla Vergi Dairesi Müdürlüğü",
+      "Ortaca Vergi Dairesi Müdürlüğü",
+      "Seydikemer Vergi Dairesi Müdürlüğü",
+      "Ula Vergi Dairesi Müdürlüğü",
+      "Yatağan Vergi Dairesi Müdürlüğü",
     ],
   },
-
-  // ─── MUŞ ─────────────────────────────────────────────────────────────────────
   {
     grup: "Muş",
-    daireler: ["Malazgirt", "Muş"],
+    daireler: [
+      "Bulanık Vergi Dairesi Müdürlüğü",
+      "Hasköy Vergi Dairesi Müdürlüğü",
+      "Korkut Vergi Dairesi Müdürlüğü",
+      "Malazgirt Vergi Dairesi Müdürlüğü",
+      "Muş Vergi Dairesi Müdürlüğü",
+      "Varto Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── NEVŞEHİR ────────────────────────────────────────────────────────────────
   {
     grup: "Nevşehir",
-    daireler: ["Avanos", "Nevşehir", "Ürgüp"],
+    daireler: [
+      "Acıgöl Vergi Dairesi Müdürlüğü",
+      "Avanos Vergi Dairesi Müdürlüğü",
+      "Derinkuyu Vergi Dairesi Müdürlüğü",
+      "Gülşehir Vergi Dairesi Müdürlüğü",
+      "Hacıbektaş Vergi Dairesi Müdürlüğü",
+      "Kozaklı Vergi Dairesi Müdürlüğü",
+      "Nevşehir Vergi Dairesi Müdürlüğü",
+      "Ürgüp Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── NİĞDE ───────────────────────────────────────────────────────────────────
   {
     grup: "Niğde",
-    daireler: ["Bor", "Niğde"],
+    daireler: [
+      "Altunhisar Vergi Dairesi Müdürlüğü",
+      "Bor Vergi Dairesi Müdürlüğü",
+      "Niğde Vergi Dairesi Müdürlüğü",
+      "Ulukışla Vergi Dairesi Müdürlüğü",
+      "Çamardı Vergi Dairesi Müdürlüğü",
+      "Çiftlik Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ORDU ────────────────────────────────────────────────────────────────────
   {
     grup: "Ordu",
-    daireler: ["Altınordu", "Fatsa", "Perşembe", "Ünye"],
+    daireler: [
+      "Akkuş Vergi Dairesi Müdürlüğü",
+      "Altınordu Vergi Dairesi Müdürlüğü",
+      "Aybastı Vergi Dairesi Müdürlüğü",
+      "Boztepe Vergi Dairesi Müdürlüğü",
+      "Fatsa Vergi Dairesi Müdürlüğü",
+      "Gölköy Vergi Dairesi Müdürlüğü",
+      "Gürgentepe Vergi Dairesi Müdürlüğü",
+      "Kabataş Vergi Dairesi Müdürlüğü",
+      "Korgan Vergi Dairesi Müdürlüğü",
+      "Kumru Vergi Dairesi Müdürlüğü",
+      "Köprübaşı Vergi Dairesi Müdürlüğü",
+      "Perşembe Vergi Dairesi Müdürlüğü",
+      "Ulubey Vergi Dairesi Müdürlüğü",
+      "Çatalpınar Vergi Dairesi Müdürlüğü",
+      "Çaybaşı Vergi Dairesi Müdürlüğü",
+      "Ünye Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── OSMANİYE ────────────────────────────────────────────────────────────────
-  {
-    grup: "Osmaniye",
-    daireler: ["Kadirli", "Osmaniye"],
-  },
-
-  // ─── RİZE ────────────────────────────────────────────────────────────────────
   {
     grup: "Rize",
-    daireler: ["Çayeli", "Pazar", "Rize"],
+    daireler: [
+      "Ardeşen Vergi Dairesi Müdürlüğü",
+      "Fındıklı Vergi Dairesi Müdürlüğü",
+      "Kaçkar Vergi Dairesi Müdürlüğü",
+      "Pazar Vergi Dairesi Müdürlüğü",
+      "Rize Vergi Dairesi Müdürlüğü",
+      "Yeşilçay Vergi Dairesi Müdürlüğü",
+      "Çamlıhemşin Vergi Dairesi Müdürlüğü",
+      "Çayeli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── SAKARYA ─────────────────────────────────────────────────────────────────
   {
     grup: "Sakarya",
-    daireler: ["Adapazarı", "Akyazı", "Hendek", "Sapanca", "Serdivan"],
+    daireler: [
+      "Akyazı Vergi Dairesi Müdürlüğü",
+      "Ali Fuat Cebesoy Vergi Dairesi Müdürlüğü",
+      "Geyve Vergi Dairesi Müdürlüğü",
+      "Gümrükönü Vergi Dairesi Müdürlüğü",
+      "Hendek Vergi Dairesi Müdürlüğü",
+      "Karapürçek Vergi Dairesi Müdürlüğü",
+      "Karasu Vergi Dairesi Müdürlüğü",
+      "Kaynarca Vergi Dairesi Müdürlüğü",
+      "Kocaali Vergi Dairesi Müdürlüğü",
+      "Pamukova Vergi Dairesi Müdürlüğü",
+      "Sakarya İhtisas Vergi Dairesi Müdürlüğü",
+      "Sapanca Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── SAMSUN ──────────────────────────────────────────────────────────────────
   {
     grup: "Samsun",
-    daireler: ["Atakum", "Bafra", "Canik", "İlkadım", "Tekkeköy"],
+    daireler: [
+      "19 Mayıs Ballıca Vergi Dairesi Müdürlüğü",
+      "19 Mayıs Vergi Dairesi Müdürlüğü",
+      "Alaçam Vergi Dairesi Müdürlüğü",
+      "Asarcık Vergi Dairesi Müdürlüğü",
+      "Bafra Vergi Dairesi Müdürlüğü",
+      "Gaziler Vergi Dairesi Müdürlüğü",
+      "Havza Vergi Dairesi Müdürlüğü",
+      "Kavak Vergi Dairesi Müdürlüğü",
+      "Ladik Vergi Dairesi Müdürlüğü",
+      "Salıpazarı Vergi Dairesi Müdürlüğü",
+      "Terme Vergi Dairesi Müdürlüğü",
+      "Vezirköprü Vergi Dairesi Müdürlüğü",
+      "Yakakent Vergi Dairesi Müdürlüğü",
+      "Zafer Vergi Dairesi Müdürlüğü",
+      "Çarşamba Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── SİİRT ───────────────────────────────────────────────────────────────────
   {
     grup: "Siirt",
-    daireler: ["Siirt"],
+    daireler: [
+      "Baykan Vergi Dairesi Müdürlüğü",
+      "Deliklitaş Vergi Dairesi Müdürlüğü",
+      "Kurtalan Vergi Dairesi Müdürlüğü",
+      "Siirt Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── SİNOP ───────────────────────────────────────────────────────────────────
   {
     grup: "Sinop",
-    daireler: ["Boyabat", "Sinop"],
+    daireler: [
+      "Ayancık Vergi Dairesi Müdürlüğü",
+      "Boyabat Vergi Dairesi Müdürlüğü",
+      "Durağan Vergi Dairesi Müdürlüğü",
+      "Erfelek Vergi Dairesi Müdürlüğü",
+      "Gerze Vergi Dairesi Müdürlüğü",
+      "Sinop Vergi Dairesi Müdürlüğü",
+      "Türkeli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── SİVAS ───────────────────────────────────────────────────────────────────
   {
     grup: "Sivas",
-    daireler: ["Sivas", "Zara"],
+    daireler: [
+      "4 Eylül Vergi Dairesi Müdürlüğü",
+      "Divriği Vergi Dairesi Müdürlüğü",
+      "Gemerek Vergi Dairesi Müdürlüğü",
+      "Gürün Vergi Dairesi Müdürlüğü",
+      "Kale Vergi Dairesi Müdürlüğü",
+      "Kangal Vergi Dairesi Müdürlüğü",
+      "Site Vergi Dairesi Müdürlüğü",
+      "Suşehri Vergi Dairesi Müdürlüğü",
+      "Yıldızeli Vergi Dairesi Müdürlüğü",
+      "Zara Vergi Dairesi Müdürlüğü",
+      "Şarkışla Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ŞANLIURFA ───────────────────────────────────────────────────────────────
-  {
-    grup: "Şanlıurfa",
-    daireler: ["Birecik", "Eyyübiye", "Haliliye", "Karaköprü", "Siverek", "Viranşehir"],
-  },
-
-  // ─── ŞIRNAK ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Şırnak",
-    daireler: ["Cizre", "İdil", "Şırnak"],
-  },
-
-  // ─── TEKİRDAĞ ────────────────────────────────────────────────────────────────
   {
     grup: "Tekirdağ",
-    daireler: ["Çerkezköy", "Çorlu", "Ergene", "Malkara", "Süleymanpaşa"],
+    daireler: [
+      "Hayrabolu Vergi Dairesi Müdürlüğü",
+      "Kapaklı Vergi Dairesi Müdürlüğü",
+      "Malkara Vergi Dairesi Müdürlüğü",
+      "Marmaraereğlisi Vergi Dairesi Müdürlüğü",
+      "Muratlı Vergi Dairesi Müdürlüğü",
+      "Namık Kemal Vergi Dairesi Müdürlüğü",
+      "Saray Vergi Dairesi Müdürlüğü",
+      "Süleymanpaşa Vergi Dairesi Müdürlüğü",
+      "Çerkezköy Vergi Dairesi Müdürlüğü",
+      "Çorlu Vergi Dairesi Müdürlüğü",
+      "Çorlu İhtisas Vergi Dairesi Müdürlüğü",
+      "Şarköy Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── TOKAT ───────────────────────────────────────────────────────────────────
   {
     grup: "Tokat",
-    daireler: ["Niksar", "Tokat", "Turhal", "Zile"],
+    daireler: [
+      "Almus Vergi Dairesi Müdürlüğü",
+      "Erbaa Vergi Dairesi Müdürlüğü",
+      "Niksar Vergi Dairesi Müdürlüğü",
+      "Pazar Vergi Dairesi Müdürlüğü",
+      "Reşadiye Vergi Dairesi Müdürlüğü",
+      "Tokat Vergi Dairesi Müdürlüğü",
+      "Topçam Vergi Dairesi Müdürlüğü",
+      "Turhal Vergi Dairesi Müdürlüğü",
+      "Zile Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── TRABZON ─────────────────────────────────────────────────────────────────
   {
     grup: "Trabzon",
-    daireler: ["Akçaabat", "Of", "Ortahisar", "Trabzon"],
+    daireler: [
+      "Akçaabat Vergi Dairesi Müdürlüğü",
+      "Araklı Vergi Dairesi Müdürlüğü",
+      "Arsin Vergi Dairesi Müdürlüğü",
+      "Beşikdüzü Vergi Dairesi Müdürlüğü",
+      "Düzköy Vergi Dairesi Müdürlüğü",
+      "Hızırbey Vergi Dairesi Müdürlüğü",
+      "Karadeniz Vergi Dairesi Müdürlüğü",
+      "Maçka Vergi Dairesi Müdürlüğü",
+      "Of Vergi Dairesi Müdürlüğü",
+      "Ortahisar Vergi Dairesi Müdürlüğü",
+      "Sürmene Vergi Dairesi Müdürlüğü",
+      "Tonya Vergi Dairesi Müdürlüğü",
+      "Vakfıkebir Vergi Dairesi Müdürlüğü",
+      "Yomra Vergi Dairesi Müdürlüğü",
+      "Çarşıbaşı Vergi Dairesi Müdürlüğü",
+      "Çaykara Vergi Dairesi Müdürlüğü",
+      "Şalpazarı Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── TUNCELİ ─────────────────────────────────────────────────────────────────
   {
     grup: "Tunceli",
-    daireler: ["Tunceli"],
+    daireler: [
+      "Munzur Vergi Dairesi Müdürlüğü",
+      "Tunceli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── UŞAK ────────────────────────────────────────────────────────────────────
+  {
+    grup: "Şanlıurfa",
+    daireler: [
+      "Akçakale Vergi Dairesi Müdürlüğü",
+      "Birecik Vergi Dairesi Müdürlüğü",
+      "Bozova Vergi Dairesi Müdürlüğü",
+      "Ceylanpınar Vergi Dairesi Müdürlüğü",
+      "Göbeklitepe Vergi Dairesi Müdürlüğü",
+      "Halfeti Vergi Dairesi Müdürlüğü",
+      "Harran Vergi Dairesi Müdürlüğü",
+      "Hilvan Vergi Dairesi Müdürlüğü",
+      "Siverek Vergi Dairesi Müdürlüğü",
+      "Suruç Vergi Dairesi Müdürlüğü",
+      "Topçu Meydanı Vergi Dairesi Müdürlüğü",
+      "Viranşehir Vergi Dairesi Müdürlüğü",
+      "Şehitlik Vergi Dairesi Müdürlüğü",
+    ],
+  },
   {
     grup: "Uşak",
-    daireler: ["Banaz", "Uşak"],
+    daireler: [
+      "Banaz Vergi Dairesi Müdürlüğü",
+      "Eşme Vergi Dairesi Müdürlüğü",
+      "Karahallı Vergi Dairesi Müdürlüğü",
+      "Sivaslı Vergi Dairesi Müdürlüğü",
+      "Ulubey Vergi Dairesi Müdürlüğü",
+      "Uşak Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── VAN ─────────────────────────────────────────────────────────────────────
   {
     grup: "Van",
-    daireler: ["Edremit", "Erciş", "İpekyolu", "Tuşba"],
+    daireler: [
+      "Akdamar Vergi Dairesi Müdürlüğü",
+      "Başkale Vergi Dairesi Müdürlüğü",
+      "Edremit Vergi Dairesi Müdürlüğü",
+      "Erciş Vergi Dairesi Müdürlüğü",
+      "Gevaş Vergi Dairesi Müdürlüğü",
+      "Gürpınar Vergi Dairesi Müdürlüğü",
+      "Muradiye Vergi Dairesi Müdürlüğü",
+      "Van Vergi Dairesi Müdürlüğü",
+      "Çaldıran Vergi Dairesi Müdürlüğü",
+      "Özalp Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── YALOVA ──────────────────────────────────────────────────────────────────
-  {
-    grup: "Yalova",
-    daireler: ["Altınova", "Çınarcık", "Yalova"],
-  },
-
-  // ─── YOZGAT ──────────────────────────────────────────────────────────────────
   {
     grup: "Yozgat",
-    daireler: ["Akdağmadeni", "Boğazlıyan", "Sorgun", "Yozgat"],
+    daireler: [
+      "Akdağmadeni Vergi Dairesi Müdürlüğü",
+      "Aydıncık Vergi Dairesi Müdürlüğü",
+      "Boğazlıyan Vergi Dairesi Müdürlüğü",
+      "Saraykent Vergi Dairesi Müdürlüğü",
+      "Sarıkaya Vergi Dairesi Müdürlüğü",
+      "Sorgun Vergi Dairesi Müdürlüğü",
+      "Yerköy Vergi Dairesi Müdürlüğü",
+      "Yozgat Vergi Dairesi Müdürlüğü",
+      "Çamlık Vergi Dairesi Müdürlüğü",
+      "Çayıralan Vergi Dairesi Müdürlüğü",
+      "Çekerek Vergi Dairesi Müdürlüğü",
+      "Şefaatli Vergi Dairesi Müdürlüğü",
+    ],
   },
-
-  // ─── ZONGULDAK ───────────────────────────────────────────────────────────────
   {
     grup: "Zonguldak",
-    daireler: ["Alaplı", "Çaycuma", "Devrek", "Kdz. Ereğli", "Kozlu", "Zonguldak"],
+    daireler: [
+      "Alaplı Vergi Dairesi Müdürlüğü",
+      "Devrek Vergi Dairesi Müdürlüğü",
+      "Ereğli Vergi Dairesi Müdürlüğü",
+      "Gökçebey Vergi Dairesi Müdürlüğü",
+      "Kara Elmas Vergi Dairesi Müdürlüğü",
+      "Uzunmehmet Vergi Dairesi Müdürlüğü",
+      "Çaycuma Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Aksaray",
+    daireler: [
+      "Aksaray Vergi Dairesi Müdürlüğü",
+      "Ağaçören Vergi Dairesi Müdürlüğü",
+      "Eskil Vergi Dairesi Müdürlüğü",
+      "Gülağaç Vergi Dairesi Müdürlüğü",
+      "Güzelyurt Vergi Dairesi Müdürlüğü",
+      "Ortaköy Vergi Dairesi Müdürlüğü",
+      "Sultanhanı Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Bayburt",
+    daireler: [
+      "Bayburt Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Karaman",
+    daireler: [
+      "Ermenek Vergi Dairesi Müdürlüğü",
+      "Karaman Vergi Dairesi Müdürlüğü",
+      "Larende Vergi Dairesi Müdürlüğü",
+      "Sarıveliler Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Kırıkkale",
+    daireler: [
+      "Delice Vergi Dairesi Müdürlüğü",
+      "Irmak Vergi Dairesi Müdürlüğü",
+      "Kaletepe Vergi Dairesi Müdürlüğü",
+      "Keskin Vergi Dairesi Müdürlüğü",
+      "Kırıkkale Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Batman",
+    daireler: [
+      "Batman Vergi Dairesi Müdürlüğü",
+      "Kozluk Vergi Dairesi Müdürlüğü",
+      "Raman Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Şırnak",
+    daireler: [
+      "Cizre Vergi Dairesi Müdürlüğü",
+      "Silopi Vergi Dairesi Müdürlüğü",
+      "Uludere Vergi Dairesi Müdürlüğü",
+      "İdil Vergi Dairesi Müdürlüğü",
+      "Şırnak Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Bartın",
+    daireler: [
+      "Amasra Vergi Dairesi Müdürlüğü",
+      "Bartın Vergi Dairesi Müdürlüğü",
+      "Ulus Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Ardahan",
+    daireler: [
+      "Ardahan Vergi Dairesi Müdürlüğü",
+      "Göle Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Iğdır",
+    daireler: [
+      "Aras Vergi Dairesi Müdürlüğü",
+      "Iğdır Vergi Dairesi Müdürlüğü",
+      "Tuzluca Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Yalova",
+    daireler: [
+      "Altınova Vergi Dairesi Müdürlüğü",
+      "Armutlu Vergi Dairesi Müdürlüğü",
+      "Yalova Vergi Dairesi Müdürlüğü",
+      "Çınarcık Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Karabük",
+    daireler: [
+      "Demirkent Vergi Dairesi Müdürlüğü",
+      "Eskipazar Vergi Dairesi Müdürlüğü",
+      "Karabük Vergi Dairesi Müdürlüğü",
+      "Safranbolu Vergi Dairesi Müdürlüğü",
+      "Yenice Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Kilis",
+    daireler: [
+      "Kilis Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Osmaniye",
+    daireler: [
+      "Amanos Vergi Dairesi Müdürlüğü",
+      "Bahçe Vergi Dairesi Müdürlüğü",
+      "Düziçi Vergi Dairesi Müdürlüğü",
+      "Kadirli Vergi Dairesi Müdürlüğü",
+      "Osmaniye Vergi Dairesi Müdürlüğü",
+      "Toprakkale Vergi Dairesi Müdürlüğü",
+    ],
+  },
+  {
+    grup: "Düzce",
+    daireler: [
+      "Akçakoca Vergi Dairesi Müdürlüğü",
+      "Cumayeri Vergi Dairesi Müdürlüğü",
+      "Düzce Vergi Dairesi Müdürlüğü",
+      "Gölyaka Vergi Dairesi Müdürlüğü",
+      "Gümüşova Vergi Dairesi Müdürlüğü",
+      "Kaynaşlı Vergi Dairesi Müdürlüğü",
+      "Yığılca Vergi Dairesi Müdürlüğü",
+      "Çilimli Vergi Dairesi Müdürlüğü",
+    ],
   },
 ];
 

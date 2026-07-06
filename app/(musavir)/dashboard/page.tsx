@@ -16,6 +16,8 @@ import {
   Sparkles,
   Send,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -126,6 +128,7 @@ export default function DashboardPage() {
   const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
   const [gazeteHata, setGazeteHata] = useState(false);
+  const [gazeteAcik, setGazeteAcik] = useState(false);
   const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
   const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, tahakkuklar, kdv2, resmiGazeteOzetleri, gibSyncLogs, gonderimler, loading } = useAppData();
   const { user } = useAuth();
@@ -313,8 +316,8 @@ export default function DashboardPage() {
     );
     return [...gazeteDynamic, ...firestoreFiltered]
       .sort((a, b) => b.yayinTarihi.localeCompare(a.yayinTarihi))
-      .filter((item) => !dismissedGazete.includes(item.id))
-      .slice(0, 5);
+      .filter((item) => !dismissedGazete.includes(item.id) && item.maliMusavirEtkiPuani >= 50)
+      .slice(0, 4);
   }, [dismissedGazete, resmiGazeteOzetleri, gazeteDynamic]);
 
   const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
@@ -415,25 +418,44 @@ export default function DashboardPage() {
         metrics={metrics}
       />
 
-      {/* Hızlı Erişim — mini özet + doğrudan ilgili sayfaya giden buton */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
+      {/* Hızlı Erişim — mini özet + doğrudan ilgili sayfaya giden buton.
+          Kartlar eşit yükseklikte (h-full) ve butonlar alt hizada (mt-auto) durur. */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="flex flex-col h-full">
           <div className="flex items-center gap-2 text-slate-800">
             <Users className="h-4 w-4 text-blue-600" />
             <h3 className="text-sm font-semibold">Müşteri Portföyü</h3>
           </div>
           <p className="mt-2 text-2xl font-bold text-slate-900">{aktifMusteriler.length}</p>
           <p className="text-xs text-slate-500">{musteriler.length} toplam kayıttan aktif</p>
-          {kritikRiskler.length > 0 && (
-            <p className="mt-1 text-xs font-medium text-red-600">Riskli: {kritikRiskler.length}</p>
-          )}
-          <Link href="/musteriler" className="mt-3 block">
+          <Link href="/musteriler" className="mt-auto pt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Müşterilere Git
             </Button>
           </Link>
         </Card>
-        <Card>
+        <Card className={`flex flex-col h-full ${kritikRiskler.length > 0 ? "border-red-200 bg-red-50" : ""}`}>
+          <div className="flex items-center gap-2 text-slate-800">
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+            <h3 className="text-sm font-semibold">Risk Durumu</h3>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-900">{kritikRiskler.length}</p>
+          <p className="text-xs text-slate-500">Kritik &amp; yüksek riskli müşteri</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <Badge variant="danger" size="sm">
+              Kritik: {riskListesi.filter((r) => r.seviye === "kritik").length}
+            </Badge>
+            <Badge variant="warning" size="sm">
+              Yüksek: {riskListesi.filter((r) => r.seviye === "yuksek").length}
+            </Badge>
+          </div>
+          <Link href="/risk" className="mt-auto pt-3 block">
+            <Button variant="outline" size="sm" className="w-full justify-center">
+              Risk Ekranına Git
+            </Button>
+          </Link>
+        </Card>
+        <Card className="flex flex-col h-full">
           <div className="flex items-center gap-2 text-slate-800">
             <Bell className="h-4 w-4 text-amber-500" />
             <h3 className="text-sm font-semibold">Tebligat Durumu</h3>
@@ -451,13 +473,13 @@ export default function DashboardPage() {
               İşlendi: {tebligatlar.filter((t) => t.durum === "islendi").length}
             </Badge>
           </div>
-          <Link href="/tebligatlar" className="mt-3 block">
+          <Link href="/tebligatlar" className="mt-auto pt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Tebligatlara Git
             </Button>
           </Link>
         </Card>
-        <Card>
+        <Card className="flex flex-col h-full">
           <div className="flex items-center gap-2 text-slate-800">
             <Send className="h-4 w-4 text-emerald-600" />
             <h3 className="text-sm font-semibold">Onay Bekleyen İşlemler</h3>
@@ -471,7 +493,7 @@ export default function DashboardPage() {
               Başarısız: {gonderimler.filter((g) => g.durum === "basarisiz").length}
             </p>
           )}
-          <Link href="/onay-bekleyenler" className="mt-3 block">
+          <Link href="/onay-bekleyenler" className="mt-auto pt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Onay Bekleyenlere Git
             </Button>
@@ -484,55 +506,88 @@ export default function DashboardPage() {
         <MiniTakvim olaylar={takvimOlaylari} />
       </div>
 
-      {(gazeteYukleniyor || visibleGazete.length > 0) && (
-        <div className="mb-6 space-y-3">
-          {gazeteYukleniyor && visibleGazete.length === 0 && (
-            <InfoBanner>
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 flex-shrink-0 animate-pulse text-blue-500" />
-                Bugünkü Resmi Gazete özeti hazırlanıyor...
-              </span>
-            </InfoBanner>
-          )}
-          {visibleGazete.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-card">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Sparkles className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                    <p className="text-sm font-semibold text-blue-900">Resmi Gazete AI Özeti</p>
-                    {item.aksiyonGerekiyor && (
-                      <Badge variant="warning">ACİL</Badge>
-                    )}
-                    <Badge variant="info">{item.maliMusavirEtkiPuani}/100</Badge>
-                  </div>
-                  <p className="mt-2 text-sm font-medium text-slate-900">{item.baslik}</p>
-                  <p className="mt-1 text-xs text-slate-600">{item.aiOzet}</p>
-                  <p className="mt-1 text-xs text-slate-500">{item.maliMusavirEtkisi}</p>
-                  <a href={item.kaynakLink} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-medium text-blue-700 hover:text-blue-800">
-                    Resmi metni aç →
-                  </a>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 flex-shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+      {/* Resmi Gazete — mali müşavirleri ilgilendiren maddeler (etki puanı ≥50),
+          kompakt accordion panel; varsayılan kapalı gelir. */}
+      {(gazeteYukleniyor && visibleGazete.length === 0) ? (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-blue-700">
+          <Sparkles className="h-3 w-3 flex-shrink-0 animate-pulse" />
+          Resmi Gazete özeti yükleniyor...
+        </div>
+      ) : (!gazeteYukleniyor && gazeteHata && visibleGazete.length === 0) ? (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs text-amber-700">
+          Resmi Gazete özeti şu an alınamadı. Daha sonra tekrar deneyin.
+        </div>
+      ) : visibleGazete.length > 0 ? (
+        <div className="mb-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          {/* Başlık / toggle satırı */}
+          <button
+            type="button"
+            onClick={() => setGazeteAcik((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+            aria-expanded={gazeteAcik}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+              <span className="text-xs font-semibold text-slate-700">Resmi Gazete</span>
+              <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">Mali müşavire ilgili</span>
+              <Badge variant="info" size="sm">{visibleGazete.length}</Badge>
+              {visibleGazete.some((i) => i.aksiyonGerekiyor) && (
+                <Badge variant="danger" size="sm">
+                  {visibleGazete.filter((i) => i.aksiyonGerekiyor).length} acil
+                </Badge>
+              )}
             </div>
-          ))}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <a
+                href="https://www.resmigazete.gov.tr"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+              >
+                resmigazete.gov.tr ↗
+              </a>
+              {gazeteAcik ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+            </div>
+          </button>
+          {/* Madde listesi */}
+          {gazeteAcik && (
+            <ul className="divide-y divide-slate-100 border-t border-slate-100">
+              {visibleGazete.map((item) => (
+                <li key={item.id} className="flex items-start gap-2 px-3 py-2 hover:bg-slate-50 group">
+                  {item.aksiyonGerekiyor && (
+                    <Badge variant="danger" size="sm" className="mt-0.5 flex-shrink-0">Acil</Badge>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={item.kaynakLink || "https://www.resmigazete.gov.tr"}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-[11px] font-semibold text-slate-700 hover:text-blue-600 leading-snug line-clamp-1 transition-colors"
+                      title={item.baslik}
+                    >
+                      {item.baslik} ↗
+                    </a>
+                    {item.aiOzet && (
+                      <p className="mt-0.5 text-[10px] text-slate-500 leading-relaxed line-clamp-2">
+                        {item.aiOzet}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
+                    className="flex-shrink-0 rounded p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-500 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Gizle"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-
-      {!gazeteYukleniyor && gazeteHata && visibleGazete.length === 0 && (
-        <div className="mb-6">
-          <InfoBanner variant="warning">
-            Resmi Gazete özeti şu an alınamadı — kaynak siteye (resmigazete.gov.tr) erişilemiyor olabilir. Sayfayı daha sonra yenileyerek tekrar deneyebilirsiniz.
-          </InfoBanner>
-        </div>
-      )}
+      ) : null}
 
       {/* Grafik satırı */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">

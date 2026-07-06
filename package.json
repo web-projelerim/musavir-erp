@@ -12,8 +12,10 @@
     "build": "node scripts/build.js",
     "start": "node scripts/start.js",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify.js",
     "seed:firebase": "npx tsx scripts/seed-firebase.ts",
-    "postinstall": "node scripts/sync-pdf-worker.js",
+    "postinstall": "node scripts/sync-pdf-worker.js && node scripts/install-hooks.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "vitest run --config vitest.rules.config.ts"

@@ -1,0 +1,19 @@
+#!/bin/sh
+# Deploy öncesi kapı: kırık bir build Hostinger'a (push = deploy) ulaşmadan durdurulur.
+# npm run verify => tsc --noEmit + next build. İkisi de geçmezse push iptal.
+#
+# Acil durumda atlamak için: git push --no-verify (önerilmez).
+# Kurulum: git config core.hooksPath .githooks  (repo'da bir kez; aşağıdaki not).
+
+echo "→ pre-push: deploy öncesi doğrulama çalışıyor (tsc + build)..."
+
+npm run verify
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "✖ Doğrulama başarısız — push iptal edildi. Hataları düzeltip tekrar deneyin."
+  echo "  (Gerçekten gerekliyse: git push --no-verify)"
+  exit 1
+fi
+
+echo "✔ Doğrulama geçti — push devam ediyor."
+exit 0

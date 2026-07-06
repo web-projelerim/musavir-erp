@@ -1,0 +1,2 @@
+# Git hook'ları her zaman LF olmalı — CRLF olursa "/bin/sh^M: bad interpreter" hatası verir.
+.githooks/** text eol=lf

@@ -68,3 +68,31 @@ jobs:
         run: |
           firebase emulators:exec --only firestore --project demo-musavir \
             "npm run test:rules"
+
+  # ── Deploy kapısı: yalnızca CI (quality + rules-test) YEŞİL ise Hostinger'a
+  #    deploy'u tetikler. main'e push'ta çalışır; PR'larda çalışmaz.
+  #    Kurulum (bir kez):
+  #      1) hPanel → Git → "push'ta otomatik deploy"u KAPAT.
+  #      2) hPanel'den deploy webhook (deploy hook) URL'sini al.
+  #      3) GitHub → repo Settings → Secrets and variables → Actions →
+  #         New secret: HOSTINGER_DEPLOY_HOOK = <webhook URL>.
+  #    Secret tanımlı değilken bu iş güvenle atlanır (Hostinger auto-deploy'a
+  #    dokunulmaz), böylece kurulumdan önce yanlış alarm vermez.
+  deploy:
+    needs: [quality, rules-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hostinger deploy'u tetikle (yalnızca CI yeşilse)
+        env:
+          HOOK: ${{ secrets.HOSTINGER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::HOSTINGER_DEPLOY_HOOK secret tanımlı değil — webhook deploy'u atlandı."
+            echo "Kurulum için ci.yml'deki 'Deploy kapısı' yorumundaki adımları izleyin."
+            exit 0
+          fi
+          echo "CI yeşil — Hostinger deploy webhook'u tetikleniyor..."
+          curl -fsS -X POST "$HOOK"
+          echo ""
+          echo "✔ Deploy tetiklendi."

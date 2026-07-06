@@ -123,25 +123,37 @@ function maliMuşavirlikIlgili(madde: RSSMadde): boolean {
   return MALI_ANAHTAR_KELIMELER.some((kw) => metin.includes(kw));
 }
 
+/** Gemini'nin döndürdüğü ham madde — link/tarih GÜVENİLMEZ, kaynakNo ile eşlenir. */
+interface GeminiHamMadde {
+  kaynakNo: number;
+  baslik: string;
+  aiOzet: string;
+  maliMusavirEtkisi: string;
+  aksiyonGerekiyor: boolean;
+  maliMusavirEtkiPuani: number;
+}
+
 async function geminiOzetle(maddeler: RSSMadde[], apiKey: string): Promise<GazeteOzetMadde[]> {
-  const icerik = maddeler
-    .map((m, i) => `${i + 1}. Başlık: ${m.baslik}\nAçıklama: ${m.aciklama}\nLink: ${m.link}\nTarih: ${m.tarih}`)
-    .join("\n\n");
+  const icerik = maddeler.map((m, i) => `${i + 1}. ${m.baslik}`).join("\n");
 
-  const prompt = `Aşağıdaki Resmi Gazete maddelerini bir mali müşavir için analiz et.
-Her madde için aşağıdaki alanları doldur:
-- baslik: Konuyu tek cümleyle özetle (Türkçe, sade)
-- aiOzet: Maddenin kısa özeti (1-2 cümle)
-- maliMusavirEtkisi: Mali müşavirler için pratik etkisi (1-2 cümle)
-- aksiyonGerekiyor: true (acil aksiyon gerekiyorsa) veya false
-- maliMusavirEtkiPuani: 0-100 arası etki puanı (100 = çok kritik, 0 = ilgisiz)
-- kaynakLink: Verilen link olduğu gibi
-- yayinTarihi: Verilen tarih olduğu gibi
+  const prompt = `Sen bir Türk mali müşavir (SMMM/YMM) asistanısın. Aşağıda bugünkü Resmi Gazete'nin numaralı madde başlıkları var.
 
-Yanıtı SADECE geçerli bir JSON dizisi olarak ver, başka hiçbir açıklama ekleme:
-[{"baslik":"...","aiOzet":"...","maliMusavirEtkisi":"...","aksiyonGerekiyor":false,"maliMusavirEtkiPuani":50,"kaynakLink":"...","yayinTarihi":"..."}]
+SADECE mali müşavirleri doğrudan ilgilendiren maddeleri seç: vergi, beyanname, KDV, muhtasar, gelir/kurumlar vergisi, SGK/sosyal güvenlik, teşvik, e-belge (e-fatura/e-defter/e-arşiv), muhasebe standartları, mükellef yükümlülükleri, gümrük/dış ticaret mevzuatı, asgari ücret/asgari geçim.
 
-Maddeler:
+Mali müşavirle ilgisi olmayan maddeleri (atama/görevden alma kararları, ilgisiz yönetmelikler, kişisel/kurumsal isim kararları, alakasız uluslararası anlaşmalar vb.) TAMAMEN ATLA — listeye HİÇ ekleme.
+
+Seçtiğin her madde için yalnızca şu alanları doldur:
+- kaynakNo: Maddenin başındaki numara (aynen, değiştirme)
+- baslik: Kısa, sade Türkçe başlık
+- aiOzet: EN FAZLA 1-2 cümlelik öz ve net özet
+- maliMusavirEtkisi: Mali müşavire pratik etkisi, tek cümle
+- aksiyonGerekiyor: Acil aksiyon gerekiyorsa true, değilse false
+- maliMusavirEtkiPuani: 30-100 arası etki puanı (100 = çok kritik)
+
+Yanıtı SADECE geçerli JSON dizisi olarak ver, başka hiçbir açıklama ekleme. İlgili madde yoksa boş dizi [] döndür:
+[{"kaynakNo":1,"baslik":"...","aiOzet":"...","maliMusavirEtkisi":"...","aksiyonGerekiyor":false,"maliMusavirEtkiPuani":50}]
+
+Madde başlıkları:
 ${icerik}`;
 
   const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
@@ -168,11 +180,31 @@ ${icerik}`;
   const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
   const jsonMatch = text.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return [];
+  let ham: GeminiHamMadde[];
   try {
-    return JSON.parse(jsonMatch[0]) as GazeteOzetMadde[];
+    ham = JSON.parse(jsonMatch[0]) as GeminiHamMadde[];
   } catch {
     return [];
   }
+
+  // Link ve tarih Gemini'den DEĞİL, kaynak maddeden alınır — model URL uydurmasın,
+  // yönlendirmeler her zaman gerçek Resmi Gazete sayfasına gitsin.
+  return ham
+    .map((h): GazeteOzetMadde | null => {
+      const kaynak = maddeler[h.kaynakNo - 1];
+      if (!kaynak) return null;
+      const puan = typeof h.maliMusavirEtkiPuani === "number" ? h.maliMusavirEtkiPuani : 40;
+      return {
+        baslik: h.baslik?.trim() || kaynak.baslik,
+        aiOzet: h.aiOzet?.trim() || generateHeuristicSummary(kaynak.baslik),
+        maliMusavirEtkisi: h.maliMusavirEtkisi?.trim() ?? "",
+        aksiyonGerekiyor: !!h.aksiyonGerekiyor,
+        maliMusavirEtkiPuani: Math.max(30, Math.min(100, puan)),
+        kaynakLink: kaynak.link,
+        yayinTarihi: kaynak.tarih,
+      };
+    })
+    .filter((m): m is GazeteOzetMadde => m !== null);
 }
 
 function generateHeuristicSummary(title: string): string {
@@ -213,19 +245,11 @@ export async function POST(req: NextRequest) {
     const ilgiliMaddeler = tumMaddeler.filter(maliMuşavirlikIlgili);
 
     if (ilgiliMaddeler.length === 0) {
-      // Mali müşavirlik filtresi eşleşmedi — tüm maddelerin ilk 5'ini göster
-      const sonMaddeler: GazeteOzetMadde[] = tumMaddeler.slice(0, 5).map((m) => ({
-        baslik: m.baslik,
-        aiOzet: m.aciklama || "Detay için kaynak linke tıklayın.",
-        maliMusavirEtkisi: "",
-        aksiyonGerekiyor: false,
-        maliMusavirEtkiPuani: 10,
-        kaynakLink: m.link,
-        yayinTarihi: m.tarih,
-      }));
+      // Mali müşavirlikle ilgili madde yok — ilgisiz maddeleri panele taşımayız.
+      // İstemci boş listeyi sessizce yutar (panel gösterilmez).
       return NextResponse.json({
         ok: true,
-        maddeler: sonMaddeler,
+        maddeler: [],
         ilgiliMaddeSayisi: 0,
         toplamMaddeSayisi: tumMaddeler.length,
         tarih: new Date().toISOString(),

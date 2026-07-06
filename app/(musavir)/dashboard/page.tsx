@@ -128,7 +128,7 @@ export default function DashboardPage() {
   const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
   const [gazeteHata, setGazeteHata] = useState(false);
-  const [gazeteAcik, setGazeteAcik] = useState(false);
+  const [gazeteAcik, setGazeteAcik] = useState(true);
   const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
   const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, tahakkuklar, kdv2, resmiGazeteOzetleri, gibSyncLogs, gonderimler, loading } = useAppData();
   const { user } = useAuth();
@@ -506,8 +506,9 @@ export default function DashboardPage() {
         <MiniTakvim olaylar={takvimOlaylari} />
       </div>
 
-      {/* Resmi Gazete — mali müşavirleri ilgilendiren maddeler (etki puanı ≥50),
-          kompakt accordion panel; varsayılan kapalı gelir. */}
+      {/* Resmi Gazete — yalnızca mali müşavirleri ilgilendiren maddeler (etki puanı ≥30),
+          1-2 cümlelik özet. Kompakt accordion; varsayılan açık gelir, satırlar tek satır.
+          Başlığa tıklama ilgili Resmi Gazete sayfasını yeni sekmede açar. */}
       {(gazeteYukleniyor && visibleGazete.length === 0) ? (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-blue-700">
           <Sparkles className="h-3 w-3 flex-shrink-0 animate-pulse" />
@@ -558,22 +559,22 @@ export default function DashboardPage() {
                   {item.aksiyonGerekiyor && (
                     <Badge variant="danger" size="sm" className="mt-0.5 flex-shrink-0">Acil</Badge>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <a
-                      href={item.kaynakLink || "https://www.resmigazete.gov.tr"}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="text-[11px] font-semibold text-slate-700 hover:text-blue-600 leading-snug line-clamp-1 transition-colors"
-                      title={item.baslik}
-                    >
+                  <a
+                    href={item.kaynakLink || "https://www.resmigazete.gov.tr"}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="min-w-0 flex-1 block"
+                    title={item.aiOzet || item.baslik}
+                  >
+                    <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 leading-snug line-clamp-1 transition-colors">
                       {item.baslik} ↗
-                    </a>
+                    </span>
                     {item.aiOzet && (
-                      <p className="mt-0.5 text-[10px] text-slate-500 leading-relaxed line-clamp-2">
+                      <span className="mt-0.5 block text-[10px] text-slate-500 leading-snug line-clamp-1">
                         {item.aiOzet}
-                      </p>
+                      </span>
                     )}
-                  </div>
+                  </a>
                   <button
                     type="button"
                     onClick={() => setDismissedGazete((prev) => [...prev, item.id])}

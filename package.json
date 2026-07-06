@@ -2,12 +2,15 @@
   "name": "musavir-erp",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <25"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:3100": "next dev -p 3100",
     "dev:clean": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\" && next dev -p 3100",
-    "build": "next build",
-    "start": "next start",
+    "build": "node scripts/build.js",
+    "start": "node scripts/start.js",
     "lint": "next lint",
     "seed:firebase": "npx tsx scripts/seed-firebase.ts",
     "postinstall": "node scripts/sync-pdf-worker.js",

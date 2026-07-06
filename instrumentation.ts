@@ -17,12 +17,8 @@
 type CronSchedule = (expr: string, cb: () => void | Promise<void>) => unknown;
 type CronValidate = (expr: string) => boolean;
 
-export async function register() {
-  // Sadece Node.js çalışma ortamında çalıştır (Edge runtime'da değil)
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-
+async function cronZamanlayiciyiBaslat() {
   try {
-    // node-cron v4'te named export kullanılır (default export yok)
     const cronModule = await import("node-cron");
     const cronSchedule = (cronModule.schedule ??
       (cronModule as unknown as { default: typeof cronModule }).default?.schedule) as CronSchedule | undefined;
@@ -108,4 +104,21 @@ export async function register() {
     // Cron başlatma hatası sunucuyu çökertmemeli — sadece logla
     console.error("[Cron] Zamanlayıcı başlatılamadı (sunucu etkilenmedi):", err);
   }
+}
+
+export async function register() {
+  // Sadece Node.js çalışma ortamında çalıştır (Edge runtime'da değil)
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  if (process.env.ENABLE_CRON === "false") {
+    console.info("[Cron] ENABLE_CRON=false — zamanlayıcı devre dışı");
+    return;
+  }
+
+  // Hostinger: sunucu önce dinlemeye başlasın, ağır modüller sonra yüklensin (503 önleme)
+  const gecikmeMs = Number(process.env.CRON_START_DELAY_MS ?? "15000");
+  setTimeout(() => {
+    void cronZamanlayiciyiBaslat();
+  }, gecikmeMs);
+  console.info(`[Cron] Zamanlayıcı ${gecikmeMs}ms sonra başlatılacak`);
 }

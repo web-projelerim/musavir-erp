@@ -1,13 +1,19 @@
 /**
  * POST /api/resmi-gazete/ozetle
  *
- * Resmi Gazete RSS'ini çeker, mali müşavirlikle ilgili maddeleri
- * Gemini API ile özetler ve yapılandırılmış JSON döner.
+ * Resmi Gazete'nin günlük fihristini (eskiler/YYYY/MM/YYYYMMDD.htm) çeker,
+ * mali müşavirlikle ilgili maddeleri Gemini API ile özetler ve
+ * yapılandırılmış JSON döner.
+ *
+ * Not: resmigazete.gov.tr'nin eski RSS beslemesi (/rss/rss.xml) 404 döndüğü için
+ * artık kullanılmıyor. Bunun yerine her gün yayımlanan HTML fihrist sayfası
+ * (windows-1254 kodlu) ayrıştırılıyor; gazete yayımlanmayan günlerde (hafta sonu/
+ * resmî tatil) en yakın önceki yayına düşülür.
  *
  * Gerekli env: GEMINI_API_KEY (Google AI Studio API anahtarı)
  * Opsiyonel env: CRON_SECRET (cron doğrulama için)
  *
- * GEMINI_API_KEY yoksa 501 döner (stub mod).
+ * GEMINI_API_KEY yoksa AI özeti olmadan ham başlıklar döner (stub mod).
  *
  * Vercel Cron veya manuel tetikleyici ile çağrılabilir.
  */
@@ -18,7 +24,7 @@ import { requireStaff } from "@/lib/firebase/verifyToken";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const RSS_URL = "https://www.resmigazete.gov.tr/rss/rss.xml";
+const RG_BASE = "https://www.resmigazete.gov.tr";
 const GEMINI_MODEL = "gemini-2.0-flash";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -47,36 +53,69 @@ interface GazeteOzetMadde {
   yayinTarihi: string;
 }
 
-function parseTarih(tarihStr: string): string {
-  try {
-    return new Date(tarihStr).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
+/** Verilen tarih için günlük fihrist URL'sini ve çözümleme bilgisini üretir. */
+function fihristBilgisi(d: Date): { url: string; base: string; prefix: string } {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const prefix = `${yyyy}${mm}${dd}`;
+  const base = `${RG_BASE}/eskiler/${yyyy}/${mm}/`;
+  return { url: `${base}${prefix}.htm`, base, prefix };
 }
 
-function extractText(xml: string, tag: string): string {
-  const match = xml.match(new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></${tag}>|<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
-  if (!match) return "";
-  return (match[1] ?? match[2] ?? "").trim();
-}
-
-function parseRSSItems(xml: string): RSSMadde[] {
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+/** Günlük fihrist HTML'ini ayrıştırıp o günün maddelerini çıkarır. */
+function parseFihrist(html: string, base: string, prefix: string, isoTarih: string): RSSMadde[] {
   const maddeler: RSSMadde[] = [];
+  const gorulen = new Set<string>();
+  // Örn: <a href="20260706-1.htm">...başlık...</a> — sadece o güne ait dosyalar.
+  const re = new RegExp(`href="(${prefix}[^"]*\\.(?:htm|pdf))"[^>]*>([\\s\\S]*?)</a>`, "gi");
   let match;
-
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const itemXml = match[1];
-    maddeler.push({
-      baslik: extractText(itemXml, "title"),
-      link: extractText(itemXml, "link"),
-      tarih: parseTarih(extractText(itemXml, "pubDate")),
-      aciklama: extractText(itemXml, "description"),
-    });
+  while ((match = re.exec(html)) !== null) {
+    const href = match[1];
+    if (gorulen.has(href)) continue;
+    gorulen.add(href);
+    let baslik = match[2]
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&[a-z]+;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    // Fihristteki madde işareti (–– vb.) ve baştaki noktalama temizlenir.
+    baslik = baslik.replace(/^[^0-9A-Za-zÇĞİÖŞÜçğıöşü]+/, "").trim();
+    if (baslik.length < 8) continue;
+    maddeler.push({ baslik, link: `${base}${href}`, tarih: isoTarih, aciklama: "" });
   }
-
   return maddeler;
+}
+
+/**
+ * Bugünden başlayarak en fazla 7 gün geriye giderek yayımlanmış
+ * en yakın günlük fihristi çeker. Gazete yayımlanmayan günler (hafta sonu/
+ * tatil) 404 döndüğü için atlanır.
+ */
+async function fetchGunlukFihrist(): Promise<{ maddeler: RSSMadde[]; tarih: string }> {
+  const bugun = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(bugun);
+    d.setDate(d.getDate() - i);
+    const { url, base, prefix } = fihristBilgisi(d);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        next: { revalidate: 0 },
+        signal: AbortSignal.timeout(15_000),
+        headers: { "user-agent": "Mozilla/5.0" },
+      });
+    } catch {
+      continue; // ağ hatası — önceki güne düş
+    }
+    if (!res.ok) continue; // 404 — o gün gazete yok, önceki güne düş
+    const buf = await res.arrayBuffer();
+    // Fihrist sayfaları windows-1254 (Türkçe) kodludur; UTF-8 varsaymak bozar.
+    const html = new TextDecoder("windows-1254").decode(buf);
+    const maddeler = parseFihrist(html, base, prefix, d.toISOString());
+    if (maddeler.length > 0) return { maddeler, tarih: d.toISOString() };
+  }
+  throw new Error("Resmi Gazete günlük fihristi alınamadı (son 7 gün)");
 }
 
 function maliMuşavirlikIlgili(madde: RSSMadde): boolean {
@@ -136,6 +175,16 @@ ${icerik}`;
   }
 }
 
+function generateHeuristicSummary(title: string): string {
+  const normalized = title.toLowerCase();
+  const matched = MALI_ANAHTAR_KELIMELER.filter((kw) => normalized.includes(kw));
+  if (matched.length > 0) {
+    const keywordsStr = matched.map(m => m.toUpperCase()).join(", ");
+    return `Bu Resmi Gazete maddesi doğrudan ${keywordsStr} süreçlerini etkilemektedir. İlgili mükelleflerin durumunu kontrol etmeniz önerilir.`;
+  }
+  return "Resmi Gazete'de yayımlanan mevzuat değişikliği/tebliğ. Detaylı bilgi için kaynak bağlantıyı inceleyin.";
+}
+
 export async function POST(req: NextRequest) {
   // Doğrulama: CRON_SECRET veya Firebase Bearer token
   const cronSecret = process.env.CRON_SECRET;
@@ -160,17 +209,7 @@ export async function POST(req: NextRequest) {
   const geminiApiKey = process.env.GEMINI_API_KEY;
 
   try {
-    const rssRes = await fetch(RSS_URL, {
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (!rssRes.ok) {
-      throw new Error(`RSS alınamadı: HTTP ${rssRes.status}`);
-    }
-
-    const rssXml = await rssRes.text();
-    const tumMaddeler = parseRSSItems(rssXml);
+    const { maddeler: tumMaddeler } = await fetchGunlukFihrist();
     const ilgiliMaddeler = tumMaddeler.filter(maliMuşavirlikIlgili);
 
     if (ilgiliMaddeler.length === 0) {
@@ -197,10 +236,10 @@ export async function POST(req: NextRequest) {
       // Gemini API key yok — RSS maddelerini AI özeti olmadan doğrudan döndür
       const maddeler: GazeteOzetMadde[] = ilgiliMaddeler.slice(0, 10).map((m) => ({
         baslik: m.baslik,
-        aiOzet: m.aciklama || "Detay için kaynak linke tıklayın.",
+        aiOzet: generateHeuristicSummary(m.baslik),
         maliMusavirEtkisi: "AI özeti devre dışı — detay için kaynak linke bakın.",
         aksiyonGerekiyor: false,
-        maliMusavirEtkiPuani: 30,
+        maliMusavirEtkiPuani: 35,
         kaynakLink: m.link,
         yayinTarihi: m.tarih,
       }));

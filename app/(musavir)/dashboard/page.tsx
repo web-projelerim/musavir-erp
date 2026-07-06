@@ -316,7 +316,7 @@ export default function DashboardPage() {
     );
     return [...gazeteDynamic, ...firestoreFiltered]
       .sort((a, b) => b.yayinTarihi.localeCompare(a.yayinTarihi))
-      .filter((item) => !dismissedGazete.includes(item.id) && item.maliMusavirEtkiPuani >= 50)
+      .filter((item) => !dismissedGazete.includes(item.id) && item.maliMusavirEtkiPuani >= 30)
       .slice(0, 4);
   }, [dismissedGazete, resmiGazeteOzetleri, gazeteDynamic]);
 

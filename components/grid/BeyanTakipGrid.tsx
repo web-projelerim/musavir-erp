@@ -90,8 +90,8 @@ export function BeyanTakipGrid({
     <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-card">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="bg-slate-50 border-b-2 border-slate-200">
-            <th className="sticky left-0 z-20 bg-slate-50 px-4 py-3 text-left font-semibold text-slate-700 border-r border-slate-200 min-w-[200px]">
+          <tr className="bg-slate-700 border-b border-slate-600">
+            <th className="sticky left-0 z-20 bg-slate-700 px-4 py-1.5 text-left text-xs font-medium text-slate-300 border-r border-slate-600 min-w-[200px] uppercase tracking-wide">
               Müşteri
             </th>
             {kolonlar.map((k) => {
@@ -102,27 +102,21 @@ export function BeyanTakipGrid({
                 <th
                   key={k.key}
                   className={cn(
-                    "px-2 py-3 text-center font-semibold whitespace-nowrap min-w-[72px] border-r border-slate-200",
-                    durumu === "gecikti" && "bg-red-50 text-red-700",
-                    durumu === "yaklasan" && "bg-amber-50 text-amber-700",
-                    durumu === "normal" && "text-slate-600",
-                    sutunTumVerildi && "bg-emerald-50/50"
+                    "px-2 py-1.5 text-center text-xs font-medium whitespace-nowrap min-w-[72px] border-r border-slate-600 text-slate-200",
+                    durumu === "gecikti" && "bg-red-600/80",
+                    durumu === "yaklasan" && "bg-amber-500/80",
+                    sutunTumVerildi && "bg-emerald-600/80"
                   )}
                 >
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className="flex items-center gap-1 text-xs">
-                      {k.label}
-                      {durumu !== "normal" && <AlertTriangle className="w-3 h-3" />}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-[10px] font-normal opacity-60">
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="font-semibold">{k.label}</span>
+                    {durumu !== "normal" && <AlertTriangle className="w-2.5 h-2.5 text-white/80" />}
+                    <span className="text-[10px] font-normal text-slate-400 flex items-center gap-0.5">
                       <Calendar className="w-2.5 h-2.5" />
                       {formatSonTarih(k, donem)}
                     </span>
                     {st && st.toplam > 0 && (
-                      <span className={cn(
-                        "text-[9px] font-medium px-1 rounded",
-                        sutunTumVerildi ? "text-emerald-600" : "text-slate-400"
-                      )}>
+                      <span className="text-[9px] font-medium text-slate-400">
                         {st.verildi}/{st.toplam}
                       </span>
                     )}
@@ -130,20 +124,20 @@ export function BeyanTakipGrid({
                       <button
                         type="button"
                         onClick={() => onTopluIslem(k.key)}
-                        className="mt-0.5 p-0.5 text-slate-400 hover:text-blue-600 rounded transition-colors"
+                        className="p-0.5 text-slate-400 hover:text-white rounded transition-colors"
                         title="Tümünü tamamla"
                       >
-                        <CheckCheck className="w-3 h-3" />
+                        <CheckCheck className="w-2.5 h-2.5" />
                       </button>
                     )}
                   </div>
                 </th>
               );
             })}
-            <th className="px-3 py-3 text-center font-semibold text-slate-600 border-l border-slate-200 min-w-[80px] text-xs">
+            <th className="px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[80px] uppercase tracking-wide">
               Durum
             </th>
-            <th className="px-3 py-3 text-center font-semibold text-slate-600 border-l border-slate-200 min-w-[60px] text-xs">
+            <th className="px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[60px] uppercase tracking-wide">
               Not
             </th>
           </tr>

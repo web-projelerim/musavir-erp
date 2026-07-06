@@ -428,7 +428,7 @@ export default function KDV2Page() {
             </TableHead>
             <TableBody>
               {kayitlar.length === 0 ? (
-                <TableEmpty colSpan={9} />
+                <TableEmpty colSpan={9} message="KDV2 kaydı bulunamadı" />
               ) : (
                 kayitlar.map((k) => (
                   <TableRow key={k.id}>

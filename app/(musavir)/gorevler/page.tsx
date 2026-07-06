@@ -545,7 +545,7 @@ export default function GorevlerPage() {
             {filtered.length === 0 ? (
               <Table>
                 <TableBody>
-                  <TableEmpty colSpan={7} />
+                  <TableEmpty colSpan={7} message="Kriterlere uyan görev bulunamadı" />
                 </TableBody>
               </Table>
             ) : (

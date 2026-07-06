@@ -466,7 +466,7 @@ export default function TebligatlarPage() {
           </TableHead>
           <TableBody>
             {filteredTebligatlar.length === 0 ? (
-              <TableEmpty colSpan={9} />
+              <TableEmpty colSpan={9} message="Tebligat kaydı bulunamadı" />
             ) : (
               filteredTebligatlar.map((tebligat) => {
                 const kalanGun = tebligatKalanGun(tebligat);

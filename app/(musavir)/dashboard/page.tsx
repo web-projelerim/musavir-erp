@@ -385,7 +385,7 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle={`${new Date().toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`}
+        subtitle={`${user ? `Merhaba ${user.ad}, bugün ` : ""}${new Date().toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`}
         action={
           <div className="grid grid-cols-2 gap-2 sm:flex">
             <Button
@@ -424,6 +424,9 @@ export default function DashboardPage() {
           </div>
           <p className="mt-2 text-2xl font-bold text-slate-900">{aktifMusteriler.length}</p>
           <p className="text-xs text-slate-500">{musteriler.length} toplam kayıttan aktif</p>
+          {kritikRiskler.length > 0 && (
+            <p className="mt-1 text-xs font-medium text-red-600">Riskli: {kritikRiskler.length}</p>
+          )}
           <Link href="/musteriler" className="mt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Müşterilere Git
@@ -437,6 +440,17 @@ export default function DashboardPage() {
           </div>
           <p className="mt-2 text-2xl font-bold text-slate-900">{yeniTebligatlar.length}</p>
           <p className="text-xs text-slate-500">{tebligatlar.length} toplam kayıttan yeni</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {yeniTebligatlar.length > 0 && (
+              <Badge variant="danger" size="sm">Yeni: {yeniTebligatlar.length}</Badge>
+            )}
+            <Badge variant="neutral" size="sm">
+              Okundu: {tebligatlar.filter((t) => t.durum === "okundu").length}
+            </Badge>
+            <Badge variant="neutral" size="sm">
+              İşlendi: {tebligatlar.filter((t) => t.durum === "islendi").length}
+            </Badge>
+          </div>
           <Link href="/tebligatlar" className="mt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Tebligatlara Git
@@ -452,6 +466,11 @@ export default function DashboardPage() {
             {gonderimler.filter((g) => g.durum === "bekliyor").length}
           </p>
           <p className="text-xs text-slate-500">Gönderim onayı bekliyor</p>
+          {gonderimler.filter((g) => g.durum === "basarisiz").length > 0 && (
+            <p className="mt-1 text-xs font-medium text-red-600">
+              Başarısız: {gonderimler.filter((g) => g.durum === "basarisiz").length}
+            </p>
+          )}
           <Link href="/onay-bekleyenler" className="mt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
               Onay Bekleyenlere Git

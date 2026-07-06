@@ -545,7 +545,7 @@ export default function RaporlarPage() {
           </TableHead>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableEmpty colSpan={9} />
+              <TableEmpty colSpan={9} message="Rapor kaydı bulunamadı" />
             ) : (
               filtered.map((r) => (
                 <TableRow key={r.id} className={selected.includes(r.id) ? "bg-blue-50/50" : ""}>

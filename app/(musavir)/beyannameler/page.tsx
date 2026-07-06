@@ -549,7 +549,7 @@ export default function BeyannamellerPage() {
           </TableHead>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableEmpty colSpan={9} />
+              <TableEmpty colSpan={9} message="Beyanname kaydı bulunamadı" />
             ) : (
               filtered.map((b) => {
                 const uyari = sonTarihUyari(b);

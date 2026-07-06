@@ -30,8 +30,8 @@ jobs:
       - name: Birim testler
         run: npx vitest run
 
-      - name: Build
-        run: npx next build
+      - name: Build (deploy ile birebir — scripts/build.js, OOM korumalı)
+        run: npm run build
         env:
           # Build için Firebase yapılandırması gerekmez (demo fallback) — ama
           # NODE_ENV=production'da demo fallback kapalı olduğundan public env'ler

@@ -304,18 +304,7 @@ export default function GirisPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-slate-300">Şifre</label>
-                {authMode === "login" && (
-                  <button
-                    type="button"
-                    onClick={() => { setAuthMode("forgot"); setError(null); }}
-                    className="text-xs text-blue-400 hover:text-blue-300"
-                  >
-                    Şifremi Unuttum
-                  </button>
-                )}
-              </div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Şifre</label>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
@@ -351,13 +340,22 @@ export default function GirisPage() {
                 />
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="remember" className="text-sm text-slate-400">Beni hatırla</label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="remember" className="text-sm text-slate-400">Beni hatırla</label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("forgot"); setError(null); }}
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
+                  Şifremi Unuttum
+                </button>
               </div>
             )}
 
@@ -367,14 +365,30 @@ export default function GirisPage() {
                   <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs text-red-200 leading-relaxed">{error}</p>
-                    {(error.includes("kayıtlı") || error.includes("hatalı")) && authMode === "login" && (
-                      <button
-                        type="button"
-                        onClick={toggleAuthMode}
-                        className="mt-1.5 text-xs text-blue-400 hover:text-blue-300 underline"
-                      >
-                        Kayıt olmak için tıklayın →
-                      </button>
+                    {/* Firebase, olmayan e-posta ile yanlış şifreyi ayırt edemez (ikisi de
+                        "invalid-credential" döner) — bu yüzden hem sıfırlama hem hesap oluşturma
+                        önerilir. Böylece kayıtlı olmayan bir e-posta her zaman "Hesap oluştur"u görür. */}
+                    {(error.includes("hatalı") || error.includes("kayıtlı")) && authMode === "login" && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        {error.includes("hatalı") && (
+                          <button
+                            type="button"
+                            onClick={() => { setAuthMode("forgot"); setError(null); }}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline"
+                          >
+                            Şifremi unuttum, sıfırla →
+                          </button>
+                        )}
+                        {!kayitKapali && (
+                          <button
+                            type="button"
+                            onClick={() => { setAuthMode("register"); setError(null); }}
+                            className="text-xs text-blue-400 hover:text-blue-300 underline"
+                          >
+                            Hesap oluştur →
+                          </button>
+                        )}
+                      </div>
                     )}
                     {error.includes("zaten") && authMode === "register" && (
                       <button
@@ -393,7 +407,7 @@ export default function GirisPage() {
             {authMode === "register" && (
               <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
                 <p className="text-xs text-blue-100">
-                  Yeni hesaplar mali müşavir rolüyle açılır. Personel ve mükellef hesapları daha sonra davet/rol yönetimiyle bağlanacak.
+                  Yeni hesaplar mali müşavir rolüyle açılır. Mükellef hesapları daha sonra davet/rol yönetimiyle bağlanacak.
                 </p>
               </div>
             )}

@@ -88,7 +88,7 @@ export async function requireAuth(
 
 // ─── Rol bazlı yetkilendirme ───────────────────────────────────────────────────
 
-export type StaffRole = "musavir" | "personel";
+export type StaffRole = "musavir";
 
 export interface VerifiedStaff extends VerifiedToken {
   rol: StaffRole;
@@ -97,7 +97,7 @@ export interface VerifiedStaff extends VerifiedToken {
 
 /**
  * Token doğrulamasının ÜZERİNE Firestore'daki kullanıcı kaydından rol/ofis
- * kontrolü yapar. Yalnızca musavir/personel rolündeki kullanıcılar geçer.
+ * kontrolü yapar. Yalnızca musavir rolündeki kullanıcılar geçer.
  *
  * Rol bilgisi Admin SDK ile okunur (istemci kurallarından bağımsız, güvenilir).
  * FIREBASE_SERVICE_ACCOUNT_KEY yapılandırılmamışsa:
@@ -111,7 +111,7 @@ export async function requireStaff(
   const token = await requireAuth(req);
   if (!token) return null;
 
-  const allowed = options?.allowedRoles ?? ["musavir", "personel"];
+  const allowed = options?.allowedRoles ?? ["musavir"];
 
   // B1 hızlı yol: token custom claim taşıyorsa Firestore okumasına gerek yok.
   if (token.rol && token.ofisId) {

@@ -228,12 +228,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // B1: Kullanıcının rol claim'i yoksa senkronize et ve token'ı tazele.
-        // Böylece güvenlik kuralları Firestore okuması yapmadan claim'i kullanır.
-        await ensureClaims(firebaseUser).catch((e) =>
+        // Önce kullanıcıyı çöz ve UI'ı aç — giriş kritik yolu buna bağlıdır.
+        setUser(await resolveAppUser(firebaseUser));
+        // B1: Claim senkronizasyonu (sync-claims fetch + zorunlu token tazeleme)
+        // kritik yolu BLOKLAMAZ. Güvenlik kuralları claim yoksa kullanıcı
+        // dokümanına düşer (currentRole/currentOfisId fallback), bu yüzden oturum
+        // claim olmadan da doğru çalışır. Arka planda tazeleyip sonraki isteklerde
+        // hızlı yola (Firestore okumasız) geçeriz. Bu, doğru şifreyle girişin
+        // dashboard'a düşmeden önce token refresh'i beklemesini önler.
+        void ensureClaims(firebaseUser).catch((e) =>
           console.warn("[Auth] claim senkronizasyonu atlandı:", e)
         );
-        setUser(await resolveAppUser(firebaseUser));
       } catch (err) {
         console.error("[Auth] resolveAppUser hatası:", err);
         await firebaseSignOut(firebaseAuth!).catch(() => undefined);

@@ -61,26 +61,6 @@ export const MOCK_KULLANICILAR: User[] = [
     createdAt: "2024-07-01T09:00:00",
   },
   {
-    id: "demo-personel-selin",
-    ofisId: "demo-musavir",
-    ad: "Selin",
-    soyad: "Kaya",
-    email: "selin@musavir.com",
-    rol: "personel",
-    aktif: true,
-    createdAt: "2024-07-01T09:00:00",
-  },
-  {
-    id: "demo-personel-murat",
-    ofisId: "demo-musavir",
-    ad: "Murat",
-    soyad: "Çelik",
-    email: "murat@musavir.com",
-    rol: "personel",
-    aktif: true,
-    createdAt: "2024-07-01T09:00:00",
-  },
-  {
     id: "demo-mukellef-akdeniz",
     ofisId: "demo-musavir",
     ad: "Ahmet",
@@ -94,18 +74,6 @@ export const MOCK_KULLANICILAR: User[] = [
 ];
 
 export const MOCK_DAVETLER: Davet[] = [
-  {
-    id: "dav-personel-1",
-    ofisId: DEFAULT_OFIS_ID,
-    rol: "personel",
-    email: "zeynep@musavir.com",
-    tokenHash: "demo-token-personel",
-    davetLinki: "/davet/demo-personel",
-    durum: "bekliyor",
-    expiresAt: "2026-05-01T12:00:00",
-    createdBy: "demo-musavir",
-    createdAt: "2026-04-23T09:00:00",
-  },
   {
     id: "dav-mukellef-1",
     ofisId: DEFAULT_OFIS_ID,
@@ -1065,9 +1033,9 @@ export const MOCK_AUDIT_LOGS: AuditLog[] = [
   },
   {
     id: "audit-demo-2",
-    actorId: "demo-personel-selin",
-    actorName: "Selin Kaya",
-    actorRole: "personel",
+    actorId: "demo-musavir",
+    actorName: "Ali Müşavir",
+    actorRole: "musavir",
     action: "status_change",
     entityType: "gorev",
     entityId: "g1",

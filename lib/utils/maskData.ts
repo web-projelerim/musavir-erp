@@ -1,5 +1,4 @@
 import type { User } from "@/lib/types";
-import { hasPermission } from "@/lib/utils/permissions";
 
 /**
  * VKN (10 hane) / TCKN (11 hane) maskeleme.
@@ -22,13 +21,10 @@ export function maskVknTckn(value: string | null | undefined): string {
  *
  * - musavir: her zaman evet
  * - mukellef: kendi verisi olduğu için evet (kendi panelinde)
- * - personel: yalnızca "vkn_goruntule" yetkisi varsa evet
  */
 export function canViewVknTckn(user: User | null | undefined): boolean {
   if (!user) return false;
-  if (user.rol === "musavir") return true;
-  if (user.rol === "mukellef") return true;
-  return hasPermission(user, "vkn_goruntule");
+  return user.rol === "musavir" || user.rol === "mukellef";
 }
 
 /**

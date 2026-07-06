@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import { Copy, Link2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { Input, Select } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { createDavet } from "@/lib/firebase/repositories";
-import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry, PERSONEL_DEFAULT_YETKILER, TUM_YETKILER, YETKI_LABELS } from "@/lib/domain/davet";
+import { buildInviteLink, createInviteToken, hashInviteToken, inviteExpiry } from "@/lib/domain/davet";
 import { getOfisId } from "@/lib/domain/office";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { whatsappGonderimYurut, buildDavetWhatsAppMessage } from "@/lib/domain/whatsappGonderim";
-import type { KullaniciYetki, UserRole } from "@/lib/types";
+import type { UserRole } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -26,28 +26,26 @@ interface Props {
   defaultEmail?: string;
 }
 
-export function DavetModal({ open, onClose, defaultRole = "personel", musteriId, musteriAdi, defaultEmail = "" }: Props) {
+export function DavetModal({ open, onClose, defaultRole = "musavir", musteriId, musteriAdi, defaultEmail = "" }: Props) {
   const { user } = useAuth();
   const { musteriler, whatsappEntegrasyonAyarlari } = useAppData();
   const toast = useToast();
   const logAudit = useAuditLog();
-  const [role, setRole] = useState<UserRole>(defaultRole);
   const [email, setEmail] = useState(defaultEmail);
   const [loading, setLoading] = useState(false);
   const [createdLink, setCreatedLink] = useState("");
   const [emailGonder, setEmailGonder] = useState(true);
   const [emailGonderiliyor, setEmailGonderiliyor] = useState(false);
-  const [yetkiler, setYetkiler] = useState<KullaniciYetki[]>(PERSONEL_DEFAULT_YETKILER);
   const fixedMukellef = Boolean(musteriId);
+  // Personel rolü kaldırıldı: mükellef daveti dışındaki davetler her zaman müşavir rolündedir.
+  const role: UserRole = fixedMukellef ? "mukellef" : defaultRole;
 
   useEffect(() => {
     if (open) {
-      setRole(defaultRole);
       setEmail(defaultEmail);
       setCreatedLink("");
-      setYetkiler(PERSONEL_DEFAULT_YETKILER);
     }
-  }, [defaultEmail, defaultRole, open]);
+  }, [defaultEmail, open]);
 
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -64,11 +62,11 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
       if (isFirebaseConfigured) {
         await createDavet({
           ofisId: getOfisId(user?.ofisId),
-          rol: fixedMukellef ? "mukellef" : role,
+          rol: role,
           email,
           musteriId,
           musteriAdi,
-          yetkiler: !fixedMukellef && role === "personel" ? yetkiler : [],
+          yetkiler: [],
           tokenHash: await hashInviteToken(token),
           davetLinki: link,
           expiresAt: inviteExpiry(7),
@@ -162,11 +160,7 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
     toast.success("Davet linki kopyalandı");
   };
 
-  const modalBaslik = fixedMukellef
-    ? "Mükellef Daveti"
-    : role === "musavir"
-    ? "Mali Müşavir Daveti"
-    : "Personel Daveti";
+  const modalBaslik = fixedMukellef ? "Mükellef Daveti" : "Mali Müşavir Daveti";
 
   return (
     <Modal open={open} onClose={onClose} title={modalBaslik} size="md">
@@ -179,44 +173,6 @@ export function DavetModal({ open, onClose, defaultRole = "personel", musteriId,
           placeholder="ad@firma.com"
           required
         />
-        {!fixedMukellef && (
-          <Select
-            label="Rol"
-            value={role}
-            onChange={(event) => setRole(event.target.value as UserRole)}
-            options={[
-              { value: "personel", label: "Personel" },
-              { value: "musavir", label: "Mali Müşavir" },
-            ]}
-          />
-        )}
-        {!fixedMukellef && role === "personel" && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-semibold text-slate-700 mb-2">Personel yetkileri</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {TUM_YETKILER.map((y) => (
-                <label key={y} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={yetkiler.includes(y)}
-                    onChange={(e) =>
-                      setYetkiler((prev) =>
-                        e.target.checked ? [...prev, y] : prev.filter((p) => p !== y)
-                      )
-                    }
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  {YETKI_LABELS[y]}
-                </label>
-              ))}
-            </div>
-            {yetkiler.includes("vkn_goruntule") && (
-              <p className="mt-2 text-[11px] text-amber-700">
-                VKN/TCKN açık görüntüleme hassas bir yetkidir; yalnızca gerekli personele verin.
-              </p>
-            )}
-          </div>
-        )}
         {musteriAdi && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
             Davet bu müşteri hesabına bağlanacak: <strong>{musteriAdi}</strong>

@@ -167,10 +167,10 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
 
   const sorumluOptions = useMemo(() => {
     return kullanicilar
-      .filter((u) => u.aktif && (u.rol === "musavir" || u.rol === "personel"))
+      .filter((u) => u.aktif && u.rol === "musavir")
       .map((u) => ({
         value: u.id,
-        label: `${u.ad} ${u.soyad}${u.rol === "musavir" ? " (Müşavir)" : ""}`,
+        label: `${u.ad} ${u.soyad} (Müşavir)`,
       }));
   }, [kullanicilar]);
 

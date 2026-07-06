@@ -51,7 +51,8 @@ service cloud.firestore {
     }
 
     function isStaff() {
-      return currentRole() in ['musavir', 'personel'];
+      // Personel rolü kaldırıldı; ofis çalışanı yalnızca müşavirdir.
+      return currentRole() == 'musavir';
     }
 
     // Belgenin ofisId'si giriş yapmış kullanıcının ofisId'siyle eşleşiyor mu?

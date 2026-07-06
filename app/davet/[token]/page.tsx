@@ -188,7 +188,7 @@ export default function DavetPage({ params }: { params: { token: string } }) {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Badge variant="info">
-                    {davet.rol === "mukellef" ? "Mükellef" : davet.rol === "musavir" ? "Mali Müşavir" : "Personel"}
+                    {davet.rol === "mukellef" ? "Mükellef" : "Mali Müşavir"}
                   </Badge>
                   {davet.musteriAdi && <Badge variant="neutral">{davet.musteriAdi}</Badge>}
                 </div>

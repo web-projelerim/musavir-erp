@@ -1,5 +1,5 @@
 // ─── Kullanıcı ve Rol ────────────────────────────────────────────
-export type UserRole = "musavir" | "personel" | "mukellef";
+export type UserRole = "musavir" | "mukellef";
 
 export interface User {
   id: string;
@@ -227,7 +227,7 @@ export interface Davet {
   email: string;
   musteriId?: string;
   musteriAdi?: string;
-  /** Personel davetinde atanacak yetkiler; davet anında müşavir belirler. */
+  /** Geriye dönük uyumluluk için tutulur; artık kullanılmaz (personel rolü kaldırıldı). */
   yetkiler?: KullaniciYetki[];
   tokenHash: string;
   davetLinki: string;

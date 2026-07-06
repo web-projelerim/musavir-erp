@@ -5,14 +5,13 @@ import type { User, KullaniciYetki } from "@/lib/types";
  *
  * - musavir: her zaman true (tam yetki)
  * - mukellef: her zaman false (sadece kendi panelinde işlem yapar)
- * - personel: user.yetkiler dizisinde ilgili yetki varsa true
+ *
+ * Not: `yetki` parametresi geriye dönük uyumluluk için korunur; personel rolü
+ * kaldırıldığından yetki bazlı kısıtlama artık yoktur.
  */
 export function hasPermission(user: User | null | undefined, yetki: KullaniciYetki): boolean {
-  if (!user) return false;
-  if (user.rol === "musavir") return true;
-  if (user.rol === "mukellef") return false;
-  // personel
-  return user.yetkiler?.includes(yetki) ?? false;
+  void yetki;
+  return user?.rol === "musavir";
 }
 
 /**
@@ -24,8 +23,8 @@ export function isMusavir(user: User | null | undefined): boolean {
 }
 
 /**
- * Kullanıcı personel veya müşavir rolündeyse (ofis çalışanı) true döner.
+ * Kullanıcı ofis çalışanı (müşavir) rolündeyse true döner.
  */
 export function isStaff(user: User | null | undefined): boolean {
-  return user?.rol === "musavir" || user?.rol === "personel";
+  return user?.rol === "musavir";
 }

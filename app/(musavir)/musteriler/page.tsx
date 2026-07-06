@@ -215,9 +215,9 @@ export default function MusterilerPage() {
     </TableHeadCell>
   );
 
-  // Aktif musavir + personel kullanıcılar — filtre için
+  // Aktif müşavir kullanıcılar — filtre için
   const sorumluOptions = kullanicilar
-    .filter((u) => u.aktif && (u.rol === "musavir" || u.rol === "personel"))
+    .filter((u) => u.aktif && u.rol === "musavir")
     .map((u) => ({ id: u.id, ad: `${u.ad} ${u.soyad}` }));
 
   if (loading) return <PageLoading />;

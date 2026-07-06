@@ -9,7 +9,7 @@ function makeUser(over: Partial<User>): User {
     ad: "Test",
     soyad: "Kullanici",
     email: "t@x.com",
-    rol: "personel",
+    rol: "musavir",
     aktif: true,
     createdAt: new Date().toISOString(),
     ...over,
@@ -45,11 +45,6 @@ describe("canViewVknTckn", () => {
     expect(canViewVknTckn(makeUser({ rol: "mukellef", musteriId: "m1" }))).toBe(true);
   });
 
-  it("personel yalnızca vkn_goruntule yetkisiyle görebilir", () => {
-    expect(canViewVknTckn(makeUser({ rol: "personel", yetkiler: [] }))).toBe(false);
-    expect(canViewVknTckn(makeUser({ rol: "personel", yetkiler: ["vkn_goruntule"] }))).toBe(true);
-  });
-
   it("null kullanıcı göremez", () => {
     expect(canViewVknTckn(null)).toBe(false);
   });
@@ -60,11 +55,11 @@ describe("displayVknTckn", () => {
     expect(displayVknTckn("12345678901", makeUser({ rol: "musavir" }))).toBe("12345678901");
   });
 
-  it("yetkisiz personele maskeli gösterir", () => {
-    expect(displayVknTckn("12345678901", makeUser({ rol: "personel", yetkiler: [] }))).toBe("•••••••8901");
+  it("kimliği olmayan (null) kullanıcıya maskeli gösterir", () => {
+    expect(displayVknTckn("12345678901", null)).toBe("•••••••8901");
   });
 
   it("boş değer boş döner (kullanıcıdan bağımsız)", () => {
-    expect(displayVknTckn("", makeUser({ rol: "personel" }))).toBe("");
+    expect(displayVknTckn("", makeUser({ rol: "musavir" }))).toBe("");
   });
 });

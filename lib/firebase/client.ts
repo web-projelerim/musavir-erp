@@ -1,6 +1,6 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -28,9 +28,29 @@ if (isFirebaseConfigured) {
   app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 }
 
+/**
+ * Firestore'u long-polling otomatik algılamayla başlatır.
+ *
+ * Varsayılan WebChannel/QUIC taşıması bazı ağlarda (kurumsal proxy, VPN,
+ * agresif QUIC yönetimi) `QUIC_NETWORK_IDLE_TIMEOUT` / HTTP 400 ile kopar;
+ * bu da tüm `onSnapshot` dinleyicilerini bozup sayfaların yüklenememesine
+ * yol açar. `experimentalAutoDetectLongPolling`, SDK'nın böyle ağları
+ * algılayıp güvenilir HTTP long-polling'e düşmesini sağlar.
+ *
+ * `initializeFirestore` aynı app için ikinci kez çağrılırsa (Next.js hot
+ * reload / çift import) hata fırlatır; bu durumda mevcut örneğe düşülür.
+ */
+function initFirestore(a: FirebaseApp): Firestore {
+  try {
+    return initializeFirestore(a, { experimentalAutoDetectLongPolling: true });
+  } catch {
+    return getFirestore(a);
+  }
+}
+
 export const firebaseApp = app;
 export const firebaseAuth: Auth | null = app ? getAuth(app) : null;
-export const firestoreDb: Firestore | null = app ? getFirestore(app) : null;
+export const firestoreDb: Firestore | null = app ? initFirestore(app) : null;
 export const firebaseStorage: FirebaseStorage | null = app ? getStorage(app) : null;
 
 /**

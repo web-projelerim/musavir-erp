@@ -49,7 +49,7 @@ export function TebligatDetayModal({ tebligat, onClose, onPdf, onIslendi, onAksi
 
   const kalanGun = tebligatKalanGun(tebligat);
   const detaylar = [
-    { icon: User, label: "Müşteri", value: tebligat.musteriAdi },
+    { icon: User, label: "Mükellef", value: tebligat.musteriAdi },
     { icon: Hash, label: "VKN/TCKN", value: tebligat.vknTckn },
     { icon: Calendar, label: "Tebligat Tarihi", value: formatTarih(tebligat.tarih) },
     { icon: FileText, label: "Tür", value: tebligat.tur },

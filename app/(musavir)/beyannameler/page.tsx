@@ -36,6 +36,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { useAppData } from "@/lib/hooks/useAppData";
+import { IstisnaBadge } from "@/components/ui/IstisnaBadge";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { authHeaders, isFirebaseConfigured } from "@/lib/firebase/client";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
@@ -190,17 +191,17 @@ export default function BeyannamellerPage() {
     } else if (hataSayisi === 0) {
       toast.success(
         "GİB sync tamamlandı",
-        `${islenenMusteriSayisi} müşteri işlendi — ${toplamKayit} beyanname güncellendi`
+        `${islenenMusteriSayisi} mükellef işlendi — ${toplamKayit} beyanname güncellendi`
       );
     } else if (toplamKayit > 0) {
       toast.warning(
         "Kısmi sync",
-        `${toplamKayit} kayıt güncellendi, ${hataSayisi} müşteride hata`
+        `${toplamKayit} kayıt güncellendi, ${hataSayisi} mükellefte hata`
       );
     } else {
       toast.error(
         "GİB sync başarısız",
-        "Tüm müşterilerde hata. Captcha veya GİB kimlik bilgilerini kontrol edin"
+        "Tüm mükelleflerde hata. Captcha veya GİB kimlik bilgilerini kontrol edin"
       );
     }
   };
@@ -288,9 +289,9 @@ export default function BeyannamellerPage() {
     {
       ikon: AlertTriangle,
       renk: "red",
-      baslik: "Müşteri bilgilendirilmeli",
+      baslik: "Mükellef bilgilendirilmeli",
       aciklama:
-        "Düzeltme beyannamesi gönderilmeden önce müşteri ile iletişime geçilmesi ve eksik/hatalı evrakların temin edilmesi gerekmektedir.",
+        "Düzeltme beyannamesi gönderilmeden önce mükellef ile iletişime geçilmesi ve eksik/hatalı evrakların temin edilmesi gerekmektedir.",
       onayMetni: "Anladım",
     },
     {
@@ -306,6 +307,9 @@ export default function BeyannamellerPage() {
 
   /* ── filtre ── */
   const sorumlular = Array.from(new Set(beyanlar.map((b) => b.sorumlu).filter(Boolean)));
+
+  // Mükellef → istisna bilgisi (§1.4 uyarı rozeti için)
+  const musteriMap = new Map(musteriler.map((m) => [m.id, m]));
 
   const filtered = beyanlar.filter((b) => {
     if (filterTur !== "tumu" && b.tur !== filterTur) return false;
@@ -435,7 +439,7 @@ export default function BeyannamellerPage() {
       {/* Filtreler */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Input
-          placeholder="Müşteri veya dönem ara..."
+          placeholder="Mükellef veya dönem ara..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -479,6 +483,10 @@ export default function BeyannamellerPage() {
                   <div className="mt-1 flex flex-wrap gap-1">
                     <Badge variant="info">{BEYAN_TUR_LABELS[b.tur]}</Badge>
                     <Badge variant="neutral">{b.donem}</Badge>
+                    <IstisnaBadge
+                      istisnalar={musteriMap.get(b.musteriId)?.istisnalar}
+                      not={musteriMap.get(b.musteriId)?.istisnaNotu}
+                    />
                   </div>
                 </div>
                 <BeyannameBadge durum={b.durum} />
@@ -539,7 +547,7 @@ export default function BeyannamellerPage() {
         <Table>
           <TableHead>
             <tr>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>Tür</TableHeadCell>
               <TableHeadCell>Dönem</TableHeadCell>
               <TableHeadCell>Son Tarih</TableHeadCell>
@@ -561,13 +569,19 @@ export default function BeyannamellerPage() {
                 return (
                   <TableRow key={b.id}>
                     <TableCell>
-                      <Link
-                        href={`/musteriler/${b.musteriId}`}
-                        className="group flex items-center gap-1 text-xs font-medium text-slate-800 hover:text-blue-600"
-                      >
-                        {b.musteriAdi}
-                        <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/musteriler/${b.musteriId}`}
+                          className="group flex items-center gap-1 text-xs font-medium text-slate-800 hover:text-blue-600"
+                        >
+                          {b.musteriAdi}
+                          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </Link>
+                        <IstisnaBadge
+                          istisnalar={musteriMap.get(b.musteriId)?.istisnalar}
+                          not={musteriMap.get(b.musteriId)?.istisnaNotu}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="info">{BEYAN_TUR_LABELS[b.tur]}</Badge>

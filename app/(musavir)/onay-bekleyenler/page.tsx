@@ -207,7 +207,7 @@ export default function OnayBekleyenlerPage() {
                       className="h-4 w-4 rounded border-slate-300 text-blue-600"
                     />
                   </TableHeadCell>
-                  <TableHeadCell>Müşteri</TableHeadCell>
+                  <TableHeadCell>Mükellef</TableHeadCell>
                   <TableHeadCell>Kanal</TableHeadCell>
                   <TableHeadCell>Mesaj</TableHeadCell>
                   <TableHeadCell>Oluşturulma</TableHeadCell>

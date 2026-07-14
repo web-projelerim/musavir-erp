@@ -110,7 +110,7 @@ export default function MusterilerPage() {
   const [filterDurum, setFilterDurum]   = useState<string>("tumu");
   const [filterSorumlu, setFilterSorumlu] = useState<string>("tumu");
   const [filterTahsilat, setFilterTahsilat] = useState<string>("tumu");
-  const [sortField, setSortField]       = useState<MusteriSortField>("yaklasanSorumluluk");
+  const [sortField, setSortField]       = useState<MusteriSortField>("firmaAdi");
   const [sortDir, setSortDir]           = useState<"asc" | "desc">("asc");
   const [view, setView]                 = useState<"tablo" | "kart">("tablo");
   const [showYeniModal, setShowYeniModal]   = useState(false);
@@ -121,7 +121,7 @@ export default function MusterilerPage() {
   const { musteriler, beyannameler, gorevler, tahsilatlar, tahakkuklar, kullanicilar, loading } = useAppData();
   const canWrite = hasPermission(user, "musteri_yazma");
 
-  // Her müşteri için hizmet tahakkuk özeti
+  // Her mükellef için hizmet tahakkuk özeti
   const hizmetTahakkukMap = useMemo(() => {
     const map = new Map<string, { adet: number; toplam: number; gecikmisMi: boolean }>();
     const bugun = new Date();
@@ -140,7 +140,7 @@ export default function MusterilerPage() {
     return map;
   }, [tahakkuklar]);
 
-  // Her müşteri için yaklaşan sorumluluk hesapla
+  // Her mükellef için yaklaşan sorumluluk hesapla
   const sorumlulukMap = useMemo(() => {
     const map = new Map<string, YaklasanSorumluluk>();
     for (const m of musteriler) {
@@ -225,9 +225,9 @@ export default function MusterilerPage() {
   return (
     <div>
       <PageHeader
-        title="Müşteriler"
-        subtitle={`${filteredKayitlar.length} müşteri gösteriliyor`}
-        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Müşteriler" }]}
+        title="Mükellefler"
+        subtitle={`${filteredKayitlar.length} mükellef gösteriliyor`}
+        breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Mükellefler" }]}
         action={
           <div className="flex flex-wrap gap-2">
             {canWrite && (
@@ -242,7 +242,7 @@ export default function MusterilerPage() {
             )}
             {canWrite && (
               <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowYeniModal(true)}>
-                Yeni Müşteri
+                Yeni Mükellef
               </Button>
             )}
           </div>
@@ -421,12 +421,12 @@ export default function MusterilerPage() {
       {view === "tablo" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-800">Müşteri Listesi</h3>
+            <h3 className="text-sm font-semibold text-slate-800">Mükellef Listesi</h3>
           </div>
           {/* Mobil kart listesi */}
           <div className="md:hidden divide-y divide-slate-100">
             {filteredKayitlar.length === 0 ? (
-              <p className="text-sm text-slate-400 p-5 text-center">Arama kriterlerine uyan müşteri bulunamadı</p>
+              <p className="text-sm text-slate-400 p-5 text-center">Arama kriterlerine uyan mükellef bulunamadı</p>
             ) : filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
               const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : Calendar;
               const hizmet = hizmetTahakkukMap.get(m.id);
@@ -487,7 +487,7 @@ export default function MusterilerPage() {
               </TableHead>
               <TableBody>
                 {filteredKayitlar.length === 0 ? (
-                  <TableEmpty colSpan={9} message="Arama kriterlerine uyan müşteri bulunamadı" />
+                  <TableEmpty colSpan={9} message="Arama kriterlerine uyan mükellef bulunamadı" />
                 ) : (
                   filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
                     const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;

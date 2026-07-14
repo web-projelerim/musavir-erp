@@ -386,7 +386,7 @@ export default function GorevlerPage() {
               <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Görev veya müşteri ara..."
+                placeholder="Görev veya mükellef ara..."
                 value={aramaText}
                 onChange={e => setAramaText(e.target.value)}
                 className="bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none flex-1"
@@ -568,7 +568,7 @@ export default function GorevlerPage() {
                       <TableHead>
                         <tr>
                           <TableHeadCell>Görev</TableHeadCell>
-                          <TableHeadCell>Müşteri</TableHeadCell>
+                          <TableHeadCell>Mükellef</TableHeadCell>
                           <TableHeadCell>Öncelik</TableHeadCell>
                           <TableHeadCell>Atanan</TableHeadCell>
                           <TableHeadCell>Termin</TableHeadCell>

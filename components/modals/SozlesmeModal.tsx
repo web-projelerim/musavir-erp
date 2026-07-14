@@ -10,6 +10,7 @@ import { useToast } from "@/lib/context/ToastContext";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { upsertDocument } from "@/lib/firebase/firestore";
 import { uploadBelgeFile } from "@/lib/firebase/storage";
+import { createBelge } from "@/lib/firebase/repositories";
 import { getOfisId } from "@/lib/domain/office";
 import { sozlesmedenTahakkukTuretClient } from "@/lib/domain/sozlesmeTahakkuk";
 import type { GibSozlesme, Musteri, SozlesmeTuru } from "@/lib/types";
@@ -74,11 +75,13 @@ export function SozlesmeModal({ open, onClose, musteri, sozlesme, onSaved }: Pro
     try {
       const id = sozlesme?.id ?? `soz-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       let pdfUrl = sozlesme?.pdfUrl;
+      let yeniPdfStoragePath: string | undefined;
 
       if (pdfFile && isFirebaseConfigured) {
         try {
           const uploaded = await uploadBelgeFile(musteri.id, pdfFile);
           pdfUrl = uploaded.url;
+          yeniPdfStoragePath = uploaded.storagePath;
         } catch (err) {
           console.error("[Sözleşme PDF upload]", err);
           toast.warning("PDF yüklenemedi", err instanceof Error ? err.message : undefined);
@@ -106,6 +109,29 @@ export function SozlesmeModal({ open, onClose, musteri, sozlesme, onSaved }: Pro
 
       if (isFirebaseConfigured) {
         await upsertDocument("gibSozlesmeleri", payload);
+
+        // Yeni sözleşme PDF'i yüklendiyse Belgeler sekmesinde de görünsün
+        if (pdfFile && pdfUrl) {
+          try {
+            await createBelge({
+              ofisId: getOfisId(user?.ofisId),
+              musteriId: musteri.id,
+              musteriAdi: musteri.firmaAdi,
+              dosyaAdi: pdfFile.name,
+              dosyaTipi: pdfFile.type || "application/pdf",
+              boyut: pdfFile.size,
+              url: pdfUrl,
+              storagePath: yeniPdfStoragePath,
+              kategori: "sozlesme",
+              gorunurluk: "musavir",
+              yukleyen: user ? `${user.ad} ${user.soyad}` : "Ofis",
+              yukleyenRol: user?.rol ?? "musavir",
+              notlar: `${form.sozlesmeNo.trim()} nolu sözleşme`,
+            });
+          } catch (err) {
+            console.error("[Sözleşme belge kaydı]", err);
+          }
+        }
 
         // Otomatik aylık tahakkuk oluştur (sadece yeni sözleşme + işaretli + geçerli + ücretli)
         if (!isEdit && form.otomatikTahakkukOlustur && payload.durum === "gecerli" && payload.aylikUcret) {

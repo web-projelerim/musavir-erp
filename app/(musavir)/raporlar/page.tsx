@@ -191,7 +191,7 @@ export default function RaporlarPage() {
     const musteri = musteriler.find((m) => m.id === musteriId) ?? musteriler[0];
 
     if (!musteri) {
-      toast.warning("Müşteri bulunamadı", "Rapor üretmek için en az bir müşteri kaydı gerekir");
+      toast.warning("Mükellef bulunamadı", "Rapor üretmek için en az bir mükellef kaydı gerekir");
       return;
     }
 
@@ -533,7 +533,7 @@ export default function RaporlarPage() {
                   className="rounded border-slate-300"
                 />
               </TableHeadCell>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>Rapor Türü</TableHeadCell>
               <TableHeadCell>Dönem</TableHeadCell>
               <TableHeadCell>Oluşturulma</TableHeadCell>
@@ -672,7 +672,7 @@ export default function RaporlarPage() {
           <TableHead>
             <tr>
               <TableHeadCell>Tarih</TableHeadCell>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>Kanal</TableHeadCell>
               <TableHeadCell>Şablon</TableHeadCell>
               <TableHeadCell>Deneme</TableHeadCell>
@@ -748,7 +748,7 @@ export default function RaporlarPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Müşteri</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Mükellef</label>
             <select
               value={secilenMusteriId}
               onChange={(e) => setSecilenMusteriId(e.target.value)}

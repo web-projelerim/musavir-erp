@@ -74,7 +74,7 @@ export function BelgeUploadModal({
     }
 
     if (!selectedMusteri) {
-      toast.error("Müşteri seçimi zorunludur");
+      toast.error("Mükellef seçimi zorunludur");
       return;
     }
 
@@ -146,7 +146,7 @@ export function BelgeUploadModal({
     <Modal open={open} onClose={onClose} title="Belge Yükle" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Müşteri"
+          label="Mükellef"
           disabled={Boolean(musteriId)}
           value={form.musteriId}
           onChange={(e) => setForm({ ...form, musteriId: e.target.value })}

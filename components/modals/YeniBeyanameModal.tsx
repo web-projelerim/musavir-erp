@@ -63,7 +63,7 @@ export function YeniBeyanameModal({ open, onClose, musteriler, onCreated, defaul
     e.preventDefault();
     const musteri = musteriler.find((m) => m.id === form.musteriId);
     if (!musteri) {
-      toast.error("Müşteri seçilmedi");
+      toast.error("Mükellef seçilmedi");
       return;
     }
     if (!form.donem || !form.sonTarih) {
@@ -115,12 +115,12 @@ export function YeniBeyanameModal({ open, onClose, musteriler, onCreated, defaul
     <Modal open={open} onClose={onClose} title="Yeni Beyanname">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Müşteri"
+          label="Mükellef"
           value={form.musteriId}
           onChange={(e) => set("musteriId", e.target.value)}
           required
         >
-          <option value="">Müşteri seçin</option>
+          <option value="">Mükellef seçin</option>
           {musteriler.map((m) => (
             <option key={m.id} value={m.id}>
               {m.firmaAdi} — {displayVknTckn(m.vknTckn, user)}

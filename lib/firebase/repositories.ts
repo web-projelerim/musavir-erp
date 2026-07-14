@@ -39,6 +39,10 @@ import type {
   EntegrasyonLog,
   Not,
   Ofis,
+  EDefterTakip,
+  PosTakip,
+  TeknokentProje,
+  Ortak,
 } from "@/lib/types";
 
 function createId(prefix: string) {
@@ -637,5 +641,97 @@ export async function createBeyanTakipNotu(input: Omit<BeyanTakipNotu, "id" | "c
 
 export async function deleteBeyanTakipNotu(id: string) {
   await deleteDocument(COLLECTIONS.beyanTakipNotlari, id);
+}
+
+// ─── E-Defter takip (§2) ─────────────────────────────────────────────────────
+
+export async function createEDefterTakip(input: Omit<EDefterTakip, "id" | "createdAt">) {
+  const kayit: EDefterTakip = {
+    id: createId("edf"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.edefterTakip, kayit);
+  return kayit;
+}
+
+export async function updateEDefterTakip(id: string, input: Partial<EDefterTakip>) {
+  await updateDocument<EDefterTakip>(COLLECTIONS.edefterTakip, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteEDefterTakip(id: string) {
+  await deleteDocument(COLLECTIONS.edefterTakip, id);
+}
+
+// ─── POS / Z raporu takip (§4) ───────────────────────────────────────────────
+
+export async function createPosTakip(input: Omit<PosTakip, "id" | "createdAt">) {
+  const kayit: PosTakip = {
+    id: createId("pos"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.posTakip, kayit);
+  return kayit;
+}
+
+export async function updatePosTakip(id: string, input: Partial<PosTakip>) {
+  await updateDocument<PosTakip>(COLLECTIONS.posTakip, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deletePosTakip(id: string) {
+  await deleteDocument(COLLECTIONS.posTakip, id);
+}
+
+// ─── Teknokent proje takip (§3) ──────────────────────────────────────────────
+
+export async function createTeknokentProje(input: Omit<TeknokentProje, "id" | "createdAt">) {
+  const kayit: TeknokentProje = {
+    id: createId("tek"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.teknokentProjeler, kayit);
+  return kayit;
+}
+
+export async function updateTeknokentProje(id: string, input: Partial<TeknokentProje>) {
+  await updateDocument<TeknokentProje>(COLLECTIONS.teknokentProjeler, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteTeknokentProje(id: string) {
+  await deleteDocument(COLLECTIONS.teknokentProjeler, id);
+}
+
+// ─── Ortaklar / yöneticiler (§1.3) ───────────────────────────────────────────
+
+export async function createOrtak(input: Omit<Ortak, "id" | "createdAt">) {
+  const kayit: Ortak = {
+    id: createId("ort"),
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+  await upsertDocument(COLLECTIONS.ortaklar, kayit);
+  return kayit;
+}
+
+export async function updateOrtak(id: string, input: Partial<Ortak>) {
+  await updateDocument<Ortak>(COLLECTIONS.ortaklar, id, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteOrtak(id: string) {
+  await deleteDocument(COLLECTIONS.ortaklar, id);
 }
 

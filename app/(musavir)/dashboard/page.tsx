@@ -18,6 +18,8 @@ import {
   X,
   ChevronUp,
   ChevronDown,
+  Newspaper,
+  ExternalLink,
 } from "lucide-react";
 import {
   BarChart,
@@ -128,21 +130,36 @@ export default function DashboardPage() {
   const [gazeteDynamic, setGazeteDynamic] = useState<ResmiGazeteOzeti[]>([]);
   const [gazeteYukleniyor, setGazeteYukleniyor] = useState(false);
   const [gazeteHata, setGazeteHata] = useState(false);
-  const [gazeteAcik, setGazeteAcik] = useState(true);
+  const [gazeteYeniIdler, setGazeteYeniIdler] = useState<string[]>([]);
+  const [duyurularAcik, setDuyurularAcik] = useState(true);
+  const [aktifDuyuruSekme, setAktifDuyuruSekme] = useState<"turmob" | "gazete">("gazete");
+  const [turmobHaberler, setTurmobHaberler] = useState<Array<{ baslik: string; link: string; tarih: string; ozet: string }>>([]);
+  const [turmobYukleniyor, setTurmobYukleniyor] = useState(false);
+  const [turmobHata, setTurmobHata] = useState(false);
+  const [turmobYeniLinkler, setTurmobYeniLinkler] = useState<string[]>([]);
   const [gibTakvimOlaylari, setGibTakvimOlaylari] = useState<Array<{ tarih: string; baslik: string; aciklama: string }>>([]);
   const { musteriler, gorevler, tebligatlar, beyannameler, raporlar, tahsilatlar, tahakkuklar, kdv2, resmiGazeteOzetleri, gibSyncLogs, gonderimler, loading } = useAppData();
   const { user } = useAuth();
 
   useEffect(() => {
     const bugun = new Date().toISOString().slice(0, 10);
-    const cacheKey = `gazete_${bugun}`;
+    const LAST_KEY = "gazete_last";
+    const FETCH_FLAG = `gazete_fetched_${bugun}`; // pahalı AI çağrısını günde 1 kez sınırla
+
+    let onceki: ResmiGazeteOzeti[] = [];
     try {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = localStorage.getItem(LAST_KEY);
       if (cached) {
-        setGazeteDynamic(JSON.parse(cached) as ResmiGazeteOzeti[]);
-        return;
+        onceki = JSON.parse(cached) as ResmiGazeteOzeti[];
+        if (onceki.length > 0) setGazeteDynamic(onceki); // en son içeriği hemen göster
       }
     } catch {}
+
+    // Bugün zaten çekildiyse tekrar AI çağrısı yapma — en son içerik gösteriliyor
+    if (onceki.length > 0) {
+      try { if (localStorage.getItem(FETCH_FLAG)) return; } catch {}
+    }
+    const oncekiIdler = new Set(onceki.map((d) => d.kaynakLink || d.baslik));
 
     setGazeteYukleniyor(true);
     // Kaynak (Resmi Gazete) yavaş/erişilemez olabilir — spinner asla takılı
@@ -155,7 +172,7 @@ export default function DashboardPage() {
       .then((r) => (r.ok ? r.json() : r.json().then((d) => { if (!d?.ok) return null; return d; })))
       .then((data: { ok: boolean; maddeler?: Array<{ baslik: string; aiOzet: string; maliMusavirEtkisi: string; aksiyonGerekiyor: boolean; maliMusavirEtkiPuani: number; kaynakLink: string; yayinTarihi: string }> } | null) => {
         if (!data || !data.ok) {
-          setGazeteHata(true);
+          if (onceki.length === 0) setGazeteHata(true); // yalnızca hiç cache yoksa hata
           return;
         }
         if (data.ok && Array.isArray(data.maddeler) && data.maddeler.length > 0) {
@@ -174,13 +191,57 @@ export default function DashboardPage() {
             createdAt: new Date().toISOString(),
           }));
           setGazeteDynamic(items);
+          // Öncekinde olmayan madde = yeni (kaynak linki/başlığı bazında)
+          const yeni = onceki.length > 0
+            ? items.filter((it) => !oncekiIdler.has(it.kaynakLink || it.baslik)).map((it) => it.kaynakLink || it.baslik)
+            : [];
+          setGazeteYeniIdler(yeni);
+          setGazeteHata(false);
           try {
-            localStorage.setItem(cacheKey, JSON.stringify(items));
+            localStorage.setItem(LAST_KEY, JSON.stringify(items));
+            localStorage.setItem(FETCH_FLAG, "1");
           } catch {}
         }
       })
-      .catch(() => setGazeteHata(true))
+      .catch(() => { if (onceki.length === 0) setGazeteHata(true); })
       .finally(() => setGazeteYukleniyor(false));
+  }, []);
+
+  // TÜRMOB haber feed'i — en son içerik kalıcı saklanır (panel asla boşalmaz),
+  // yeni gelen haberler "Yeni" olarak işaretlenir.
+  useEffect(() => {
+    const LAST_KEY = "turmob_last";
+    let onceki: Array<{ baslik: string; link: string; tarih: string; ozet: string }> = [];
+    try {
+      const cached = localStorage.getItem(LAST_KEY);
+      if (cached) {
+        onceki = JSON.parse(cached);
+        if (onceki.length > 0) setTurmobHaberler(onceki); // en son içeriği hemen göster
+      }
+    } catch {}
+    const oncekiLinkler = new Set(onceki.map((h) => h.link));
+
+    setTurmobYukleniyor(true);
+    void (async () => {
+      const headers = await authHeaders();
+      return fetch("/api/turmob/duyurular", { headers, signal: AbortSignal.timeout(16_000) });
+    })()
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { ok: boolean; haberler?: Array<{ baslik: string; link: string; tarih: string; ozet: string }> } | null) => {
+        if (data?.ok && Array.isArray(data.haberler) && data.haberler.length > 0) {
+          const haberler = data.haberler;
+          // Öncekinde olmayan link = yeni (ilk yüklemede hiçbir şey "yeni" sayılmaz)
+          const yeni = onceki.length > 0 ? haberler.filter((h) => !oncekiLinkler.has(h.link)).map((h) => h.link) : [];
+          setTurmobHaberler(haberler);
+          setTurmobYeniLinkler(yeni);
+          setTurmobHata(false);
+          try { localStorage.setItem(LAST_KEY, JSON.stringify(haberler)); } catch {}
+        } else if (onceki.length === 0) {
+          setTurmobHata(true); // yalnızca hiç cache yoksa hata göster
+        }
+      })
+      .catch(() => { if (onceki.length === 0) setTurmobHata(true); })
+      .finally(() => setTurmobYukleniyor(false));
   }, []);
 
   // GİB resmi vergi takvimi — yıl bazlı cache (24 saat)
@@ -237,6 +298,19 @@ export default function DashboardPage() {
   });
   const hazirRaporlar = raporlar.filter((r) => r.durum === "hazir");
   const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif");
+
+  // E-Defter & POS hatırlatmaları (§2.3 / §4)
+  const _bugun = new Date();
+  const _ayinSonGunu = new Date(_bugun.getFullYear(), _bugun.getMonth() + 1, 0).getDate();
+  const _sonBesGun = _bugun.getDate() > _ayinSonGunu - 5;
+  const _ceyrekSonu = [3, 6, 9, 12].includes(_bugun.getMonth() + 1);
+  const edefterAylikSayi = aktifMusteriler.filter(
+    (m) => m.eDefter === "yuklu_aylik" || m.eDefter === "yuklu"
+  ).length;
+  const edefter3AylikSayi = aktifMusteriler.filter((m) => m.eDefter === "yuklu_3aylik").length;
+  const fizikselPosSayi = aktifMusteriler.filter((m) => m.posTuru?.includes("fiziksel_pos")).length;
+  const edefterAylikUyari = _sonBesGun && edefterAylikSayi > 0;
+  const edefter3AylikUyari = _sonBesGun && _ceyrekSonu && edefter3AylikSayi > 0;
   const riskListesi = hesaplaRiskListesi({ musteriler: aktifMusteriler, tebligatlar, beyannameler, gorevler, tahsilatlar, tahakkuklar, kdv2 });
   const kritikRiskler = riskListesi.filter(
     (risk) => risk.seviye === "kritik" || risk.seviye === "yuksek"
@@ -265,7 +339,7 @@ export default function DashboardPage() {
 
   const metrics = [
     {
-      title: "Toplam Müşteri",
+      title: "Toplam Mükellef",
       value: musteriler.filter((m) => m.durum === "aktif").length,
       subtitle: `${musteriler.length} toplam kayıt`,
       icon: <Users className="w-5 h-5" />,
@@ -323,28 +397,21 @@ export default function DashboardPage() {
   const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
     const olaylar: TakvimOlay[] = [];
 
-    // GİB vergi takvimi — statik + (varsa) API'den çekilen GİB resmi takvimi
-    // Tarih+başlık eşleşen kalemleri dedup et (API > statik)
-    const seen = new Set<string>();
-    for (const v of gibTakvimOlaylari) {
-      const key = `${v.tarih}|${v.baslik.toLowerCase().slice(0, 40)}`;
-      seen.add(key);
+    // GİB vergi takvimi — canlı GİB sync verisi TEK kaynaktır (izleyen ayın 28'i
+    // KDV, ertelemeler vb. anlık günceldir). Statik liste yalnızca canlı veri
+    // hiç yoksa (Gemini anahtarı yok / GİB erişilemez / offline) devreye giren
+    // yedektir. İkisi ASLA birleştirilmez; birleştirilirse statik yanlış tarih
+    // (ör. KDV 26) canlı doğru tarihin (28) yanında mükerrer görünür.
+    const vergiKaynak =
+      gibTakvimOlaylari.length > 0 ? gibTakvimOlaylari : getVergiTakvimiIkiYil();
+    for (const v of vergiKaynak) {
+      // e-Defter berat tarihleri yeşil (emerald) — vergi tarihlerinden ayrışsın (§8)
+      const eDefterMi = v.baslik.toLowerCase().includes("e-defter");
       olaylar.push({
         tarih: v.tarih,
-        renk: "purple",
+        renk: eDefterMi ? "emerald" : "purple",
         etiket: v.baslik,
-        tur: "vergi",
-        aciklama: v.aciklama,
-      });
-    }
-    for (const v of getVergiTakvimiIkiYil()) {
-      const key = `${v.tarih}|${v.baslik.toLowerCase().slice(0, 40)}`;
-      if (seen.has(key)) continue;
-      olaylar.push({
-        tarih: v.tarih,
-        renk: "purple",
-        etiket: v.baslik,
-        tur: "vergi",
+        tur: eDefterMi ? "edefter" : "vergi",
         aciklama: v.aciklama,
       });
     }
@@ -412,6 +479,47 @@ export default function DashboardPage() {
         }
       />
 
+      {(edefterAylikUyari || edefter3AylikUyari || fizikselPosSayi > 0) && (
+        <div className="mb-5 space-y-2">
+          {edefterAylikUyari && (
+            <InfoBanner variant="warning">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <strong>Ay sonu yaklaşıyor:</strong> {edefterAylikSayi} mükellefin aylık e-defter berat gönderimi var.
+                </span>
+                <Link href="/edefter" className="font-medium text-amber-800 hover:underline whitespace-nowrap">
+                  E-Defter Takip →
+                </Link>
+              </div>
+            </InfoBanner>
+          )}
+          {edefter3AylikUyari && (
+            <InfoBanner variant="warning">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <strong>Çeyrek sonu:</strong> {edefter3AylikSayi} mükellefin 3 aylık e-defter berat gönderimi var.
+                </span>
+                <Link href="/edefter" className="font-medium text-amber-800 hover:underline whitespace-nowrap">
+                  E-Defter Takip →
+                </Link>
+              </div>
+            </InfoBanner>
+          )}
+          {fizikselPosSayi > 0 && (
+            <InfoBanner variant="info">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <strong>Z Raporu:</strong> {fizikselPosSayi} mükellefin fiziksel POS&apos;u var — bu ayın Z raporlarını kontrol edin.
+                </span>
+                <Link href="/pos-takip" className="font-medium text-blue-700 hover:underline whitespace-nowrap">
+                  POS / Z Raporu →
+                </Link>
+              </div>
+            </InfoBanner>
+          )}
+        </div>
+      )}
+
       <StatsDrawer
         title="Dashboard İstatistikleri"
         subtitle="Portföy, görev, tebligat ve rapor özeti"
@@ -424,13 +532,13 @@ export default function DashboardPage() {
         <Card className="flex flex-col h-full">
           <div className="flex items-center gap-2 text-slate-800">
             <Users className="h-4 w-4 text-blue-600" />
-            <h3 className="text-sm font-semibold">Müşteri Portföyü</h3>
+            <h3 className="text-sm font-semibold">Mükellef Portföyü</h3>
           </div>
           <p className="mt-2 text-2xl font-bold text-slate-900">{aktifMusteriler.length}</p>
           <p className="text-xs text-slate-500">{musteriler.length} toplam kayıttan aktif</p>
           <Link href="/musteriler" className="mt-auto pt-3 block">
             <Button variant="outline" size="sm" className="w-full justify-center">
-              Müşterilere Git
+              Mükelleflere Git
             </Button>
           </Link>
         </Card>
@@ -440,7 +548,7 @@ export default function DashboardPage() {
             <h3 className="text-sm font-semibold">Risk Durumu</h3>
           </div>
           <p className="mt-2 text-2xl font-bold text-slate-900">{kritikRiskler.length}</p>
-          <p className="text-xs text-slate-500">Kritik &amp; yüksek riskli müşteri</p>
+          <p className="text-xs text-slate-500">Kritik &amp; yüksek riskli mükellef</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             <Badge variant="danger" size="sm">
               Kritik: {riskListesi.filter((r) => r.seviye === "kritik").length}
@@ -506,89 +614,241 @@ export default function DashboardPage() {
         <MiniTakvim olaylar={takvimOlaylari} />
       </div>
 
-      {/* Resmi Gazete — yalnızca mali müşavirleri ilgilendiren maddeler (etki puanı ≥30),
-          1-2 cümlelik özet. Kompakt accordion; varsayılan açık gelir, satırlar tek satır.
-          Başlığa tıklama ilgili Resmi Gazete sayfasını yeni sekmede açar. */}
-      {(gazeteYukleniyor && visibleGazete.length === 0) ? (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs text-blue-700">
-          <Sparkles className="h-3 w-3 flex-shrink-0 animate-pulse" />
-          Resmi Gazete özeti yükleniyor...
-        </div>
-      ) : (!gazeteYukleniyor && gazeteHata && visibleGazete.length === 0) ? (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs text-amber-700">
-          Resmi Gazete özeti şu an alınamadı. Daha sonra tekrar deneyin.
-        </div>
-      ) : visibleGazete.length > 0 ? (
-        <div className="mb-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          {/* Başlık / toggle satırı */}
-          <button
-            type="button"
-            onClick={() => setGazeteAcik((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
-            aria-expanded={gazeteAcik}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
-              <span className="text-xs font-semibold text-slate-700">Resmi Gazete</span>
-              <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">Mali müşavire ilgili</span>
-              <Badge variant="info" size="sm">{visibleGazete.length}</Badge>
-              {visibleGazete.some((i) => i.aksiyonGerekiyor) && (
-                <Badge variant="danger" size="sm">
-                  {visibleGazete.filter((i) => i.aksiyonGerekiyor).length} acil
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <a
-                href="https://www.resmigazete.gov.tr"
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+      {/* Güncel Duyurular — TÜRMOB haberleri + Resmi Gazete mali maddeleri.
+          İki sekmeli kompakt accordion; varsayılan açık gelir. */}
+      <div className="mb-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {/* Panel başlığı */}
+        <button
+          type="button"
+          onClick={() => setDuyurularAcik((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+          aria-expanded={duyurularAcik}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-blue-500" />
+            <span className="text-xs font-semibold text-slate-700">Güncel Duyurular</span>
+            <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">TÜRMOB · Resmi Gazete</span>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <a
+              href="https://www.turmob.org.tr"
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="hidden sm:flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+            >
+              turmob.org.tr <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+            <a
+              href="https://www.resmigazete.gov.tr"
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="hidden sm:flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+            >
+              resmigazete.gov.tr <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+            {duyurularAcik ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+          </div>
+        </button>
+
+        {duyurularAcik && (
+          <>
+            {/* Sekme satırı */}
+            <div className="flex border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setAktifDuyuruSekme("turmob")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+                  aktifDuyuruSekme === "turmob"
+                    ? "border-blue-500 text-blue-600 bg-blue-50/40"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
               >
-                resmigazete.gov.tr ↗
-              </a>
-              {gazeteAcik ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+                TÜRMOB
+                {turmobYukleniyor && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                {!turmobYukleniyor && turmobHaberler.length > 0 && (
+                  <Badge variant="info" size="sm">{turmobHaberler.length}</Badge>
+                )}
+                {turmobYeniLinkler.length > 0 && (
+                  <Badge variant="success" size="sm">{turmobYeniLinkler.length} yeni</Badge>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAktifDuyuruSekme("gazete")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+                  aktifDuyuruSekme === "gazete"
+                    ? "border-blue-500 text-blue-600 bg-blue-50/40"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Resmi Gazete
+                {gazeteYukleniyor && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                {!gazeteYukleniyor && visibleGazete.length > 0 && (
+                  <Badge variant="info" size="sm">{visibleGazete.length}</Badge>
+                )}
+                {gazeteYeniIdler.length > 0 && (
+                  <Badge variant="success" size="sm">{gazeteYeniIdler.length} yeni</Badge>
+                )}
+                {visibleGazete.some((i) => i.aksiyonGerekiyor) && (
+                  <Badge variant="danger" size="sm">
+                    {visibleGazete.filter((i) => i.aksiyonGerekiyor).length} acil
+                  </Badge>
+                )}
+              </button>
             </div>
-          </button>
-          {/* Madde listesi */}
-          {gazeteAcik && (
-            <ul className="divide-y divide-slate-100 border-t border-slate-100">
-              {visibleGazete.map((item) => (
-                <li key={item.id} className="flex items-start gap-2 px-3 py-2 hover:bg-slate-50 group">
-                  {item.aksiyonGerekiyor && (
-                    <Badge variant="danger" size="sm" className="mt-0.5 flex-shrink-0">Acil</Badge>
-                  )}
-                  <a
-                    href={item.kaynakLink || "https://www.resmigazete.gov.tr"}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="min-w-0 flex-1 block"
-                    title={item.aiOzet || item.baslik}
-                  >
-                    <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 leading-snug line-clamp-1 transition-colors">
-                      {item.baslik} ↗
-                    </span>
-                    {item.aiOzet && (
-                      <span className="mt-0.5 block text-[10px] text-slate-500 leading-snug line-clamp-1">
-                        {item.aiOzet}
-                      </span>
-                    )}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
-                    className="flex-shrink-0 rounded p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-500 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Gizle"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
+
+            {/* TÜRMOB sekmesi */}
+            {aktifDuyuruSekme === "turmob" && (
+              <div>
+                {turmobYukleniyor ? (
+                  <div className="flex items-center gap-2 px-3 py-3 text-xs text-blue-700">
+                    <Sparkles className="h-3 w-3 animate-pulse flex-shrink-0" />
+                    TÜRMOB haberleri yükleniyor...
+                  </div>
+                ) : turmobHata || turmobHaberler.length === 0 ? (
+                  <div className="flex items-center justify-between px-3 py-3">
+                    <p className="text-xs text-slate-400">
+                      {turmobHata ? "TÜRMOB haberleri şu an alınamadı." : "Haber bulunamadı."}
+                    </p>
+                    <a
+                      href="https://www.turmob.org.tr"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+                    >
+                      turmob.org.tr <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {turmobHaberler.map((haber, i) => (
+                      <li key={i} className="group px-3 py-2 hover:bg-slate-50">
+                        <a
+                          href={haber.link}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="block min-w-0"
+                          title={haber.ozet || haber.baslik}
+                        >
+                          <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 leading-snug line-clamp-1 transition-colors">
+                            {turmobYeniLinkler.includes(haber.link) && (
+                              <Badge variant="success" size="sm" className="mr-1 align-middle">Yeni</Badge>
+                            )}
+                            {haber.baslik}
+                          </span>
+                          {haber.ozet && (
+                            <span className="mt-0.5 block text-[10px] text-slate-500 leading-snug line-clamp-1">
+                              {haber.ozet}
+                            </span>
+                          )}
+                          <span className="mt-0.5 block text-[10px] text-slate-400">
+                            {new Date(haber.tarih).toLocaleDateString("tr-TR", { day: "numeric", month: "long" })}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                    <li className="px-3 py-2">
+                      <a
+                        href="https://www.turmob.org.tr"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium"
+                      >
+                        Tüm haberler için turmob.org.tr <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </li>
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Resmi Gazete sekmesi */}
+            {aktifDuyuruSekme === "gazete" && (
+              <div>
+                {gazeteYukleniyor && visibleGazete.length === 0 ? (
+                  <div className="flex items-center gap-2 px-3 py-3 text-xs text-blue-700">
+                    <Sparkles className="h-3 w-3 animate-pulse flex-shrink-0" />
+                    Resmi Gazete özeti yükleniyor...
+                  </div>
+                ) : !gazeteYukleniyor && gazeteHata && visibleGazete.length === 0 ? (
+                  <div className="flex items-center justify-between px-3 py-3">
+                    <p className="text-xs text-slate-400">Resmi Gazete özeti şu an alınamadı.</p>
+                    <a
+                      href="https://www.resmigazete.gov.tr"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+                    >
+                      resmigazete.gov.tr <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                ) : visibleGazete.length > 0 ? (
+                  <ul className="divide-y divide-slate-100">
+                    {visibleGazete.map((item) => (
+                      <li key={item.id} className="flex items-start gap-2 px-3 py-2 hover:bg-slate-50 group">
+                        {item.aksiyonGerekiyor && (
+                          <Badge variant="danger" size="sm" className="mt-0.5 flex-shrink-0">Acil</Badge>
+                        )}
+                        <a
+                          href={item.kaynakLink || "https://www.resmigazete.gov.tr"}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="min-w-0 flex-1 block"
+                          title={item.aiOzet || item.baslik}
+                        >
+                          <span className="text-[11px] font-semibold text-slate-700 group-hover:text-blue-600 leading-snug line-clamp-1 transition-colors">
+                            {gazeteYeniIdler.includes(item.kaynakLink || item.baslik) && (
+                              <Badge variant="success" size="sm" className="mr-1 align-middle">Yeni</Badge>
+                            )}
+                            {item.baslik}
+                          </span>
+                          {item.aiOzet && (
+                            <span className="mt-0.5 block text-[10px] text-slate-500 leading-snug line-clamp-1">
+                              {item.aiOzet}
+                            </span>
+                          )}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setDismissedGazete((prev) => [...prev, item.id])}
+                          className="flex-shrink-0 rounded p-0.5 text-slate-300 hover:bg-slate-100 hover:text-slate-500 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Gizle"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </li>
+                    ))}
+                    <li className="px-3 py-2">
+                      <a
+                        href="https://www.resmigazete.gov.tr"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium"
+                      >
+                        Resmi Gazete sitesine git <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </li>
+                  </ul>
+                ) : (
+                  <div className="flex items-center justify-between px-3 py-3">
+                    <p className="text-xs text-slate-400">Bugün ilgili madde yok.</p>
+                    <a
+                      href="https://www.resmigazete.gov.tr"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 font-medium"
+                    >
+                      resmigazete.gov.tr <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Grafik satırı */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
@@ -624,7 +884,7 @@ export default function DashboardPage() {
         {/* Risk dağılımı pie chart */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-5">
           <h3 className="text-sm font-semibold text-slate-800 mb-1">Risk Dağılımı</h3>
-          <p className="text-xs text-slate-500 mb-3">Aktif müşteriler</p>
+          <p className="text-xs text-slate-500 mb-3">Aktif mükellefler</p>
           <div className="sm:hidden space-y-2">
             {riskDagilim.map((d) => (
               <div key={d.name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
@@ -669,11 +929,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Kritik müşteriler */}
+        {/* Kritik mükellefler */}
         <div className="md:col-span-2 lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-card">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
-              <h3 className="text-sm font-semibold text-slate-800">Kritik & Yüksek Riskli Müşteriler</h3>
+              <h3 className="text-sm font-semibold text-slate-800">Kritik & Yüksek Riskli Mükellefler</h3>
               <p className="text-xs text-slate-500 mt-0.5">Öncelikli aksiyon gerektiren firmalar</p>
             </div>
             <Link href="/musteriler" className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
@@ -892,7 +1152,7 @@ export default function DashboardPage() {
         <Table className="hidden md:block">
           <TableHead>
             <tr>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>Beyan Türü</TableHeadCell>
               <TableHeadCell>Dönem</TableHeadCell>
               <TableHeadCell>Son Tarih</TableHeadCell>

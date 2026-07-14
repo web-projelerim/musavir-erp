@@ -109,11 +109,11 @@ export default function TebligatlarPage() {
       if (mesaj && islenenMusteriSayisi === 0) {
         toast.info("GİB sync", mesaj);
       } else if (hataSayisi === 0) {
-        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} müşteri — ${toplamKayit} tebligat güncellendi`);
+        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} mükellef — ${toplamKayit} tebligat güncellendi`);
       } else if (toplamKayit > 0) {
-        toast.warning("Kısmi sync", `${toplamKayit} tebligat güncellendi, ${hataSayisi} müşteride hata`);
+        toast.warning("Kısmi sync", `${toplamKayit} tebligat güncellendi, ${hataSayisi} mükellefte hata`);
       } else {
-        toast.error("GİB sync başarısız", "Tüm müşterilerde hata. GİB kimlik bilgilerini kontrol edin");
+        toast.error("GİB sync başarısız", "Tüm mükelleflerde hata. GİB kimlik bilgilerini kontrol edin");
       }
     } catch (err) {
       toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
@@ -157,9 +157,9 @@ export default function TebligatlarPage() {
       }
       const { toplamKayit = 0, hataSayisi = 0, islenenMusteriSayisi = 0 } = data;
       if (hataSayisi === 0) {
-        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} müşteri — ${toplamKayit} tebligat güncellendi`);
+        toast.success("GİB tebligat sync tamamlandı", `${islenenMusteriSayisi} mükellef — ${toplamKayit} tebligat güncellendi`);
       } else {
-        toast.warning("Kısmi sync", `${toplamKayit} tebligat, ${hataSayisi} müşteride hata`);
+        toast.warning("Kısmi sync", `${toplamKayit} tebligat, ${hataSayisi} mükellefte hata`);
       }
     } catch (err) {
       toast.error("GİB sync hatası", err instanceof Error ? err.message : undefined);
@@ -457,7 +457,7 @@ export default function TebligatlarPage() {
           <TableHead>
             <tr>
               <TableHeadCell>Tarih</TableHeadCell>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>VKN/TCKN</TableHeadCell>
               <TableHeadCell>Başlık</TableHeadCell>
               <TableHeadCell>Tür</TableHeadCell>

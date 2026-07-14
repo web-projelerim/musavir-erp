@@ -347,7 +347,7 @@ export default function AyarlarPage() {
     }
     const musteriListesi = musteriler.filter((m) => m.sgkSicilNo && m.durum === "aktif");
     if (musteriListesi.length === 0) {
-      toast.warning("SGK sicil numarası olan aktif müşteri bulunamadı");
+      toast.warning("SGK sicil numarası olan aktif mükellef bulunamadı");
       return;
     }
     setSgkSyncLoading(true);
@@ -376,7 +376,7 @@ export default function AyarlarPage() {
     }
     setSgkSyncLoading(false);
     if (basarisiz === 0) {
-      toast.success("SGK senkronizasyonu tamamlandı", `${basarili} müşteri senkronize edildi`);
+      toast.success("SGK senkronizasyonu tamamlandı", `${basarili} mükellef senkronize edildi`);
     } else {
       toast.warning(`SGK sync: ${basarili} başarılı, ${basarisiz} başarısız`);
     }
@@ -567,7 +567,7 @@ export default function AyarlarPage() {
 
     const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
 
-    // Tebligat: müşterinin kendi GİB hesabıyla çekilir
+    // Tebligat: mükellefin kendi GİB hesabıyla çekilir
     const tebligatHedefleri = aktifMusteriler.filter(
       (m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
     );
@@ -581,7 +581,7 @@ export default function AyarlarPage() {
 
     // Erken çıkış: gerekli kreden yoksa uyar
     if (yapilacakTebligat && tebligatHedefleri.length === 0 && !yapilacakBeyanname && !yapilacakTahakkuk) {
-      toast.warning("GİB kredansiyeli bulunan müşteri yok", "Müşteri Excel importu sırasında GİB bilgilerini eşleştirin");
+      toast.warning("GİB kredansiyeli bulunan mükellef yok", "Mükellef Excel importu sırasında GİB bilgilerini eşleştirin");
       setSyncLoading(false);
       return;
     }
@@ -791,7 +791,7 @@ export default function AyarlarPage() {
     setRetryingId(kayit.id);
     try {
       const musteri = musteriler.find((m) => m.id === kayit.musteriId);
-      if (!musteri) throw new Error("Müşteri bulunamadı");
+      if (!musteri) throw new Error("Mükellef bulunamadı");
 
       const res = await fetch("/api/whatsapp/send", {
         method: "POST",
@@ -968,9 +968,9 @@ export default function AyarlarPage() {
       toast.error("Kendi rolünüzü buradan değiştiremezsiniz.");
       return;
     }
-    // Mükellefe düşürme: bağlı bir müşteri kaydı olmadan mükellef olamaz
+    // Mükellefe düşürme: bağlı bir mükellef kaydı olmadan mükellef olamaz
     if (yeniRol === "mukellef" && !hedef.musteriId) {
-      toast.error("Mükellef rolü için kullanıcının bir müşteriyle eşleştirilmiş olması gerekir.");
+      toast.error("Mükellef rolü için kullanıcının bir mükellefle eşleştirilmiş olması gerekir.");
       return;
     }
 
@@ -1134,10 +1134,10 @@ export default function AyarlarPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800">Manuel Senkron</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Tebligat: müşteri GİB hesabı · Beyanname &amp; borç: ofis IVD hesabı
+                    Tebligat: mükellef GİB hesabı · Beyanname &amp; borç: ofis IVD hesabı
                     {aktifMusteriler.length > 0
-                      ? ` · ${aktifMusteriler.length} aktif müşteri`
-                      : " · Aktif müşteri yok"}
+                      ? ` · ${aktifMusteriler.length} aktif mükellef`
+                      : " · Aktif mükellef yok"}
                   </p>
                 </div>
                 {!hazir && (
@@ -1152,7 +1152,7 @@ export default function AyarlarPage() {
                       tipi: "tebligat" as const,
                       label: "Tebligatlar",
                       aciklama: "e-Tebligat listesi",
-                      kimlik: "Müşteri hesabı",
+                      kimlik: "Mükellef hesabı",
                     },
                     {
                       tipi: "beyanname" as const,
@@ -1279,7 +1279,7 @@ export default function AyarlarPage() {
 
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               {[
-                ["musteriImportAktif", "Müşteri import aktif"],
+                ["musteriImportAktif", "Mükellef import aktif"],
                 ["beyanImportAktif", "Beyan import aktif"],
                 ["tahakkukImportAktif", "Tahakkuk import aktif"],
                 ["disaAktarimAktif", "Dışa aktarım aktif"],
@@ -1328,7 +1328,7 @@ export default function AyarlarPage() {
             <div>
               <h3 className="text-sm font-semibold text-slate-800">WhatsApp Business API</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Meta Cloud API üzerinden müşterilere doğrudan WhatsApp mesajı gönderir.
+                Meta Cloud API üzerinden mükelleflere doğrudan WhatsApp mesajı gönderir.
                 Access token güvenlik için <code className="bg-slate-100 px-1 rounded text-xs">WHATSAPP_ACCESS_TOKEN</code> env değişkenine eklenmeli.
               </p>
             </div>
@@ -1389,12 +1389,12 @@ export default function AyarlarPage() {
 
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
-                { key: "tahakkuk" as const, etiket: "Tahakkuk Bildirimi", aciklama: "Yeni tahakkuk oluşturulunca müşteriye bilgi mesajı" },
+                { key: "tahakkuk" as const, etiket: "Tahakkuk Bildirimi", aciklama: "Yeni tahakkuk oluşturulunca mükellefe bilgi mesajı" },
                 { key: "vade" as const, etiket: "Vade Hatırlatma", aciklama: "Vade tarihinden 3 gün önce hatırlatma" },
-                { key: "belge" as const, etiket: "Eksik Belge Bildirimi", aciklama: "Belge eksikse müşteriden talep mesajı" },
+                { key: "belge" as const, etiket: "Eksik Belge Bildirimi", aciklama: "Belge eksikse mükelleften talep mesajı" },
                 { key: "davet" as const, etiket: "Mükellef Daveti", aciklama: "Yeni mükellefe panel davet mesajı" },
-                { key: "beyanname" as const, etiket: "Beyanname Hatırlatma", aciklama: "Beyanname son tarihi yaklaşınca müşteriye hatırlatma" },
-                { key: "rapor" as const, etiket: "Rapor Gönderimi", aciklama: "Hazır rapor müşteriye sunulduğunda" },
+                { key: "beyanname" as const, etiket: "Beyanname Hatırlatma", aciklama: "Beyanname son tarihi yaklaşınca mükellefe hatırlatma" },
+                { key: "rapor" as const, etiket: "Rapor Gönderimi", aciklama: "Hazır rapor mükellefe sunulduğunda" },
               ].map((tur) => {
                 const otomatik = waAuto[tur.key];
                 const disabled = !waAuto.global;

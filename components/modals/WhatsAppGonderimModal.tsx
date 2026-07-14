@@ -210,7 +210,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
       {step === "secim" && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-slate-600">Mesaj gönderilecek müşterileri seçin</p>
+            <p className="text-sm text-slate-600">Mesaj gönderilecek mükellefleri seçin</p>
             <button
               onClick={() =>
                 setSeciliMusteriler(
@@ -286,7 +286,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
               <p className="text-xs text-slate-500 mt-0.5">
                 {useTemplate
                   ? "Meta onaylı şablon — 24 saat dışı gönderim için zorunlu"
-                  : "Serbest metin — sadece müşteri son 24 saatte mesaj atmışsa çalışır"}
+                  : "Serbest metin — sadece mükellef son 24 saatte mesaj atmışsa çalışır"}
               </p>
             </div>
             <button
@@ -339,7 +339,7 @@ export function WhatsAppGonderimModal({ open, onClose, musteriId, raporId, rapor
           <div className="bg-slate-50 rounded-xl p-3 mb-4">
             <p className="text-xs text-slate-500 mb-1">Özet:</p>
             <p className="text-xs text-slate-700">
-              <strong>{seciliMusteriler.length}</strong> müşteriye <strong>{SABLON_ETIKETLERI[secilenSablon]}</strong> şablonu gönderilecek.
+              <strong>{seciliMusteriler.length}</strong> mükellefe <strong>{SABLON_ETIKETLERI[secilenSablon]}</strong> şablonu gönderilecek.
             </p>
           </div>
 

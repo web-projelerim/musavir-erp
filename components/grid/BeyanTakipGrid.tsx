@@ -92,7 +92,7 @@ export function BeyanTakipGrid({
         <thead>
           <tr className="bg-slate-700 border-b border-slate-600">
             <th className="sticky left-0 z-20 bg-slate-700 px-4 py-1.5 text-left text-xs font-medium text-slate-300 border-r border-slate-600 min-w-[200px] uppercase tracking-wide">
-              Müşteri
+              Mükellef
             </th>
             {kolonlar.map((k) => {
               const durumu = sonTarihDurumu(k, donem);
@@ -134,10 +134,10 @@ export function BeyanTakipGrid({
                 </th>
               );
             })}
-            <th className="px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[80px] uppercase tracking-wide">
+            <th className="sticky right-[52px] z-20 bg-slate-700 px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[80px] uppercase tracking-wide">
               Durum
             </th>
-            <th className="px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[60px] uppercase tracking-wide">
+            <th className="sticky right-0 z-20 bg-slate-700 px-3 py-1.5 text-center text-xs font-medium text-slate-300 border-l border-slate-600 min-w-[52px] uppercase tracking-wide">
               Not
             </th>
           </tr>
@@ -148,6 +148,9 @@ export function BeyanTakipGrid({
             const sayilar = tamamlananSayilari.get(m.id) ?? { toplam: 0, verildi: 0 };
             const tumVerildi = sayilar.toplam > 0 && sayilar.verildi === sayilar.toplam;
             const yuzde = sayilar.toplam > 0 ? Math.round((sayilar.verildi / sayilar.toplam) * 100) : 0;
+            // Sticky (donuk) sütunlar OPAK arka plan almalı; aksi halde yatay
+            // kaydırmada ortadaki sütunlar sticky sütunun arkasından görünür ("taşma").
+            const stickyBg = tumVerildi ? "bg-emerald-50" : i % 2 === 0 ? "bg-white" : "bg-slate-50";
             return (
               <tr
                 key={m.id}
@@ -157,7 +160,7 @@ export function BeyanTakipGrid({
                   "hover:bg-blue-50/40"
                 )}
               >
-                <td className="sticky left-0 z-10 bg-inherit px-4 py-2 border-r border-slate-100 min-w-[200px]">
+                <td className={cn("sticky left-0 z-10 px-4 py-2 border-r border-slate-100 min-w-[200px]", stickyBg)}>
                   <div className="flex flex-col">
                     <span className="font-medium text-slate-800 text-sm truncate max-w-[200px]">{m.firmaAdi}</span>
                     <span className="text-[11px] text-slate-400 font-mono">{m.vknTckn}</span>
@@ -173,7 +176,7 @@ export function BeyanTakipGrid({
                     onTahakkukDegistir={(yapildi) => onTahakkukDegistir(m.id, k.key, yapildi)}
                   />
                 ))}
-                <td className="px-2 py-2 text-center border-l border-slate-100">
+                <td className={cn("sticky right-[52px] z-10 px-2 py-2 text-center border-l border-slate-100", stickyBg)}>
                   {sayilar.toplam > 0 ? (
                     <div className="flex flex-col items-center gap-0.5">
                       <span className={cn(
@@ -200,7 +203,7 @@ export function BeyanTakipGrid({
                     <span className="text-slate-300 text-xs">—</span>
                   )}
                 </td>
-                <td className="px-2 py-2 text-center border-l border-slate-100">
+                <td className={cn("sticky right-0 z-10 px-2 py-2 text-center border-l border-slate-100", stickyBg)}>
                   <button
                     type="button"
                     onClick={() => onNotAc(m.id)}
@@ -224,7 +227,7 @@ export function BeyanTakipGrid({
                 colSpan={kolonlar.length + 3}
                 className="px-4 py-8 text-center text-sm text-slate-400"
               >
-                Aktif müşteri bulunamadı
+                Aktif mükellef bulunamadı
               </td>
             </tr>
           )}

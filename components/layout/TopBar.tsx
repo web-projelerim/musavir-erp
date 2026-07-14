@@ -95,7 +95,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
         <input
           type="text"
-          placeholder="Müşteri, VKN, görev ara..."
+          placeholder="Mükellef, VKN, görev ara..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           className="bg-transparent text-sm text-slate-600 placeholder-slate-400 outline-none flex-1"
@@ -111,7 +111,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               <div className="max-h-96 overflow-y-auto">
                 {musteriSonuclari.length > 0 && (
                   <div className="py-2">
-                    <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Müşteriler</p>
+                    <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mükellefler</p>
                     {musteriSonuclari.map((m) => (
                       <Link
                         key={m.id}

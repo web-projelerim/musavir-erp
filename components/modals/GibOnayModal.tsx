@@ -27,7 +27,7 @@ const ADIMLAR = [
     renk: "amber",
     baslik: "Mevcut kayıtlar güncellenecek",
     aciklama: (_syncTipi: string, musteriSayisi: number) =>
-      `GİB'den gelen veriler Firestore'daki mevcut kayıtların üzerine yazılacaktır (upsert). ${musteriSayisi > 0 ? `${musteriSayisi} aktif müşteri` : "Ofis VKN/TCKN"} için veri çekilecek. Bu işlem geri alınamaz.`,
+      `GİB'den gelen veriler Firestore'daki mevcut kayıtların üzerine yazılacaktır (upsert). ${musteriSayisi > 0 ? `${musteriSayisi} aktif mükellef` : "Ofis VKN/TCKN"} için veri çekilecek. Bu işlem geri alınamaz.`,
     onay: "Riskleri anladım, onayla",
   },
   {
@@ -35,7 +35,7 @@ const ADIMLAR = [
     renk: "green",
     baslik: "Son onay",
     aciklama: (syncTipi: string, musteriSayisi: number) =>
-      `"${syncTipi}" senkronizasyonunu ${musteriSayisi > 0 ? `${musteriSayisi} müşteri` : "ofis hesabı"} için başlatmak istediğinizi kesinleştirin. İşlem birkaç saniye sürebilir.`,
+      `"${syncTipi}" senkronizasyonunu ${musteriSayisi > 0 ? `${musteriSayisi} mükellef` : "ofis hesabı"} için başlatmak istediğinizi kesinleştirin. İşlem birkaç saniye sürebilir.`,
     onay: "Evet, başlat",
   },
 ];

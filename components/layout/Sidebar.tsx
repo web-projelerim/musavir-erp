@@ -22,6 +22,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  BookText,
+  Receipt,
+  Rocket,
 } from "lucide-react";
 import { useAppData } from "@/lib/hooks/useAppData";
 import { useAuth } from "@/lib/context/AuthContext";
@@ -38,7 +41,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, badge: null },
-  { label: "Müşteriler", href: "/musteriler", icon: Users, badge: null },
+  { label: "Mükellefler", href: "/musteriler", icon: Users, badge: null },
   { label: "Görevler", href: "/gorevler", icon: CheckSquare, badge: "gorevler" },
   { label: "Raporlar", href: "/raporlar", icon: FileText, badge: null },
   {
@@ -53,6 +56,9 @@ const navItems: NavItem[] = [
   { label: "Tebligatlar", href: "/tebligatlar", icon: Bell, badge: "tebligatlar" },
   { label: "Tahakkuklar", href: "/tahakkuklar", icon: CreditCard, badge: null },
   { label: "Tahsilatlar", href: "/tahsilatlar", icon: Wallet, badge: null },
+  { label: "E-Defter Takip", href: "/edefter", icon: BookText, badge: null },
+  { label: "POS / Z Raporu", href: "/pos-takip", icon: Receipt, badge: null },
+  { label: "Teknokent", href: "/teknokent", icon: Rocket, badge: null },
   { label: "KDV2 Hesaplama", href: "/kdv2", icon: Calculator, badge: null },
   { label: "Onay Bekleyenler", href: "/onay-bekleyenler", icon: Send, badge: "onay" },
 ];

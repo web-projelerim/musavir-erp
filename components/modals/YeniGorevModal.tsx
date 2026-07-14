@@ -60,7 +60,7 @@ export function YeniGorevModal({ open, onClose, musteriId, initialDurum, onCreat
   const altGorevSil = (id: string) =>
     setAltGorevler((prev) => prev.filter((a) => a.id !== id));
 
-  // Modal her açıldığında VEYA müşteri/kullanıcı değiştiğinde formu sıfırla
+  // Modal her açıldığında VEYA mükellef/kullanıcı değiştiğinde formu sıfırla
   useEffect(() => {
     if (open) {
       setForm(bosForm());
@@ -150,7 +150,7 @@ export function YeniGorevModal({ open, onClose, musteriId, initialDurum, onCreat
   });
 
   const musteriOptions = [
-    { value: "", label: "— Müşteri seçin (isteğe bağlı) —" },
+    { value: "", label: "— Mükellef seçin (isteğe bağlı) —" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
 
@@ -173,7 +173,7 @@ export function YeniGorevModal({ open, onClose, musteriId, initialDurum, onCreat
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
           />
         </div>
-        <Select label="Müşteri" {...f("musteriId")} options={musteriOptions} />
+        <Select label="Mükellef" {...f("musteriId")} options={musteriOptions} />
         <div className="grid grid-cols-2 gap-3">
           <Select
             label="Öncelik"
@@ -229,7 +229,7 @@ export function YeniGorevModal({ open, onClose, musteriId, initialDurum, onCreat
                   altGorevEkle();
                 }
               }}
-              placeholder="Örn: Belgeleri topla, Müşteri onayı al, Kontrol et..."
+              placeholder="Örn: Belgeleri topla, Mükellef onayı al, Kontrol et..."
               className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button

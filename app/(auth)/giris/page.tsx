@@ -88,7 +88,8 @@ export default function GirisPage() {
           : await signIn(email.trim(), password);
       router.replace(appUser.rol === "mukellef" ? "/panel" : "/dashboard");
     } catch (err) {
-      console.error(err);
+      // Beklenen kimlik hataları (yanlış şifre / hesap yok vb.) kullanıcıya mesaj
+      // olarak gösteriliyor; ham FirebaseError'ı console'a kırmızı basmıyoruz.
       if (authMode === "register") {
         setError(parseFirebaseSignUpError(err));
       } else {
@@ -126,7 +127,7 @@ export default function GirisPage() {
       );
       setAuthMode("login");
     } catch (err) {
-      console.error(err);
+      // Beklenen hata kullanıcıya mesaj olarak gösteriliyor — console'a basmıyoruz.
       setError(parseFirebaseResetError(err));
     } finally {
       setLoading(false);
@@ -158,14 +159,14 @@ export default function GirisPage() {
             taşıyın.
           </h1>
           <p className="text-slate-300 text-lg leading-relaxed mb-10">
-            Tüm müşterilerinizi tek ekranda yönetin. GİB ve Luca verilerini takip edin, raporları otomatik üretin.
+            Tüm mükelleflerinizi tek ekranda yönetin. GİB ve Luca verilerini takip edin, raporları otomatik üretin.
           </p>
 
           <div className="space-y-4">
             {[
-              { icon: Users, title: "Portföy Yönetimi", desc: "Tüm müşterilerinizi tek ekranda görün" },
+              { icon: Users, title: "Portföy Yönetimi", desc: "Tüm mükelleflerinizi tek ekranda görün" },
               { icon: Shield, title: "Resmi Veri Takibi", desc: "GİB/Luca entegrasyon altyapısı" },
-              { icon: TrendingUp, title: "Akıllı Risk Skoru", desc: "Riskli müşterileri erken fark edin" },
+              { icon: TrendingUp, title: "Akıllı Risk Skoru", desc: "Riskli mükellefleri erken fark edin" },
             ].map(({ icon: Icon, title, desc }) => (
               <div key={title} className="flex items-center gap-4">
                 <div className="w-9 h-9 bg-blue-600/20 border border-blue-500/30 rounded-lg flex items-center justify-center flex-shrink-0">

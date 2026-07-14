@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, CheckSquare, CreditCard, Dot, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, CheckSquare, CreditCard, Dot, Receipt, BookText } from "lucide-react";
 import Link from "next/link";
 import { isoToLocalDateStr, localDateStr } from "@/lib/utils/takvimTarih";
 
@@ -10,7 +10,7 @@ export interface TakvimOlay {
   renk: "red" | "blue" | "amber" | "emerald" | "purple";
   etiket: string;
   href?: string;
-  tur?: "beyanname" | "gorev" | "tahsilat" | "vergi" | "diger";
+  tur?: "beyanname" | "gorev" | "tahsilat" | "vergi" | "edefter" | "diger";
   durum?: string;
   aciklama?: string;
 }
@@ -64,6 +64,7 @@ function OlayIcon({ tur }: { tur?: TakvimOlay["tur"] }) {
   if (tur === "gorev")     return <CheckSquare className="w-3.5 h-3.5" />;
   if (tur === "tahsilat")  return <CreditCard className="w-3.5 h-3.5" />;
   if (tur === "vergi")     return <Receipt className="w-3.5 h-3.5" />;
+  if (tur === "edefter")   return <BookText className="w-3.5 h-3.5" />;
   return <Dot className="w-3.5 h-3.5" />;
 }
 
@@ -235,6 +236,9 @@ export function MiniTakvim({ olaylar }: Props) {
               </span>
               <span className="flex items-center gap-1.5 text-xs text-slate-500">
                 <span className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" /> Vergi Takvimi
+              </span>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" /> e-Defter
               </span>
             </div>
           </div>

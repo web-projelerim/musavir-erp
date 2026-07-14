@@ -2,7 +2,7 @@ import type { RaporBolumKey, RaporSablon, RaporTip } from "@/lib/types";
 
 export const RAPOR_BOLUM_LABELS: Record<RaporBolumKey, string> = {
   ozet: "Genel Özet",
-  musteri_bilgileri: "Müşteri Bilgileri",
+  musteri_bilgileri: "Mükellef Bilgileri",
   gorevler: "Görevler",
   beyannameler: "Beyannameler",
   tahsilatlar: "Tahsilatlar",

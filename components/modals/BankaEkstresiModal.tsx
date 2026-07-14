@@ -101,7 +101,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
     setLoading(true);
     try {
       const rawRows = await parseBankaEkstresiFile(file);
-      // Yalnızca vergi tahakkuklarıyla eşleştir — hizmet tahakkukları müşteriler sayfasındadır
+      // Yalnızca vergi tahakkuklarıyla eşleştir — hizmet tahakkukları mükellefler sayfasındadır
       const vergiTahakkuklar = tahakkuklar.filter((t) => t.tahakkukTuru === "vergi");
       const parsed = matchBankaSatirlari(rawRows, musteriler, vergiTahakkuklar);
       setRows(parsed);
@@ -255,7 +255,7 @@ export function BankaEkstresiModal({ open, onClose, onSuccess }: Props) {
             </div>
             {unmatched.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                Bankada görünen ancak müşterilerle eşleşmeyen hareketler var. Kayıt sonrası bu satırlar uyarıda kalır.
+                Bankada görünen ancak mükelleflerle eşleşmeyen hareketler var. Kayıt sonrası bu satırlar uyarıda kalır.
               </div>
             )}
             <div className="max-h-80 overflow-auto rounded-xl border border-slate-200">

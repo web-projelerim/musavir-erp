@@ -270,13 +270,13 @@ export default function BeyannameTakipPage() {
         }
       }
       if (basarili > 0) {
-        toast.success("Toplu güncelleme", `${basarili} müşteri tamamlandı olarak işaretlendi`);
+        toast.success("Toplu güncelleme", `${basarili} mükellef tamamlandı olarak işaretlendi`);
         await logAudit({
           action: "status_change",
           entityType: "beyanTakipHucresi",
           entityId: vergiTuruKey,
           entityLabel: `${vergiTuruKey} — ${donem} (toplu)`,
-          summary: `${basarili} müşteri toplu olarak "tamamlandi" yapıldı`,
+          summary: `${basarili} mükellef toplu olarak "tamamlandi" yapıldı`,
           after: { durum: "tamamlandi", adet: basarili },
         });
       }
@@ -497,7 +497,7 @@ export default function BeyannameTakipPage() {
             type="text"
             value={aramaMetni}
             onChange={(e) => setAramaMetni(e.target.value)}
-            placeholder="Müşteri ara (ad, VKN, yetkili)..."
+            placeholder="Mükellef ara (ad, VKN, yetkili)..."
             className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           {aramaMetni && (
@@ -562,7 +562,7 @@ export default function BeyannameTakipPage() {
       {/* Arama sonuç bilgisi */}
       {aramaMetni && (
         <p className="text-xs text-slate-500 mb-3">
-          {aktifMusteriler.length} müşteri bulundu
+          {aktifMusteriler.length} mükellef bulundu
           {aktifMusteriler.length === 0 && " — aramayı değiştirmeyi deneyin"}
         </p>
       )}
@@ -573,7 +573,7 @@ export default function BeyannameTakipPage() {
           <CheckCheck className="w-5 h-5 text-blue-600 flex-shrink-0" />
           <p className="text-sm text-blue-800 flex-1">
             <strong>{tumKolonlar.find((k) => k.key === topluIslemSutun)?.label}</strong> sütunundaki
-            tüm eksik müşteriler &quot;Tamamlandı&quot; olarak işaretlenecek. Emin misiniz?
+            tüm eksik mükellefler &quot;Tamamlandı&quot; olarak işaretlenecek. Emin misiniz?
           </p>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
@@ -645,7 +645,7 @@ export default function BeyannameTakipPage() {
       <div className="md:hidden space-y-3">
         {aktifMusteriler.length === 0 && (
           <p className="text-center text-sm text-slate-400 py-8">
-            {aramaMetni ? "Aramayla eşleşen müşteri bulunamadı" : "Aktif müşteri bulunamadı"}
+            {aramaMetni ? "Aramayla eşleşen mükellef bulunamadı" : "Aktif mükellef bulunamadı"}
           </p>
         )}
         {aktifMusteriler.map((m) => (

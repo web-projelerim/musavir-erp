@@ -98,7 +98,7 @@ export default function TebligatGoruntulePage({ params }: Props) {
               {karsit && <Badge variant="danger">KARŞIT İNCELEME</Badge>}
             </div>
             <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
-              <span><strong>Müşteri:</strong> {tebligat.musteriAdi}</span>
+              <span><strong>Mükellef:</strong> {tebligat.musteriAdi}</span>
               <span><strong>Tarih:</strong> {formatTarih(tebligat.tarih)}</span>
               <span><strong>Tür:</strong> {tebligat.tur}</span>
               <span><strong>Durum:</strong> {tebligat.durum}</span>

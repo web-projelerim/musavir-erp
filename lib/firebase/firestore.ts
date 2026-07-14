@@ -51,6 +51,10 @@ export const COLLECTIONS = {
   beyanTakipHucreleri: "beyanTakipHucreleri",
   beyanTakipNotlari: "beyanTakipNotlari",
   belgeTalepleri: "belgeTalepleri",
+  edefterTakip: "edefterTakip",
+  posTakip: "posTakip",
+  teknokentProjeler: "teknokentProjeler",
+  ortaklar: "ortaklar",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

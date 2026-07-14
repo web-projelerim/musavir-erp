@@ -56,13 +56,13 @@ export default function RiskPage() {
     <div>
       <PageHeader
         title="Risk Merkezi"
-        subtitle="Müşteri bazlı risk skorları ve uyarı sinyalleri"
+        subtitle="Mükellef bazlı risk skorları ve uyarı sinyalleri"
         breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Risk Merkezi" }]}
       />
 
       <StatsDrawer
         title="Risk İstatistikleri"
-        subtitle="Müşteri risk seviyesi dağılımı"
+        subtitle="Mükellef risk seviyesi dağılımı"
         metrics={metrics}
       />
 
@@ -83,7 +83,7 @@ export default function RiskPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
           <h3 className="text-sm font-semibold text-slate-800">Risk Sıralaması</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Tüm müşteriler hesaplanan risk skoruna göre sıralı</p>
+          <p className="text-xs text-slate-500 mt-0.5">Tüm mükellefler hesaplanan risk skoruna göre sıralı</p>
         </div>
         <MobileList empty={riskListesi.length === 0}>
           {riskListesi.map((risk, idx) => {

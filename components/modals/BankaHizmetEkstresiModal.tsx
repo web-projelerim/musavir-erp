@@ -13,6 +13,8 @@ import { isFirebaseConfigured } from "@/lib/firebase/client";
 import {
   createBankaEkstresi,
   createOdeme,
+  createTahsilat,
+  updateTahsilat,
   updateTahakkukDurum,
   updateMusteri,
 } from "@/lib/firebase/repositories";
@@ -50,7 +52,7 @@ function periodFromDate() {
 }
 
 export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
-  const { musteriler, tahakkuklar } = useAppData();
+  const { musteriler, tahakkuklar, tahsilatlar } = useAppData();
   const { user } = useAuth();
   const toast = useToast();
   const logAudit = useAuditLog();
@@ -67,21 +69,22 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
 
   const matched = rows.filter((row) => row.durum === "eslesti");
   const unmatched = rows.filter((row) => row.durum === "eslesmedi");
-  const allToProcess = [
-    ...matched,
-    ...rows
-      .filter((row) => row.durum !== "eslesti" && row.durum !== "eslesmedi")
-      .filter((row) => {
-        const me = manuelEslestirmeler.find((m) => m.rowId === row.id);
-        return me && me.tahakkukId;
-      }),
-  ];
+  // Orta güvenli otomatik eşleşmeler — mali müşavir onayı bekler, onaysız KAYDEDİLMEZ
+  const onayBekleyen = rows.filter((row) => row.durum === "onay_bekliyor");
 
   const handleFile = async (file?: File) => {
     if (!file) return;
     setLoading(true);
     try {
       const rawRows = await parseBankaEkstresiFile(file);
+      if (rawRows.length === 0) {
+        // Format tanınmadı — boş "özet" aşamasına geçip sessizce boş kayıt yapma
+        toast.warning(
+          "Hiç satır okunamadı",
+          "Dosya formatı tanınmadı. Lütfen tarih/açıklama/tutar sütunları olan bir ekstre yükleyin."
+        );
+        return;
+      }
       // Sadece hizmet tahakkuklarıyla eşleştir
       const matched = matchBankaSatirlari(rawRows, musteriler, hizmetTahakkuklar);
       setRows(matched);
@@ -91,7 +94,7 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
       setGonderenKayitlar([]);
     } catch (error) {
       console.error(error);
-      toast.error("Banka ekstresi okunamadı");
+      toast.error("Banka ekstresi okunamadı", error instanceof Error ? error.message : undefined);
     } finally {
       setLoading(false);
     }
@@ -134,7 +137,8 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
               tahakkukTuru: tahakkuk.tahakkukTuru,
               odemeSinifi: tahakkuk.tahakkukTuru,
               eslesenTahakkukEtiketi: tahakkukKalemLabel(tahakkuk),
-              durum: "onay_bekliyor" as BankaEkstreSatiri["durum"],
+              // Manuel seçim = açık onaydır → doğrudan "eslesti" (kaydedilir)
+              durum: "eslesti" as BankaEkstreSatiri["durum"],
               uyarilar: ["Manuel eşleştirildi"],
             }
           : row
@@ -142,9 +146,40 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
     );
   };
 
+  /** Onay bekleyen otomatik eşleşmeyi mali müşavir onaylar → kaydedilecekler listesine girer */
+  const handleOnayla = (rowId: string) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId && row.durum === "onay_bekliyor"
+          ? { ...row, durum: "eslesti" as BankaEkstreSatiri["durum"], uyarilar: ["Onaylandı"] }
+          : row
+      )
+    );
+  };
+
+  /** Onay bekleyen eşleşmeyi reddet → manuel eşleştirme için "eşleşmedi"ye düşür */
+  const handleReddet = (rowId: string) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              musteriId: undefined,
+              musteriAdi: undefined,
+              tahakkukId: undefined,
+              tahakkukTuru: undefined,
+              eslesenTahakkukEtiketi: undefined,
+              durum: "eslesmedi" as BankaEkstreSatiri["durum"],
+              uyarilar: ["Reddedildi — manuel eşleştirin"],
+            }
+          : row
+      )
+    );
+  };
+
   const handleOzetDevam = () => {
-    if (unmatched.length === 0) {
-      // Hiç eşleşmeyen yok — gönderenler aşamasına geç
+    if (unmatched.length === 0 && onayBekleyen.length === 0) {
+      // İncelenecek/eşleştirilecek satır yok — gönderenler aşamasına geç
       hazirlaGonderenler();
     } else {
       setAsama("manuel");
@@ -193,7 +228,9 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
   const handleKaydet = async (seciliGonderenler: GonderenKayit[]) => {
     setLoading(true);
     try {
-      const tumEslesen = rows.filter((row) => row.durum === "eslesti" || row.durum === "onay_bekliyor");
+      // Yalnızca onaylanmış (eslesti) satırlar kaydedilir — onay bekleyenler
+      // mali müşavir onayı almadan yazılmaz.
+      const tumEslesen = rows.filter((row) => row.durum === "eslesti");
 
       if (isFirebaseConfigured) {
         const ekstre = await createBankaEkstresi({
@@ -229,11 +266,36 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
           const tahakkuk = hizmetTahakkuklar.find((t) => t.id === row.tahakkukId);
           if (tahakkuk) {
             const paid = (tahakkuk.odenenTutar ?? 0) + row.tutar;
-            await updateTahakkukDurum(tahakkuk.id, paid >= tahakkuk.tutar ? "odendi" : "kismi", paid);
+            const yeniDurum = paid >= tahakkuk.tutar ? "odendi" : "kismi";
+            await updateTahakkukDurum(tahakkuk.id, yeniDurum, paid);
+
+            // Tahsilat kaydı — /tahsilatlar sayfası ayrı `tahsilatlar` koleksiyonundan
+            // beslenir; eşleşen ödeme burada görünsün diye kaydı upsert et.
+            const mevcutTahsilat = tahsilatlar.find((t) => t.tahakkukId === tahakkuk.id);
+            if (mevcutTahsilat) {
+              await updateTahsilat(mevcutTahsilat.id, {
+                odenenTutar: paid,
+                odemeTarihi: row.tarih,
+                durum: yeniDurum,
+              });
+            } else {
+              await createTahsilat({
+                ofisId: getOfisId(user?.ofisId),
+                tahakkukId: tahakkuk.id,
+                musteriId: tahakkuk.musteriId,
+                musteriAdi: tahakkuk.musteriAdi,
+                tutar: tahakkuk.tutar,
+                odenenTutar: paid,
+                donem: tahakkuk.donem,
+                vadeTarihi: tahakkuk.vadeTarihi,
+                odemeTarihi: row.tarih,
+                durum: yeniDurum,
+              });
+            }
           }
         }
 
-        // Seçili gönderenleri müşteri kartına kaydet
+        // Seçili gönderenleri mükellef kartına kaydet
         for (const gonderen of seciliGonderenler) {
           if (!gonderen.secili || !gonderen.musteriId || !gonderen.gonderen) continue;
           const musteri = musteriler.find((m) => m.id === gonderen.musteriId);
@@ -255,7 +317,7 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
         entityType: "banka_ekstresi",
         entityId: fileName || `ekstre-${Date.now()}`,
         entityLabel: fileName,
-        summary: `Hizmet ekstresi: ${tumEslesen.length} eşleşme kaydedildi, ${seciliGonderenler.filter((g) => g.secili).length} gönderen müşteri kartına eklendi`,
+        summary: `Hizmet ekstresi: ${tumEslesen.length} eşleşme kaydedildi, ${seciliGonderenler.filter((g) => g.secili).length} gönderen mükellef kartına eklendi`,
         after: {
           eslesen: tumEslesen.length,
           eslesmemi: rows.filter((r) => r.durum === "eslesmedi").length,
@@ -352,19 +414,69 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
                 Geri
               </Button>
               <Button onClick={handleOzetDevam}>
-                {unmatched.length > 0 ? "Manuel Eşleştirmeye Geç" : "Kaydet"}
+                {unmatched.length > 0 || onayBekleyen.length > 0 ? "İncele ve Eşleştir" : "Kaydet"}
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── Aşama 2: Manuel Eşleştirme ── */}
+        {/* ── Aşama 2: İncele ve Manuel Eşleştir ── */}
         {asama === "manuel" && (
           <div className="space-y-4">
+            {/* Onay bekleyen otomatik eşleşmeler — mali müşavir onayına sunulur */}
+            {onayBekleyen.length > 0 && (
+              <div className="space-y-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Onay Bekleyen Eşleşmeler</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Orta güvenli otomatik eşleşmeler. Onaylamazsanız kaydedilmez.
+                  </p>
+                </div>
+                <div className="max-h-72 overflow-auto rounded-xl border border-amber-200 divide-y divide-amber-100">
+                  {onayBekleyen.map((row) => (
+                    <div key={row.id} className="p-3 bg-amber-50/40">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate">{row.aciklama}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {row.tarih} · {formatPara(row.tutar)}
+                            {row.gonderen ? ` · ${row.gonderen}` : ""}
+                          </p>
+                          <p className="text-[11px] text-slate-700 mt-1">
+                            → <span className="font-semibold">{row.musteriAdi}</span>
+                            {row.eslesenTahakkukEtiketi ? ` · ${row.eslesenTahakkukEtiketi}` : ""}
+                          </p>
+                        </div>
+                        <Badge variant="warning" className="flex-shrink-0 text-[10px]">Onay bekliyor</Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOnayla(row.id)}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        >
+                          Onayla
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReddet(row.id)}
+                          className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100 transition-colors"
+                        >
+                          Reddet
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <p className="text-sm font-semibold text-slate-800">Manuel Eşleştirme</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Otomatik eşleşmeyen {unmatched.length} satır için müşteri ve hizmet tahakkuku seçin.
+                {unmatched.length > 0
+                  ? `Otomatik eşleşmeyen ${unmatched.length} satır için mükellef ve hizmet tahakkuku seçin.`
+                  : "Eşleşmeyen satır kalmadı."}
               </p>
             </div>
 
@@ -394,7 +506,7 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
                         onChange={(e) => handleManuelMusteriDegis(row.id, e.target.value)}
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 outline-none col-span-1"
                       >
-                        <option value="">Müşteri seçin</option>
+                        <option value="">Mükellef seçin</option>
                         {musteriler.map((m) => (
                           <option key={m.id} value={m.id}>{m.firmaAdi}</option>
                         ))}
@@ -445,7 +557,7 @@ export function BankaHizmetEkstresiModal({ open, onClose, onSuccess }: Props) {
             <div>
               <p className="text-sm font-semibold text-slate-800">Gönderen Adlarını Kaydet</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Manuel eşleştirilen satırların gönderen adlarını müşteri kartına ekleyerek gelecekteki otomatik eşleşmeyi iyileştirebilirsiniz.
+                Manuel eşleştirilen satırların gönderen adlarını mükellef kartına ekleyerek gelecekteki otomatik eşleşmeyi iyileştirebilirsiniz.
               </p>
             </div>
 

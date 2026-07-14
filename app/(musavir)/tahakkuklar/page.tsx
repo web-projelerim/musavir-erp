@@ -118,7 +118,7 @@ export default function TahakkuklarPage() {
     <div className="space-y-5">
       <PageHeader
         title="Vergi Tahakkukları"
-        subtitle="Resmi vergi tahakkuklarını izleyin. Hizmet tahakkukları müşteriler sayfasından yönetilir."
+        subtitle="Resmi vergi tahakkuklarını izleyin. Hizmet tahakkukları mükellefler sayfasından yönetilir."
         breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Tahakkuklar" }]}
         action={
           <div className="flex flex-wrap gap-2">
@@ -204,7 +204,7 @@ export default function TahakkuklarPage() {
           <Table>
             <TableHead>
               <tr>
-                <TableHeadCell>Müşteri</TableHeadCell>
+                <TableHeadCell>Mükellef</TableHeadCell>
                 <TableHeadCell>Dönem</TableHeadCell>
                 <TableHeadCell>Kategori</TableHeadCell>
                 <TableHeadCell>Kalem</TableHeadCell>

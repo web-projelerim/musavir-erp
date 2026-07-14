@@ -175,14 +175,14 @@ export function DavetModal({ open, onClose, defaultRole = "musavir", musteriId, 
         />
         {musteriAdi && (
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
-            Davet bu müşteri hesabına bağlanacak: <strong>{musteriAdi}</strong>
+            Davet bu mükellef hesabına bağlanacak: <strong>{musteriAdi}</strong>
           </div>
         )}
         {/* P3-3: E-posta gönderimi toggle */}
         <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
           <div>
             <p className="text-xs font-semibold text-slate-700">Davet e-postası gönder</p>
-            <p className="text-xs text-slate-500 mt-0.5">SMTP tanımlıysa müşteriye link e-posta ile gider</p>
+            <p className="text-xs text-slate-500 mt-0.5">SMTP tanımlıysa mükellefe link e-posta ile gider</p>
           </div>
           <button
             type="button"

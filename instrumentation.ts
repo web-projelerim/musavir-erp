@@ -100,6 +100,11 @@ async function cronZamanlayiciyiBaslat() {
     zamanla("Beyanname Hatırlatma", process.env.BEYANNAME_HATIRLATMA_SCHEDULE ?? "0 8 * * *", () =>
       httpCronTetikle("Beyanname Hatırlatma", "/api/cron/beyanname-hatirlatma")
     );
+
+    // E-Defter berat hatırlatması — vars. her ayın 26'sı 08:00 (§2.3)
+    zamanla("E-Defter Hatırlatma", process.env.EDEFTER_HATIRLATMA_SCHEDULE ?? "0 8 26 * *", () =>
+      httpCronTetikle("E-Defter Hatırlatma", "/api/cron/edefter-hatirlatma")
+    );
   } catch (err) {
     // Cron başlatma hatası sunucuyu çökertmemeli — sadece logla
     console.error("[Cron] Zamanlayıcı başlatılamadı (sunucu etkilenmedi):", err);

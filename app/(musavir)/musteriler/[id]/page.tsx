@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard, FileText, CheckSquare, CalendarClock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard, FileText, CheckSquare, CalendarClock, Users, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge, TahsilatBadge, TebligatBadge, BeyannameBadge, BeyanWorkflowBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
+import { IstisnaBadge } from "@/components/ui/IstisnaBadge";
 import { Button } from "@/components/ui/Button";
 import {
   Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell, TableEmpty
@@ -19,7 +20,11 @@ import { BelgeUploadModal } from "@/components/modals/BelgeUploadModal";
 import { BelgeTalepModal } from "@/components/modals/BelgeTalepModal";
 import { DavetModal } from "@/components/modals/DavetModal";
 import { TahakkukModal } from "@/components/modals/TahakkukModal";
+import { OrtakModal } from "@/components/modals/OrtakModal";
 import { useToast } from "@/lib/context/ToastContext";
+import { useCollectionData } from "@/lib/hooks/useCollectionData";
+import { COLLECTIONS } from "@/lib/firebase/firestore";
+import { deleteOrtak } from "@/lib/firebase/repositories";
 import { tahakkukKalemLabel, tahakkukTuruLabel } from "@/lib/domain/tahakkuk";
 import { yukumlulukTipLabel, yukumlulukVariant } from "@/lib/domain/yukumluluk";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
@@ -42,9 +47,9 @@ import { formatTarih, formatPara } from "@/lib/utils/format";
 import { isMusavir } from "@/lib/utils/permissions";
 import { useAuth } from "@/lib/context/AuthContext";
 import { displayVknTckn } from "@/lib/utils/maskData";
-import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
+import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Ortak, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
 
-const TABS = ["Özet", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+const TABS = ["Özet", "Ortaklar", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
 
 const MUSTERI_DURUM_LABEL: Record<string, string> = {
   aktif: "Aktif", pasif: "Pasif", beklemede: "Beklemede",
@@ -86,6 +91,8 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const [showBelgeModal, setShowBelgeModal] = useState(false);
   const [showDavetModal, setShowDavetModal] = useState(false);
   const [showSozlesmeModal, setShowSozlesmeModal] = useState(false);
+  const [showOrtakModal, setShowOrtakModal] = useState(false);
+  const [seciliOrtak, setSeciliOrtak] = useState<Ortak | null>(null);
   const [seciliSozlesme, setSeciliSozlesme] = useState<GibSozlesme | null>(null);
   const [seciliGorev, setSeciliGorev] = useState<Gorev | null>(null);
   const [seciliTahsilat, setSeciliTahsilat] = useState<Tahsilat | null>(null);
@@ -113,6 +120,16 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const [localTahakkuklar, setLocalTahakkuklar] = useState<Tahakkuk[]>(tumTahakkuklar);
   const [localOdemeler, setLocalOdemeler] = useState<Odeme[]>(tumOdemeler);
   const [localBelgeler, setLocalBelgeler] = useState<Belge[]>(tumBelgeler);
+
+  // Ortaklar/yöneticiler — ofis geneli abonelik, bu mükellefe göre filtrelenir (§1.3)
+  const ortaklar = useCollectionData<Ortak>(COLLECTIONS.ortaklar, [], !!user, user?.ofisId);
+  const musteriOrtaklari = useMemo(
+    () =>
+      ortaklar.data
+        .filter((o) => o.musteriId === params.id)
+        .sort((a, b) => `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, "tr")),
+    [ortaklar.data, params.id]
+  );
 
   useEffect(() => {
     setLocalGorevler(tumGorevler);
@@ -145,10 +162,10 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
       <div className="bg-white rounded-xl border border-slate-200 shadow-card p-8">
         <Link href="/musteriler" className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 mb-4">
           <ArrowLeft className="w-3.5 h-3.5" />
-          Müşteri Listesi
+          Mükellef Listesi
         </Link>
-        <h1 className="text-lg font-bold text-slate-900">Müşteri bulunamadı</h1>
-        <p className="text-sm text-slate-500 mt-1">Bu ID ile eşleşen müşteri kaydı yok.</p>
+        <h1 className="text-lg font-bold text-slate-900">Mükellef bulunamadı</h1>
+        <p className="text-sm text-slate-500 mt-1">Bu ID ile eşleşen mükellef kaydı yok.</p>
       </div>
     );
   }
@@ -164,6 +181,23 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
   const yukumlulukler = tumYukumlulukler.filter((item) => item.musteriId === musteri.id);
   const sozlesmeler = tumSozlesmeler.filter((s) => s.musteriId === musteri.id);
   const aktifDavet = davetler.find((d) => d.musteriId === musteri.id && d.durum === "bekliyor");
+
+  const handleOrtakSil = async (o: Ortak) => {
+    if (!confirm(`"${o.ad} ${o.soyad}" ortağı silinsin mi?`)) return;
+    try {
+      await deleteOrtak(o.id);
+      logAudit({
+        action: "delete",
+        entityType: "musteri",
+        entityId: musteri.id,
+        entityLabel: musteri.firmaAdi,
+        summary: `Ortak silindi: ${o.ad} ${o.soyad}`,
+      }).catch(() => undefined);
+      toast.success("Ortak silindi");
+    } catch (err) {
+      toast.error("Silinemedi", err instanceof Error ? err.message : undefined);
+    }
+  };
   const musteriAudit = auditLogs
     .filter((log) => log.entityId === musteri.id || log.after?.musteriId === musteri.id || log.entityLabel === musteri.firmaAdi)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -260,12 +294,12 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           entityType: "musteri",
           entityId: musteri.id,
           entityLabel: musteri.firmaAdi,
-          summary: "Müşteri pasife alındı",
+          summary: "Mükellef pasife alındı",
           before: { durum: musteri.durum },
           after: { durum: "pasif" },
         });
       },
-      "Müşteri pasife alındı"
+      "Mükellef pasife alındı"
     );
   };
 
@@ -406,7 +440,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
           <Link href="/dashboard" className="hover:text-blue-600 transition-colors">Ana Sayfa</Link>
           <span>/</span>
-          <Link href="/musteriler" className="hover:text-blue-600 transition-colors">Müşteriler</Link>
+          <Link href="/musteriler" className="hover:text-blue-600 transition-colors">Mükellefler</Link>
           <span>/</span>
           <span className="text-slate-700 font-medium">{musteri.firmaAdi}</span>
         </nav>
@@ -419,6 +453,10 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               </span>
               <Badge variant={musteri.durum === "aktif" ? "success" : "neutral"}>{MUSTERI_DURUM_LABEL[musteri.durum] ?? musteri.durum}</Badge>
               <TahsilatBadge durum={musteri.tahsilatDurumu} />
+              <IstisnaBadge istisnalar={musteri.istisnalar} not={musteri.istisnaNotu} />
+              {musteri.teknokentMukellef && (
+                <Badge variant="info">Teknokent{musteri.teknokentAdi ? ` · ${musteri.teknokentAdi}` : ""}</Badge>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -711,6 +749,124 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         </div>
       )}
 
+      {activeTab === "Ortaklar" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <Users className="h-4 w-4 text-slate-400" />
+              {musteriOrtaklari.length} ortak/yönetici
+              {musteriOrtaklari.some((o) => o.hisseOrani) && (
+                <span className="text-slate-400">
+                  · toplam %{musteriOrtaklari.reduce((s, o) => s + (o.hisseOrani ?? 0), 0).toLocaleString("tr-TR")} hisse
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setSeciliOrtak(null);
+                setShowOrtakModal(true);
+              }}
+            >
+              Ortak Ekle
+            </Button>
+          </div>
+
+          {musteriOrtaklari.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              <Users className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+              Henüz ortak/yönetici kaydı yok.
+              <p className="mt-1 text-xs text-slate-400">Yukarıdaki &quot;Ortak Ekle&quot; ile ekleyin.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+              {/* Masaüstü tablo */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                      <th className="px-3 py-2.5">Ad Soyad</th>
+                      <th className="px-3 py-2.5">T.C. Kimlik No</th>
+                      <th className="px-3 py-2.5">Doğum Tarihi</th>
+                      <th className="px-3 py-2.5 text-right">Hisse</th>
+                      <th className="px-3 py-2.5 text-right">Sermaye</th>
+                      <th className="px-3 py-2.5">e-Devlet</th>
+                      <th className="px-3 py-2.5 text-right">İşlem</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {musteriOrtaklari.map((o) => (
+                      <tr key={o.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 font-medium text-slate-800">{o.ad} {o.soyad}</td>
+                        <td className="px-3 py-2.5 font-mono text-slate-500">{o.tckn ? displayVknTckn(o.tckn, user) : "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{o.dogumTarihi ? formatTarih(o.dogumTarihi) : "—"}</td>
+                        <td className="px-3 py-2.5 text-right text-slate-600">
+                          {o.hisseOrani != null ? `%${o.hisseOrani.toLocaleString("tr-TR")}` : "—"}
+                          {o.hisseAdedi != null ? <span className="block text-[10px] text-slate-400">{o.hisseAdedi.toLocaleString("tr-TR")} adet</span> : null}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-slate-600">{o.sermaye != null ? formatPara(o.sermaye) : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          {o.edevletSifresi ? <Badge variant="success">Kayıtlı 🔒</Badge> : <span className="text-xs text-slate-400">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => { setSeciliOrtak(o); setShowOrtakModal(true); }}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
+                              title="Düzenle"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOrtakSil(o)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                              title="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobil kartlar */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {musteriOrtaklari.map((o) => (
+                  <div key={o.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800">{o.ad} {o.soyad}</p>
+                        <p className="text-xs text-slate-500 font-mono">{o.tckn ? displayVknTckn(o.tckn, user) : "—"}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button type="button" onClick={() => { setSeciliOrtak(o); setShowOrtakModal(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded" title="Düzenle">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button type="button" onClick={() => handleOrtakSil(o)} className="p-1.5 text-slate-400 hover:text-red-600 rounded" title="Sil">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                      {o.dogumTarihi && <span>Doğum: {formatTarih(o.dogumTarihi)}</span>}
+                      {o.hisseOrani != null && <span>Hisse: %{o.hisseOrani.toLocaleString("tr-TR")}</span>}
+                      {o.sermaye != null && <span>Sermaye: {formatPara(o.sermaye)}</span>}
+                      {o.edevletSifresi && <span className="text-emerald-600">e-Devlet 🔒</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === "Görevler" && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
           {/* Mobil */}
@@ -776,7 +932,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">Belgeler</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Müşteri dosyaları ve paylaşılan evraklar</p>
+              <p className="text-xs text-slate-500 mt-0.5">Mükellef dosyaları ve paylaşılan evraklar</p>
             </div>
             <div className="flex gap-2">
               <Button
@@ -1020,7 +1176,7 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
           </div>
           {sozlesmeler.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm text-slate-500">Bu müşteri için kayıtlı sözleşme yok</p>
+              <p className="text-sm text-slate-500">Bu mükellef için kayıtlı sözleşme yok</p>
               <p className="mt-1 text-xs text-slate-400">+ Yeni Sözleşme butonuyla manuel ekleyebilirsiniz</p>
             </div>
           ) : (
@@ -1518,6 +1674,14 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         musteri={musteri}
         sozlesme={seciliSozlesme ?? undefined}
         onSaved={() => { /* firestore subscription otomatik günceller */ }}
+      />
+      <OrtakModal
+        open={showOrtakModal}
+        onClose={() => { setShowOrtakModal(false); setSeciliOrtak(null); }}
+        musteriId={musteri.id}
+        ofisId={musteri.ofisId}
+        ortak={seciliOrtak}
+        onSuccess={() => { /* firestore subscription otomatik günceller */ }}
       />
     </div>
   );

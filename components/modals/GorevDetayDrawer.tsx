@@ -254,7 +254,7 @@ export function GorevDetayDrawer({
           <div className="px-5 py-4 border-b border-slate-100 space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Detaylar</p>
             {[
-              { icon: Building2, label: "Müşteri", value: gorev.musteriAdi },
+              { icon: Building2, label: "Mükellef", value: gorev.musteriAdi },
               { icon: User, label: "Atanan", value: gorev.atananKisi },
               { icon: Calendar, label: "Termin", value: formatTarih(gorev.terminTarihi) },
               { icon: Tag, label: "Tür", value: TIP_LABEL[gorev.tip] },
@@ -309,7 +309,7 @@ export function GorevDetayDrawer({
               onChange={(e) => setEditForm((prev) => ({ ...prev, musteriId: e.target.value }))}
               className={inputClass}
             >
-              <option value="">— Müşteri seçin (isteğe bağlı) —</option>
+              <option value="">— Mükellef seçin (isteğe bağlı) —</option>
               {musteriler.map((m) => (
                 <option key={m.id} value={m.id}>{m.firmaAdi}</option>
               ))}

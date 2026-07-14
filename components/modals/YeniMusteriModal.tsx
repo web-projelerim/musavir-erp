@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Eye, EyeOff, RefreshCw, ChevronDown, Mail, Phone, CreditCard } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -10,9 +10,11 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
+import { NACE_KODLARI } from "@/lib/data/nace";
 import { createMusteri, updateMusteri } from "@/lib/firebase/repositories";
 import { authHeaders } from "@/lib/firebase/client";
-import type { Musteri, User } from "@/lib/types";
+import { POS_TURU_ETIKETLERI, ISTISNA_ETIKETLERI } from "@/lib/types";
+import type { Musteri, User, PosTuru, MusteriIstisna } from "@/lib/types";
 
 interface Props {
   open: boolean;
@@ -33,7 +35,8 @@ const VERGI_TURLERI = [
   { key: "kurumlar", label: "Kurumlar" },
   { key: "gelir", label: "Gelir" },
   { key: "gelir1001e", label: "Gelir1001E" },
-  { key: "muhsgk", label: "MuhSGK" },
+  { key: "muhsgk", label: "MuhSGK (Aylık)" },
+  { key: "muhsgk3", label: "MuhSGK (3 Aylık)" },
   { key: "muhsgk2", label: "MuhSGK2" },
   { key: "poset", label: "Poşet" },
   { key: "turizm", label: "Turizm" },
@@ -53,7 +56,9 @@ const VERGI_TURU_SECENEKLER = [
 
 const EDEFTER_SECENEKLER = [
   { value: "sorumlu_degil", label: "Sorumlu Değil" },
-  { value: "yuklu", label: "Yüklü" },
+  { value: "yuklu_aylik", label: "Yüklü — Aylık" },
+  { value: "yuklu_3aylik", label: "Yüklü — 3 Aylık" },
+  { value: "yuklu", label: "Yüklü (eski)" },
 ];
 
 const GRUPLAR = ["Basit Usul", "Bilanço", "İşletme", "Serbest Meslek", "Sermaye Şirketi"];
@@ -89,6 +94,7 @@ const EMPTY_FORM = {
   eDefter: "sorumlu_degil",
   eDefterGecis: "",
   naceKodu: "",
+  nacKodlari: [] as { kod: string; aciklama: string; anaFaaliyet: boolean }[],
   mudurGorevBitisTarihi: "",
   maliMuhur1Sn: "", maliMuhur1Bitis: "",
   maliMuhur2Sn: "", maliMuhur2Bitis: "",
@@ -116,14 +122,50 @@ const EMPTY_FORM = {
   ebildirgSifresi: "",
   edevletKullaniciAdi: "",
   edevletSifresi: "",
+  // POS / Teknokent / İstisnalar
+  posTuru: [] as PosTuru[],
+  teknokentMukellef: false,
+  teknokentAdi: "",
+  teknokentBaslangic: "",
+  istisnalar: [] as MusteriIstisna[],
+  istisnaNotu: "",
 };
 
 type Tab = "mukellef" | "kurum" | "bankaci" | "kullanici";
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-sky-100 border border-sky-200 rounded-lg px-3 py-2 mb-3">
-      <span className="text-sky-800 font-semibold text-sm">{children}</span>
+    <div className="flex items-center gap-2.5 mb-3">
+      <span className="h-4 w-1.5 rounded-full bg-blue-500 shrink-0" />
+      <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">{children}</span>
+      <span className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
+    </div>
+  );
+}
+
+function Segment({
+  options,
+  value,
+  onChange,
+}: {
+  options: { v: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onChange(o.v)}
+          className={`px-3.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            value === o.v ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -135,13 +177,16 @@ function VergiSelect({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const aktif = value === "mukellef";
   return (
     <div className="relative inline-block w-full">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`appearance-none w-full text-white rounded-lg pl-3 pr-7 py-1.5 text-xs font-medium cursor-pointer border-none outline-none ${
-          value === "mukellef" ? "bg-emerald-500" : "bg-rose-500"
+        className={`appearance-none w-full rounded-lg pl-2.5 pr-7 py-1.5 text-xs font-semibold cursor-pointer border outline-none transition-colors ${
+          aktif
+            ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+            : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
         }`}
       >
         {VERGI_TURU_SECENEKLER.map((o) => (
@@ -150,7 +195,11 @@ function VergiSelect({
           </option>
         ))}
       </select>
-      <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white pointer-events-none" />
+      <ChevronDown
+        className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none ${
+          aktif ? "text-emerald-600" : "text-slate-400"
+        }`}
+      />
     </div>
   );
 }
@@ -162,6 +211,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
   const [form, setForm] = useState(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState<Tab>("mukellef");
   const [showSifre, setShowSifre] = useState(false);
+  const [naceInput, setNaceInput] = useState("");
 
   const isEdit = Boolean(musteri);
 
@@ -214,6 +264,18 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         eDefter: musteri.eDefter ?? "sorumlu_degil",
         eDefterGecis: musteri.eDefterGecis ?? "",
         naceKodu: musteri.naceKodu ?? "",
+        nacKodlari:
+          musteri.nacKodlari && musteri.nacKodlari.length > 0
+            ? musteri.nacKodlari
+            : musteri.naceKodu
+            ? [
+                {
+                  kod: musteri.naceKodu.split("–")[0].trim(),
+                  aciklama: musteri.naceKodu.split("–").slice(1).join("–").trim(),
+                  anaFaaliyet: true,
+                },
+              ]
+            : [],
         mudurGorevBitisTarihi: musteri.mudurGorevBitisTarihi ?? "",
         maliMuhur1Sn: musteri.maliMuhurler?.[0]?.sn ?? "",
         maliMuhur1Bitis: musteri.maliMuhurler?.[0]?.bitisTarihi ?? "",
@@ -245,6 +307,12 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         edevletSifresi: "",
         gibKullaniciAdi: musteri.gibIvdKullaniciAdi ?? "",
         gibSifresi: "",
+        posTuru: musteri.posTuru ?? [],
+        teknokentMukellef: musteri.teknokentMukellef ?? false,
+        teknokentAdi: musteri.teknokentAdi ?? "",
+        teknokentBaslangic: musteri.teknokentBaslangic ?? "",
+        istisnalar: musteri.istisnalar ?? [],
+        istisnaNotu: musteri.istisnaNotu ?? "",
       });
     } else {
       const ilkMusavir = kullanicilar.find((u) => u.aktif && u.rol === "musavir");
@@ -265,6 +333,53 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
       gruplar: prev.gruplar.includes(grup)
         ? prev.gruplar.filter((g) => g !== grup)
         : [...prev.gruplar, grup],
+    }));
+
+  const togglePosTuru = (t: PosTuru) =>
+    setForm((prev) => ({
+      ...prev,
+      posTuru: prev.posTuru.includes(t) ? prev.posTuru.filter((x) => x !== t) : [...prev.posTuru, t],
+    }));
+
+  const toggleIstisna = (t: MusteriIstisna) =>
+    setForm((prev) => ({
+      ...prev,
+      istisnalar: prev.istisnalar.includes(t)
+        ? prev.istisnalar.filter((x) => x !== t)
+        : [...prev.istisnalar, t],
+    }));
+
+  // NACE: girilen metinden kod ekle ("62.01 – Bilgisayar programlama" veya sadece "62.01")
+  const naceEkle = () => {
+    const ham = naceInput.trim();
+    if (!ham) return;
+    const kod = ham.split("–")[0].split("-")[0].trim();
+    const eslesen = NACE_KODLARI.find((n) => n.kod === kod);
+    const aciklama = eslesen?.aciklama ?? ham.split("–").slice(1).join("–").trim();
+    if (!kod) return;
+    setForm((prev) => {
+      if (prev.nacKodlari.some((n) => n.kod === kod)) return prev; // mükerrer engelle
+      const ilk = prev.nacKodlari.length === 0;
+      return {
+        ...prev,
+        nacKodlari: [...prev.nacKodlari, { kod, aciklama, anaFaaliyet: ilk }],
+      };
+    });
+    setNaceInput("");
+  };
+
+  const naceSil = (kod: string) =>
+    setForm((prev) => {
+      const kalan = prev.nacKodlari.filter((n) => n.kod !== kod);
+      // Silinen ana faaliyet ise ilk kalan kodu ana faaliyet yap
+      if (kalan.length > 0 && !kalan.some((n) => n.anaFaaliyet)) kalan[0].anaFaaliyet = true;
+      return { ...prev, nacKodlari: kalan };
+    });
+
+  const naceAnaFaaliyetYap = (kod: string) =>
+    setForm((prev) => ({
+      ...prev,
+      nacKodlari: prev.nacKodlari.map((n) => ({ ...n, anaFaaliyet: n.kod === kod })),
     }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -315,11 +430,11 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             encryptedCreds = data.encrypted ?? {};
           } else {
             const err = await res.json().catch(() => ({}));
-            console.error("[Müşteri] Credential şifreleme başarısız:", err);
+            console.error("[Mükellef] Credential şifreleme başarısız:", err);
             toast.warning("Şifreler şifrelenemedi", "SECRET_KEY env değişkenini kontrol edin; şifreler kaydedilmedi");
           }
         } catch (err) {
-          console.error("[Müşteri] Credential şifreleme istisnası:", err);
+          console.error("[Mükellef] Credential şifreleme istisnası:", err);
           toast.warning("Şifreler şifrelenemedi", "Bağlantı hatası; şifreler kaydedilmedi");
         }
       }
@@ -337,7 +452,11 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         gruplar: form.gruplar.length > 0 ? form.gruplar : undefined,
         eDefter: form.eDefter !== "sorumlu_degil" ? form.eDefter : undefined,
         eDefterGecis: form.eDefterGecis || undefined,
-        naceKodu: form.naceKodu || undefined,
+        naceKodu: (() => {
+          const ana = form.nacKodlari.find((n) => n.anaFaaliyet) ?? form.nacKodlari[0];
+          return ana ? `${ana.kod} – ${ana.aciklama}`.trim() : form.naceKodu || undefined;
+        })(),
+        nacKodlari: form.nacKodlari.length > 0 ? form.nacKodlari : undefined,
         mudurGorevBitisTarihi: form.mudurGorevBitisTarihi || undefined,
         maliMuhurler: maliMuhurler.length > 0 ? maliMuhurler : undefined,
         panelGirisAktif: form.panelGirisAktif,
@@ -358,6 +477,13 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         edevletSifresi: encryptedCreds.edevletSifresi || undefined,
         gibIvdKullaniciAdi: form.gibKullaniciAdi || undefined,
         gibSifresi: encryptedCreds.gibSifresi || undefined,
+        // POS / Teknokent / İstisnalar
+        posTuru: form.posTuru.length > 0 ? form.posTuru : undefined,
+        teknokentMukellef: form.teknokentMukellef || undefined,
+        teknokentAdi: form.teknokentAdi || undefined,
+        teknokentBaslangic: form.teknokentBaslangic || undefined,
+        istisnalar: form.istisnalar.length > 0 ? form.istisnalar : undefined,
+        istisnaNotu: form.istisnaNotu || undefined,
       };
 
       if (isFirebaseConfigured) {
@@ -402,14 +528,14 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
       }
 
       toast.success(
-        isEdit ? "Müşteri güncellendi" : "Müşteri oluşturuldu",
+        isEdit ? "Mükellef güncellendi" : "Mükellef oluşturuldu",
         `${form.firmaAdi} başarıyla ${isEdit ? "güncellendi" : "sisteme eklendi"}`
       );
       onClose();
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Müşteri kaydedilemedi", parseFirestoreError(error));
+      toast.error("Mükellef kaydedilemedi", parseFirestoreError(error));
     } finally {
       setLoading(false);
     }
@@ -621,24 +747,32 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
 
             {/* Grup Seçimi */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <SectionHeader>Grup Seçimi</SectionHeader>
-                <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                  ✏️ Yeni Grup Ekle / Düzenle
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className="h-4 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">Grup Seçimi</span>
+                <span className="flex-1 h-px bg-gradient-to-r from-slate-200 to-transparent" />
+                <button type="button" className="text-xs text-blue-600 hover:underline shrink-0">
+                  + Yeni Grup
                 </button>
               </div>
-              <div className="flex flex-wrap gap-4">
-                {GRUPLAR.map((g) => (
-                  <label key={g} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.gruplar.includes(g)}
-                      onChange={() => toggleGrup(g)}
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-slate-700">{g}</span>
-                  </label>
-                ))}
+              <div className="flex flex-wrap gap-2">
+                {GRUPLAR.map((g) => {
+                  const secili = form.gruplar.includes(g);
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => toggleGrup(g)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        secili
+                          ? "bg-blue-50 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -652,13 +786,17 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                     <select
                       value={form.eDefter}
                       onChange={(e) => set("eDefter", e.target.value)}
-                      className="appearance-none w-full bg-rose-500 text-white rounded-lg pl-3 pr-8 py-2 text-sm font-medium cursor-pointer border-none outline-none min-h-[44px]"
+                      className={`appearance-none w-full rounded-lg pl-3 pr-8 py-2 text-sm font-medium cursor-pointer border outline-none min-h-[44px] transition-colors focus:ring-2 focus:ring-blue-500 ${
+                        form.eDefter === "sorumlu_degil"
+                          ? "bg-slate-50 text-slate-500 border-slate-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-300"
+                      }`}
                     >
                       {EDEFTER_SECENEKLER.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
+                    <ChevronDown className={`absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${form.eDefter === "sorumlu_degil" ? "text-slate-400" : "text-emerald-600"}`} />
                   </div>
                 </div>
                 <Input
@@ -673,17 +811,69 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* Nace Kodu + Müdür Görev/Yetki Süresi */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <SectionHeader>Nace Kodu</SectionHeader>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Nace Kodu</label>
-                  <select
-                    value={form.naceKodu}
-                    onChange={(e) => set("naceKodu", e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Nace Kodu Seçilmedi</option>
-                  </select>
+                <SectionHeader>Nace Kodları</SectionHeader>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Faaliyet Kodu Ekle{" "}
+                  <span className="font-normal text-slate-400">(birden fazla eklenebilir)</span>
+                </label>
+                {/* Arama destekli NACE combobox + Ekle */}
+                <div className="flex gap-2">
+                  <input
+                    list="nace-list"
+                    value={naceInput}
+                    onChange={(e) => setNaceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        naceEkle();
+                      }
+                    }}
+                    placeholder="Kod veya faaliyet adı yazın (ör: 62.01 veya yazılım)"
+                    className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button type="button" variant="outline" onClick={naceEkle} className="shrink-0">
+                    Ekle
+                  </Button>
                 </div>
+                <datalist id="nace-list">
+                  {NACE_KODLARI.map((n) => (
+                    <option key={n.kod} value={`${n.kod} – ${n.aciklama}`} />
+                  ))}
+                </datalist>
+                {/* Eklenen kodlar listesi */}
+                {form.nacKodlari.length > 0 && (
+                  <ul className="mt-2 space-y-1.5">
+                    {form.nacKodlari.map((n) => (
+                      <li
+                        key={n.kod}
+                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
+                          n.anaFaaliyet ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <span className="font-mono font-semibold text-slate-700 shrink-0">{n.kod}</span>
+                        <span className="flex-1 min-w-0 truncate text-slate-500">{n.aciklama}</span>
+                        <label className="flex items-center gap-1 shrink-0 cursor-pointer" title="Ana faaliyet">
+                          <input
+                            type="radio"
+                            name="anaFaaliyet"
+                            checked={n.anaFaaliyet}
+                            onChange={() => naceAnaFaaliyetYap(n.kod)}
+                            className="h-3.5 w-3.5 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className={n.anaFaaliyet ? "text-emerald-700 font-medium" : "text-slate-400"}>Ana</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => naceSil(n.kod)}
+                          className="shrink-0 text-slate-400 hover:text-red-600"
+                          title="Kaldır"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div>
                 <SectionHeader>Müdür Görev/Yetki Süresi</SectionHeader>
@@ -694,6 +884,103 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   onChange={(e) => set("mudurGorevBitisTarihi", e.target.value)}
                 />
               </div>
+            </div>
+
+            {/* POS Türü */}
+            <div>
+              <SectionHeader>POS Türü</SectionHeader>
+              <div className="flex flex-wrap gap-2">
+                {POS_TURU_ETIKETLERI.map((p) => {
+                  const secili = form.posTuru.includes(p.value);
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => togglePosTuru(p.value)}
+                      title={p.aciklama}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        secili
+                          ? "bg-blue-50 text-blue-700 border-blue-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">
+                Fiziksel POS Z raporu ve sanal POS kredi kartı satışları &quot;POS / Z Raporu&quot; sayfasında takip edilir.
+              </p>
+            </div>
+
+            {/* Teknokent */}
+            <div>
+              <SectionHeader>Teknokent Mükellefiyeti</SectionHeader>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div>
+                  <p className="text-xs font-medium text-slate-600 mb-2">Teknokent Mükellefi mi?</p>
+                  <Segment
+                    value={form.teknokentMukellef ? "e" : "h"}
+                    onChange={(v) => set("teknokentMukellef", v === "e")}
+                    options={[{ v: "e", label: "Evet" }, { v: "h", label: "Hayır" }]}
+                  />
+                </div>
+                <Input
+                  label="Teknokent Adı"
+                  value={form.teknokentAdi}
+                  onChange={(e) => set("teknokentAdi", e.target.value)}
+                  placeholder="ör: ODTÜ Teknokent"
+                  disabled={!form.teknokentMukellef}
+                />
+                <Input
+                  label="Başlangıç Tarihi"
+                  type="date"
+                  value={form.teknokentBaslangic}
+                  onChange={(e) => set("teknokentBaslangic", e.target.value)}
+                  disabled={!form.teknokentMukellef}
+                />
+              </div>
+            </div>
+
+            {/* Vergisel İstisnalar */}
+            <div>
+              <SectionHeader>Vergisel İstisnalar / Teşvikler</SectionHeader>
+              <div className="flex flex-wrap gap-2">
+                {ISTISNA_ETIKETLERI.map((i) => {
+                  const secili = form.istisnalar.includes(i.value);
+                  return (
+                    <button
+                      key={i.value}
+                      type="button"
+                      onClick={() => toggleIstisna(i.value)}
+                      title={i.aciklama}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        secili
+                          ? "bg-amber-50 text-amber-700 border-amber-300"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {i.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {form.istisnalar.length > 0 && (
+                <div className="mt-2.5">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">İstisna Notu</label>
+                  <input
+                    type="text"
+                    value={form.istisnaNotu}
+                    onChange={(e) => set("istisnaNotu", e.target.value)}
+                    placeholder="İstisna ile ilgili açıklama (ör: genç girişimci başlangıç yılı)"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+              <p className="mt-1.5 text-xs text-slate-400">
+                İstisna işaretli mükellefler için beyanname ekranlarında uyarı rozeti gösterilir.
+              </p>
             </div>
 
             {/* Mali Mühür */}
@@ -730,72 +1017,27 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs font-medium text-slate-600 mb-2">Paneline Giriş Yapabilsin Mi?</p>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.panelGirisAktif}
-                        onChange={(e) => set("panelGirisAktif", e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">Evet</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!form.panelGirisAktif}
-                        onChange={(e) => set("panelGirisAktif", !e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">Hayır</span>
-                    </label>
-                  </div>
+                  <Segment
+                    value={form.panelGirisAktif ? "e" : "h"}
+                    onChange={(v) => set("panelGirisAktif", v === "e")}
+                    options={[{ v: "e", label: "Evet" }, { v: "h", label: "Hayır" }]}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-600 mb-2">İki Adımlı Doğrulama Durumu</p>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.ikiAdimliDogrulama}
-                        onChange={(e) => set("ikiAdimliDogrulama", e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">Aktif</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!form.ikiAdimliDogrulama}
-                        onChange={(e) => set("ikiAdimliDogrulama", !e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">Pasif</span>
-                    </label>
-                  </div>
+                  <Segment
+                    value={form.ikiAdimliDogrulama ? "a" : "p"}
+                    onChange={(v) => set("ikiAdimliDogrulama", v === "a")}
+                    options={[{ v: "a", label: "Aktif" }, { v: "p", label: "Pasif" }]}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-600 mb-2">İki Adımlı Doğrulama Yöntemi</p>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.ikiAdimliYontem === "email"}
-                        onChange={() => set("ikiAdimliYontem", "email")}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">E-Mail</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.ikiAdimliYontem === "sms"}
-                        onChange={() => set("ikiAdimliYontem", "sms")}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700">SMS</span>
-                    </label>
-                  </div>
+                  <Segment
+                    value={form.ikiAdimliYontem}
+                    onChange={(v) => set("ikiAdimliYontem", v)}
+                    options={[{ v: "email", label: "E-Mail" }, { v: "sms", label: "SMS" }]}
+                  />
                 </div>
               </div>
             </div>

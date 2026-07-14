@@ -187,7 +187,7 @@ export default function KDV2Page() {
   };
 
   const musteriOptions = [
-    { value: "", label: "— Müşteri seçin —" },
+    { value: "", label: "— Mükellef seçin —" },
     ...musteriler.map((m) => ({ value: m.id, label: m.firmaAdi })),
   ];
 
@@ -207,7 +207,7 @@ export default function KDV2Page() {
           <div>
             <p className="text-sm font-semibold text-blue-800">KDV2 (Tevkifat) Hakkında</p>
             <p className="text-xs text-blue-600 mt-1">
-              KDV2 tevkifatında, hizmet bedeli üzerinden hesaplanan KDV&apos;nin belirli kısmı alıcı tarafından beyan edilerek ödenir. Bu modül KDV tevkifat tutarını otomatik hesaplar ve müşteri bazlı kayıt altına alır.
+              KDV2 tevkifatında, hizmet bedeli üzerinden hesaplanan KDV&apos;nin belirli kısmı alıcı tarafından beyan edilerek ödenir. Bu modül KDV tevkifat tutarını otomatik hesaplar ve mükellef bazlı kayıt altına alır.
             </p>
           </div>
         </div>
@@ -235,7 +235,7 @@ export default function KDV2Page() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <Select
-                label="Müşteri"
+                label="Mükellef"
                 value={form.musteriId}
                 onChange={(e) => setForm({ ...form, musteriId: e.target.value })}
                 options={musteriOptions}
@@ -415,7 +415,7 @@ export default function KDV2Page() {
             <TableHead>
               <tr>
                 <TableHeadCell>Belge Tarihi</TableHeadCell>
-                <TableHeadCell>Müşteri</TableHeadCell>
+                <TableHeadCell>Mükellef</TableHeadCell>
                 <TableHeadCell>Belge No</TableHeadCell>
                 <TableHeadCell>KDV Matrahı</TableHeadCell>
                 <TableHeadCell>KDV Oranı</TableHeadCell>

@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     if (!scope.ok) {
       return NextResponse.json(
         {
-          error: "Ofis dışı müşteri hedeflenemez",
+          error: "Ofis dışı mükellef hedeflenemez",
           disallowed: scope.disallowed,
         },
         { status: 403 }

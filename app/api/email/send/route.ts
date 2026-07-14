@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       const scope = await assertMusterilerInOffice([musteriId], actor.ofisId);
       if (!scope.ok) {
         return NextResponse.json(
-          { error: "Ofis dışı müşteri hedeflenemez", disallowed: scope.disallowed },
+          { error: "Ofis dışı mükellef hedeflenemez", disallowed: scope.disallowed },
           { status: 403 }
         );
       }

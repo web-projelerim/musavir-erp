@@ -84,7 +84,7 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
     event.preventDefault();
     const tutar = Number(form.tutar);
     if (!selectedMusteri || !Number.isFinite(tutar) || tutar <= 0) {
-      toast.error("Müşteri ve geçerli tutar zorunludur");
+      toast.error("Mükellef ve geçerli tutar zorunludur");
       return;
     }
 
@@ -198,7 +198,7 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
     <Modal open={open} onClose={onClose} title="Yeni Tahakkuk" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Müşteri"
+          label="Mükellef"
           disabled={Boolean(musteriId)}
           value={form.musteriId}
           onChange={(event) => setForm((prev) => ({ ...prev, musteriId: event.target.value }))}
@@ -208,7 +208,7 @@ export function TahakkukModal({ open, onClose, musteriId, defaultTahakkukTuru, o
           <Input label="Dönem" {...f("donem")} required />
           <Input label="Vade Tarihi" type="date" {...f("vadeTarihi")} required />
         </div>
-        {/* Tahakkuk tipi sadece dışarıdan zorlanmamışsa görünür (müşteri içinden açılınca gizli) */}
+        {/* Tahakkuk tipi sadece dışarıdan zorlanmamışsa görünür (mükellef içinden açılınca gizli) */}
         {!defaultTahakkukTuru && (
           <Select
             label="Tahakkuk Tipi"

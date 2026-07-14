@@ -161,7 +161,7 @@ export function hesaplaMusteriRisk({
       label: "Gecikmiş tahsilat",
       aciklama: gecikmisTahsilatlar.length > 0
         ? `${gecikmisTahsilatlar.length} tahsilat vadesini aştı`
-        : "Müşteri kartında tahsilat gecikmiş görünüyor",
+        : "Mükellef kartında tahsilat gecikmiş görünüyor",
       puan: tahsilatPuani,
       renk: "text-amber-600 bg-amber-50",
       adet: gecikmisTahsilatlar.length || undefined,

@@ -60,7 +60,7 @@ export default function YukumluluklerPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <MetricCard title="Toplam Profil" value={mukellefiyetProfilleri.length} subtitle="Müşteri bazlı profil" />
+        <MetricCard title="Toplam Profil" value={mukellefiyetProfilleri.length} subtitle="Mükellef bazlı profil" />
         <MetricCard title="Aktif Yükümlülük" value={aktif} subtitle="Bu dönem üretildi" />
         <MetricCard
           title="Hazırlanıyor"
@@ -139,7 +139,7 @@ export default function YukumluluklerPage() {
                   href={`/musteriler/${item.musteriId}`}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
-                  Müşteri detayı
+                  Mükellef detayı
                 </Link>
               </MobileCard>
             );
@@ -149,7 +149,7 @@ export default function YukumluluklerPage() {
         <Table className="hidden md:block">
           <TableHead>
             <tr>
-              <TableHeadCell>Müşteri</TableHeadCell>
+              <TableHeadCell>Mükellef</TableHeadCell>
               <TableHeadCell>Tip</TableHeadCell>
               <TableHeadCell>Dönem</TableHeadCell>
               <TableHeadCell>Son Tarih</TableHeadCell>

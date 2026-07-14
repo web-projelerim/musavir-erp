@@ -271,6 +271,36 @@ export function mergeWithGibRows(
   });
 }
 
+// ─── Eşleştirme ──────────────────────────────────────────────────────────────
+
+/**
+ * İçe aktarılan satırı mevcut müşterilerle eşleştirir.
+ * 1) Geçerli VKN/TCKN ile birebir (boş/geçersiz VKN ASLA eşleşmez — aksi halde
+ *    VKN'siz kayıtlar birbirini yanlışlıkla "günceller").
+ * 2) İsimle eşleşme: satırın firma adı / kısa adı / kişi (yetkili) adı, mevcut
+ *    müşterinin firma adı VEYA yetkili adıyla (normalize) eşleşirse. Şahıs
+ *    mükelleflerinde eşleşme çoğu zaman kişi adıyla yapılır.
+ */
+function findExistingMusteri(
+  row: MusteriImportRow,
+  existing: Musteri[]
+): Musteri | undefined {
+  if (row.vknTckn && /^\d{10,11}$/.test(row.vknTckn)) {
+    const byVkn = existing.find((m) => m.vknTckn === row.vknTckn);
+    if (byVkn) return byVkn;
+  }
+  const aday = [row.firmaAdi, row.kisaAd, row.yetkiliAd]
+    .map((n) => normalizeCompanyName(n ?? ""))
+    .filter((n) => n.length >= 3);
+  if (aday.length === 0) return undefined;
+  return existing.find((m) => {
+    const isimler = [m.firmaAdi, m.yetkiliAd]
+      .map((n) => normalizeCompanyName(n ?? ""))
+      .filter((n) => n.length >= 3);
+    return isimler.some((n) => aday.includes(n));
+  });
+}
+
 // ─── Preview ─────────────────────────────────────────────────────────────────
 
 export function buildMusteriImportPreview(
@@ -285,16 +315,22 @@ export function buildMusteriImportPreview(
     // Eksik bilgiler — kullanıcı onayıyla eklenebilir
     const warnings: string[] = [];
 
-    const displayAd = row.firmaAdi || row.kisaAd;
-    const existing = existingMusteriler.find((m) => m.vknTckn === row.vknTckn);
+    const displayAd = row.firmaAdi || row.kisaAd || row.yetkiliAd;
+    const existing = findExistingMusteri(row, existingMusteriler);
 
-    if (!displayAd) warnings.push("Firma adi eksik");
-    if (!row.vknTckn) warnings.push("VKN/TCKN eksik");
-    else if (!/^\d{10,11}$/.test(row.vknTckn)) warnings.push("VKN/TCKN 10 veya 11 haneli degil");
-    if (row.vknTckn && seen.has(row.vknTckn)) hardErrors.push("Dosya icinde tekrar eden VKN/TCKN");
-    if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) warnings.push("E-posta formati hatali");
+    if (!displayAd && !row.vknTckn) {
+      // Ne isim ne VKN var — bu satırdan müşteri türetilemez (ör. banka ekstresi
+      // gibi yanlış dosya). Eklenemez olarak işaretle, sahte "güncelle" üretme.
+      hardErrors.push("Firma/kişi adı ve VKN/TCKN yok — içe aktarılamaz");
+    } else {
+      if (!displayAd) warnings.push("Firma/kişi adı eksik");
+      if (!row.vknTckn) warnings.push("VKN/TCKN eksik");
+      else if (!/^\d{10,11}$/.test(row.vknTckn)) warnings.push("VKN/TCKN 10 veya 11 haneli değil");
+    }
+    if (row.vknTckn && seen.has(row.vknTckn)) hardErrors.push("Dosya içinde tekrar eden VKN/TCKN");
+    if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) warnings.push("E-posta formatı hatalı");
     if (row.varsayilanHizmetUcreti !== undefined && row.varsayilanHizmetUcreti < 0)
-      warnings.push("Hizmet ucreti negatif");
+      warnings.push("Hizmet ücreti negatif");
 
     if (row.vknTckn) seen.add(row.vknTckn);
 
@@ -344,11 +380,14 @@ export function downloadMusteriImportTemplate() {
 
 export function downloadImportErrors(preview: MusteriImportPreview[]) {
   const invalidRows = preview.filter((row) => row.errors.length > 0);
+  // Başlıklar import alias'larıyla eşleşmeli ("Uzun Ad", "Vergi No", "Yetkili Kişi")
+  // ki kullanıcı eksikleri doldurup dosyayı DOĞRUDAN geri yükleyebilsin.
+  // "Hatalar" bilgi sütunudur; import sırasında bilinmeyen başlık olarak yok sayılır.
   const worksheet = XLSX.utils.json_to_sheet(
     invalidRows.map((row) => ({
-      Satir: row.rowNumber,
-      Firma: row.firmaAdi || row.kisaAd,
-      "VKN/TCKN": row.vknTckn,
+      "Uzun Ad": row.firmaAdi || row.kisaAd,
+      "Vergi No": row.vknTckn,
+      "Yetkili Kişi": row.yetkiliAd,
       Hatalar: row.errors.join("; "),
     }))
   );

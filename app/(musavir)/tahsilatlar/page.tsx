@@ -151,7 +151,7 @@ export default function TahsilatlarPage() {
     <div>
       <PageHeader
         title="Tahsilatlar"
-        subtitle={`${bakiyeler.length} müşteri · ${tahsilatlar.length} kayıt`}
+        subtitle={`${bakiyeler.length} mükellef · ${tahsilatlar.length} kayıt`}
         breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "Tahsilatlar" }]}
         action={
           secili.size > 0 ? (
@@ -192,7 +192,7 @@ export default function TahsilatlarPage() {
         ))}
       </div>
 
-      {/* Müşteri bazlı kalan bakiye raporu */}
+      {/* Mükellef bazlı kalan bakiye raporu */}
       <h3 className="mb-2 text-sm font-semibold text-slate-800">Tahsilat Listesi</h3>
       <div className="space-y-2">
         {bakiyeler.length === 0 && (
@@ -209,7 +209,7 @@ export default function TahsilatlarPage() {
           const acik = acikMusteri === b.musteriId;
           return (
             <div key={b.musteriId} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-              {/* Müşteri özet satırı */}
+              {/* Mükellef özet satırı */}
               <button
                 type="button"
                 onClick={() => setAcikMusteri(acik ? null : b.musteriId)}
@@ -324,7 +324,7 @@ export default function TahsilatlarPage() {
                       href={`/musteriler/${b.musteriId}`}
                       className="text-xs font-medium text-blue-600 hover:text-blue-700"
                     >
-                      Müşteri detayına git →
+                      Mükellef detayına git →
                     </Link>
                   </div>
                 </div>

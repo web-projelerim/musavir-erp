@@ -330,7 +330,8 @@ export interface Musteri {
   gruplar?: string[];
   eDefter?: string;
   eDefterGecis?: string;
-  naceKodu?: string;
+  naceKodu?: string; // birincil (ana faaliyet) kod — nacKodlari ile senkron tutulur
+  nacKodlari?: { kod: string; aciklama: string; anaFaaliyet: boolean }[];
   mudurGorevBitisTarihi?: string;
   maliMuhurler?: { sn: string; bitisTarihi: string }[];
   panelGirisAktif?: boolean;
@@ -340,7 +341,34 @@ export interface Musteri {
   acilisTarihi?: string;
   kapanisTarihi?: string;
   girisMailGonder?: boolean;
+  // POS / Z raporu takibi (§4)
+  posTuru?: PosTuru[];
+  // Teknokent mükellefiyeti (§3)
+  teknokentMukellef?: boolean;
+  teknokentAdi?: string;
+  teknokentBaslangic?: string; // ISO date
+  // Vergisel istisna/teşvik etiketleri (§1.4)
+  istisnalar?: MusteriIstisna[];
+  istisnaNotu?: string;
 }
+
+/** Vergisel istisna/teşvik etiketleri — beyanname hazırlarken uyarı üretir */
+export type MusteriIstisna =
+  | "genc_girisimci"
+  | "yazilim"
+  | "teknokent"
+  | "arge"
+  | "ihracat"
+  | "diger";
+
+export const ISTISNA_ETIKETLERI: { value: MusteriIstisna; label: string; aciklama: string }[] = [
+  { value: "genc_girisimci", label: "Genç Girişimci", aciklama: "GVK md. 20/A kazanç istisnası" },
+  { value: "yazilim", label: "Yazılım İstisnası", aciklama: "KVK md. 5/1-a yazılım satışı istisnası" },
+  { value: "teknokent", label: "Teknokent", aciklama: "4691 sayılı Kanun kapsamı" },
+  { value: "arge", label: "Ar-Ge Teşviği", aciklama: "Ar-Ge indirim/teşviği" },
+  { value: "ihracat", label: "İhracat Teşviği", aciklama: "İhracat istisna/teşviği" },
+  { value: "diger", label: "Diğer", aciklama: "Serbest metin — istisna notuna yazın" },
+];
 
 export type TahsilatDurum = "odendi" | "bekliyor" | "gecikti" | "kismi";
 
@@ -917,6 +945,9 @@ export type AuditEntityType =
   | "gonderim"
   | "kdv2"
   | "beyanTakipHucresi"
+  | "edefter"
+  | "pos_takip"
+  | "teknokent"
   | "sistem";
 
 export interface AuditLog {
@@ -1028,4 +1059,89 @@ export interface BeyanTakipKolon {
   gorunurAylar?: number[];
   grup: "kdv" | "muhtasar" | "gelir_kurumlar" | "otv" | "diger" | "bildirim";
   sira: number;
+}
+
+// ─── E-Defter Takip (§2) ──────────────────────────────────────────────────────
+
+export type EDefterPeriyot = "aylik" | "3aylik";
+export type EDefterDurum = "gonderilmedi" | "gonderildi" | "gecikti";
+
+/** Bir mükellefin belirli bir dönemdeki e-defter gönderim durumu */
+export interface EDefterTakip {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  donem: string; // "YYYY-MM"
+  periyot: EDefterPeriyot;
+  durum: EDefterDurum;
+  gonderimTarihi?: string; // ISO
+  not?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ─── POS / Z Raporu Takip (§4) ────────────────────────────────────────────────
+
+export type PosTuru = "fiziksel_pos" | "sanal_pos";
+export type PosDurum = "teslim_edilmedi" | "teslim_edildi" | "gerek_yok";
+
+export const POS_TURU_ETIKETLERI: { value: PosTuru; label: string; aciklama: string }[] = [
+  { value: "fiziksel_pos", label: "Fiziksel POS", aciklama: "Geleneksel POS cihazı — Z raporu gerektirir" },
+  { value: "sanal_pos", label: "Sanal POS", aciklama: "Online satış / sanal POS — KK satışları" },
+];
+
+/** Bir mükellefin belirli bir dönemdeki Z raporu / KK satışı durumu */
+export interface PosTakip {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  donem: string; // "YYYY-MM"
+  posTuru: PosTuru[];
+  zRaporuDurumu: PosDurum; // fiziksel POS Z raporu teslimi
+  kkSatislariDurumu: PosDurum; // sanal POS / kredi kartı satışları girildi mi
+  not?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ─── Ortaklar / Yöneticiler (§1.3) ────────────────────────────────────────────
+
+/** Bir mükellefin ortağı/yöneticisi. TCKN maskeli gösterilir; e-Devlet şifresi AES-GCM şifreli saklanır. */
+export interface Ortak {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  ad: string;
+  soyad: string;
+  tckn?: string;
+  dogumTarihi?: string; // ISO
+  kimlikSeriNo?: string;
+  edevletSifresi?: string; // AES-256-GCM şifreli blob
+  hisseAdedi?: number;
+  hisseOrani?: number; // %
+  sermaye?: number; // ₺
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// ─── Teknokent Proje Takip (§3) ───────────────────────────────────────────────
+
+export type TeknokentProjeDurum = "aktif" | "tamamlandi" | "askida";
+
+export interface TeknokentProje {
+  id: string;
+  ofisId: string;
+  musteriId: string;
+  musteriAdi: string;
+  projeAdi: string;
+  projeKodu?: string;
+  teknokentAdi?: string;
+  baslangicTarihi?: string; // ISO
+  bitisTarihi?: string; // ISO (tahmini)
+  durum: TeknokentProjeDurum;
+  aciklama?: string;
+  createdAt: string;
+  updatedAt?: string;
 }

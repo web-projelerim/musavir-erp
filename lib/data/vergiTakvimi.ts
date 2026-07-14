@@ -8,7 +8,7 @@ export interface VergiTakvimOlay {
   tarih: string; // YYYY-MM-DD
   baslik: string;
   aciklama: string;
-  kategori: "aylik" | "gecici_vergi" | "yillik" | "ucaylik" | "bildirim";
+  kategori: "aylik" | "gecici_vergi" | "yillik" | "ucaylik" | "bildirim" | "edefter";
 }
 
 const AY_ADI = [
@@ -130,9 +130,11 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
     });
   }
 
-  // ── Her ayın 26'sı: Aylık beyannameler ──────────────────────────────────
+  // ── Her ayın 28'i: KDV beyannameleri ─────────────────────────────────────
+  // 01.02.2024'ten itibaren 1 ve 2 No.lu KDV beyannamelerinin verilme ve ödeme
+  // süresi izleyen ayın 26'sından 28'ine çekildi (GİB). Muhtasar/Damga vb. 26'da kaldı.
   for (let ay = 0; ay < 12; ay++) {
-    const tarih = isBgunu(yil, ay, 26);
+    const tarih = isBgunu(yil, ay, 28);
     const ayAdi = AY_ADI[ay];
 
     olaylar.push({
@@ -148,6 +150,12 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
       aciklama: `${ayAdi} ${yil} dönemine ait KDV-2 (tevkifat) beyanname ve ödeme son tarihi`,
       kategori: "aylik",
     });
+  }
+
+  // ── Her ayın 26'sı: Muhtasar, Damga ve diğer aylık beyannameler ──────────
+  for (let ay = 0; ay < 12; ay++) {
+    const tarih = isBgunu(yil, ay, 26);
+    const ayAdi = AY_ADI[ay];
 
     olaylar.push({
       tarih,
@@ -216,8 +224,48 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
       tarih,
       baslik: `e-Defter Berat — ${AY_ADI[ay]} ${yil}`,
       aciklama: `${AY_ADI[ay]} ${yil} dönemine ait e-Defter beratlarının GİB'e yüklenmesi son tarihi`,
-      kategori: "bildirim",
+      kategori: "edefter",
     });
+  }
+
+  // ── e-Defter Berat (3 Aylık seçenek): çeyrek beratları izleyen 3. ayın sonu ──
+  // 3 aylık berat yükleyenler için çeyrek dönem beratı, çeyreği izleyen ayların
+  // ardından yüklenir (Q1→Temmuz sonu, Q2→Ekim sonu, Q3→Ocak sonu, Q4→Nisan sonu).
+  {
+    const ceyrekler: { label: string; beratAy: number; beratYilOffset: number }[] = [
+      { label: "1. Çeyrek (Oca–Mar)", beratAy: 6, beratYilOffset: 0 },  // Temmuz sonu
+      { label: "2. Çeyrek (Nis–Haz)", beratAy: 9, beratYilOffset: 0 },  // Ekim sonu
+      { label: "3. Çeyrek (Tem–Eyl)", beratAy: 0, beratYilOffset: 1 },  // Ocak sonu (sonraki yıl)
+      { label: "4. Çeyrek (Eki–Ara)", beratAy: 3, beratYilOffset: 1 },  // Nisan sonu (sonraki yıl)
+    ];
+    for (const c of ceyrekler) {
+      olaylar.push({
+        tarih: ayinSonGunu(yil + c.beratYilOffset, c.beratAy),
+        baslik: `e-Defter Berat (3 Aylık) — ${yil} ${c.label}`,
+        aciklama: `${yil} ${c.label} dönemine ait 3 aylık e-Defter beratlarının GİB'e yüklenmesi son tarihi`,
+        kategori: "edefter",
+      });
+    }
+  }
+
+  // ── Muhtasar (MUHSGK) 3 Aylık: gelir vergisi stopajını 3 aylık verenler ──────
+  // İşçi çalıştırmayan veya sınırlı stopaj mükellefleri muhtasarı 3 aylık verebilir.
+  // Beyan, çeyreği izleyen ayın 26'sında: Q1→Nisan, Q2→Temmuz, Q3→Ekim, Q4→Ocak.
+  {
+    const ceyrekler: { label: string; beyanAy: number; beyanYilOffset: number }[] = [
+      { label: "1. Çeyrek (Oca–Mar)", beyanAy: 3, beyanYilOffset: 0 },   // Nisan 26
+      { label: "2. Çeyrek (Nis–Haz)", beyanAy: 6, beyanYilOffset: 0 },   // Temmuz 26
+      { label: "3. Çeyrek (Tem–Eyl)", beyanAy: 9, beyanYilOffset: 0 },   // Ekim 26
+      { label: "4. Çeyrek (Eki–Ara)", beyanAy: 0, beyanYilOffset: 1 },   // Ocak 26 (sonraki yıl)
+    ];
+    for (const c of ceyrekler) {
+      olaylar.push({
+        tarih: isBgunu(yil + c.beyanYilOffset, c.beyanAy, 26),
+        baslik: `Muhtasar (MUHSGK) 3 Aylık — ${yil} ${c.label}`,
+        aciklama: `${yil} ${c.label} dönemine ait 3 aylık Muhtasar ve Prim Hizmet beyanname + ödeme son tarihi (gelir vergisi stopajı)`,
+        kategori: "ucaylik",
+      });
+    }
   }
 
   // ── Dijital Hizmet Vergisi (DHV): Ayın son günü ───────────────────────────
@@ -235,14 +283,8 @@ export function getVergiTakvimi(yil: number): VergiTakvimOlay[] {
   }
 
   // ── Geçici Vergi (çeyrek bazlı) ────────────────────────────────────────────
-  // Q4 önceki yıl → Şubat 17 (bu yılın)
-  olaylar.push({
-    tarih: isBgunu(yil, 1, 17), // Şubat
-    baslik: `Geçici Vergi — ${yil - 1} 4. Çeyrek`,
-    aciklama: `${yil - 1} Ekim–Aralık dönemi geçici vergi beyanname ve ödeme son tarihi`,
-    kategori: "gecici_vergi",
-  });
-
+  // 7338 sayılı Kanun ile 4. dönem (Ekim–Aralık) geçici vergi 2022'den itibaren
+  // KALDIRILDI — yıl artık 3 dönemdir; son çeyrek yıllık beyanla kapanır.
   // Q1 → Mayıs 17
   olaylar.push({
     tarih: isBgunu(yil, 4, 17), // Mayıs

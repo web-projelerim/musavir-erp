@@ -127,13 +127,13 @@ export function MusteriImportModal({ open, onClose }: Props) {
                 gibEncryptedIvdSifre = data.encrypted?.ivdSifre;
               }
             } catch {
-              // Şifreleme başarısız olursa GİB bilgisi kaydedilmez, müşteri yine de eklenir
+              // Şifreleme başarısız olursa GİB bilgisi kaydedilmez, mükellef yine de eklenir
             }
           }
 
           const payload = {
             ofisId: getOfisId(user?.ofisId),
-            firmaAdi: row.firmaAdi || row.kisaAd,
+            firmaAdi: row.firmaAdi || row.kisaAd || row.yetkiliAd,
             vknTckn: row.vknTckn,
             vergiDairesi: row.vergiDairesi || undefined,
             kurulusTarihi: row.kurulusTarihi || undefined,
@@ -167,7 +167,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
         entityType: "musteri",
         entityId: importBatchId,
         entityLabel: fileNames.join(", "),
-        summary: `${rows.length} müşteri Excel importu ile işlendi`,
+        summary: `${rows.length} mükellef Excel importu ile işlendi`,
         after: { importBatchId, total: rows.length, invalid: invalidRows.length },
       });
 
@@ -224,13 +224,13 @@ export function MusteriImportModal({ open, onClose }: Props) {
     if (row.decision === "create") return <Badge variant="success">Yeni</Badge>;
     if (row.decision === "update") return <Badge variant="warning">Güncelle</Badge>;
     if (row.decision === "eksik") return <Badge variant="warning">Eksik bilgi</Badge>;
-    return <Badge variant="danger">Hatali</Badge>;
+    return <Badge variant="danger">Hatalı</Badge>;
   };
 
   const showingPanel = confirmStep !== "none";
 
   return (
-    <Modal open={open} onClose={() => { resetState(); onClose(); }} title="Excel ile Musteri Importu" size="xl">
+    <Modal open={open} onClose={() => { resetState(); onClose(); }} title="Excel ile Müşteri İçe Aktarımı" size="xl">
       <div className="space-y-4">
 
         {/* Bilgi + Şablon */}
@@ -238,9 +238,9 @@ export function MusteriImportModal({ open, onClose }: Props) {
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
             <div>
-              <p className="text-sm font-semibold text-slate-800">Müşteri Excel İçe Aktarma</p>
+              <p className="text-sm font-semibold text-slate-800">Mükellef Excel İçe Aktarma</p>
               <p className="text-xs text-slate-500">
-                Luca&apos;dan aldığınız müşteri excellerini yükleyebilirsiniz. Birden fazla excel yüklerseniz veriler eşleştirilecektir.
+                Luca&apos;dan aldığınız mükellef excellerini yükleyebilirsiniz. Birden fazla excel yüklerseniz veriler eşleştirilecektir.
               </p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
                   {eksikRows.length} kayıtta eksik bilgi var
                 </p>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  Mevcut bilgilerle eklensin mi, yoksa atlansin mi?
+                  Mevcut bilgilerle eklensin mi, yoksa atlansın mı?
                 </p>
               </div>
             </div>
@@ -325,10 +325,10 @@ export function MusteriImportModal({ open, onClose }: Props) {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
               <div>
                 <p className="text-sm font-semibold text-blue-900">
-                  {updateRows.length} müşteri sistemde zaten mevcut
+                  {updateRows.length} mükellef sistemde zaten mevcut
                 </p>
                 <p className="text-xs text-blue-700 mt-0.5">
-                  Bu müşterilerin bilgileri güncellensin mi?
+                  Bu mükelleflerin bilgileri güncellensin mi?
                 </p>
               </div>
             </div>
@@ -422,7 +422,7 @@ export function MusteriImportModal({ open, onClose }: Props) {
               disabled={importableRows.length === 0}
               onClick={handleImportClick}
             >
-              Ice Aktar {importableRows.length > 0 ? `(${importableRows.length})` : ""}
+              İçe Aktar {importableRows.length > 0 ? `(${importableRows.length})` : ""}
             </Button>
           </div>
         )}

@@ -89,7 +89,7 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
     const odenenTutar = Number(form.odenenTutar || 0);
 
     if (!form.musteriId || !selectedMusteri) {
-      toast.error("Müşteri seçimi zorunludur");
+      toast.error("Mükellef seçimi zorunludur");
       return;
     }
 
@@ -161,7 +161,7 @@ export function TahsilatModal({ open, onClose, musteriId, tahsilat, onSaved }: P
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Select
-          label="Müşteri"
+          label="Mükellef"
           disabled={Boolean(musteriId)}
           options={musteriOptions}
           {...f("musteriId")}

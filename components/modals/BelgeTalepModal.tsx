@@ -21,7 +21,7 @@ interface Props {
 }
 
 /**
- * Müşteriden eksik belge talebi. Talep hem mükellef panelinde (kanal=panel)
+ * Mükelleften eksik belge talebi. Talep hem mükellef panelinde (kanal=panel)
  * hem de WhatsApp'ta (ayara göre otomatik/onay) görünür. Mükellef sadece alır.
  */
 export function BelgeTalepModal({ open, onClose, musteri, ayar, ofisId }: Props) {
@@ -75,7 +75,7 @@ export function BelgeTalepModal({ open, onClose, musteri, ayar, ofisId }: Props)
           else if (sonuc.karar === "onay_bekle") waNot = "WhatsApp mesajı onay kuyruğuna eklendi.";
           else if (sonuc.karar === "pasif") waNot = "WhatsApp belge bildirimi ayarlardan kapalı.";
         } else {
-          waNot = "Müşteri telefonu yok — yalnızca panele eklendi.";
+          waNot = "Mükellef telefonu yok — yalnızca panele eklendi.";
         }
         toast.success("Belge talebi iletildi", `${musteri.firmaAdi} panelinde görünecek. ${waNot}`.trim());
       } else {

@@ -73,15 +73,31 @@ function requireDb() {
   return firestoreDb;
 }
 
+/**
+ * Bir değeri Firestore-güvenli hale getirir: undefined'ları temizler.
+ * - Nesne → alanları özyinelemeli temizlenir
+ * - Dizi → her eleman özyinelemeli temizlenir, undefined elemanlar atılır
+ *   (Firestore dizi içinde de undefined'ı reddeder — bu, satirlar[] gibi
+ *   nesne dizilerinde "Unsupported field value: undefined" hatasını önler)
+ * - null ve primitive → olduğu gibi korunur
+ */
+function temizleDeger(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .filter((v) => v !== undefined)
+      .map((v) => temizleDeger(v));
+  }
+  if (value !== null && typeof value === "object") {
+    return withoutUndefined(value as object);
+  }
+  return value;
+}
+
 export function withoutUndefined<T extends object>(data: T): DocumentData {
   const result: DocumentData = {};
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined) continue;
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      result[key] = withoutUndefined(value as object);
-    } else {
-      result[key] = value;
-    }
+    result[key] = temizleDeger(value);
   }
   return result;
 }

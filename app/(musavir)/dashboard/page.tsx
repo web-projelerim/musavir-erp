@@ -385,13 +385,16 @@ export default function DashboardPage() {
   const visibleGazete = useMemo(() => {
     const yediGunOnce = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const dinamikIdsSet = new Set(gazeteDynamic.map((d) => d.id));
-    const firestoreFiltered = resmiGazeteOzetleri.filter(
-      (item) => !dinamikIdsSet.has(item.id) && item.yayinTarihi.slice(0, 10) >= yediGunOnce
+    const firestoreOnly = resmiGazeteOzetleri.filter((item) => !dinamikIdsSet.has(item.id));
+    const hepsi = [...gazeteDynamic, ...firestoreOnly]
+      .filter((item) => !dismissedGazete.includes(item.id))
+      .sort((a, b) => b.yayinTarihi.localeCompare(a.yayinTarihi));
+    // Öncelik: son 7 gün + mali müşavir etkisi yüksek (≥30) maddeler.
+    const oncelikli = hepsi.filter(
+      (item) => item.yayinTarihi.slice(0, 10) >= yediGunOnce && item.maliMusavirEtkiPuani >= 30
     );
-    return [...gazeteDynamic, ...firestoreFiltered]
-      .sort((a, b) => b.yayinTarihi.localeCompare(a.yayinTarihi))
-      .filter((item) => !dismissedGazete.includes(item.id) && item.maliMusavirEtkiPuani >= 30)
-      .slice(0, 4);
+    // Öncelikli madde yoksa panel boş kalmasın — en son mevcut verileri göster.
+    return (oncelikli.length > 0 ? oncelikli : hepsi).slice(0, 5);
   }, [dismissedGazete, resmiGazeteOzetleri, gazeteDynamic]);
 
   const takvimOlaylari = useMemo<TakvimOlay[]>(() => {
@@ -630,24 +633,6 @@ export default function DashboardPage() {
             <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">TÜRMOB · Resmi Gazete</span>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
-            <a
-              href="https://www.turmob.org.tr"
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="hidden sm:flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
-            >
-              turmob.org.tr <ExternalLink className="h-2.5 w-2.5" />
-            </a>
-            <a
-              href="https://www.resmigazete.gov.tr"
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="hidden sm:flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
-            >
-              resmigazete.gov.tr <ExternalLink className="h-2.5 w-2.5" />
-            </a>
             {duyurularAcik ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
           </div>
         </button>
@@ -833,7 +818,7 @@ export default function DashboardPage() {
                   </ul>
                 ) : (
                   <div className="flex items-center justify-between px-3 py-3">
-                    <p className="text-xs text-slate-400">Bugün ilgili madde yok.</p>
+                    <p className="text-xs text-slate-400">Şu an gösterilecek Resmi Gazete maddesi yok.</p>
                     <a
                       href="https://www.resmigazete.gov.tr"
                       target="_blank"

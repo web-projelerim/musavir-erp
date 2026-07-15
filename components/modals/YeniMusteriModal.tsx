@@ -12,6 +12,7 @@ import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { VERGI_DAIRESI_GRUPLARI } from "@/lib/constants/vergiDaireleri";
 import { NACE_KODLARI } from "@/lib/data/nace";
+import { toDateInputValue } from "@/lib/utils/format";
 import { createMusteri, updateMusteri } from "@/lib/firebase/repositories";
 import { authHeaders } from "@/lib/firebase/client";
 import { POS_TURU_ETIKETLERI, ISTISNA_ETIKETLERI } from "@/lib/types";
@@ -264,7 +265,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         vergiTurleri: musteri.vergiTurleri ?? {},
         gruplar: musteri.gruplar ?? [],
         eDefter: musteri.eDefter ?? "sorumlu_degil",
-        eDefterGecis: musteri.eDefterGecis ?? "",
+        eDefterGecis: toDateInputValue(musteri.eDefterGecis),
         naceKodu: musteri.naceKodu ?? "",
         nacKodlari:
           musteri.nacKodlari && musteri.nacKodlari.length > 0
@@ -278,19 +279,19 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                 },
               ]
             : [],
-        mudurGorevBitisTarihi: musteri.mudurGorevBitisTarihi ?? "",
+        mudurGorevBitisTarihi: toDateInputValue(musteri.mudurGorevBitisTarihi),
         maliMuhur1Sn: musteri.maliMuhurler?.[0]?.sn ?? "",
-        maliMuhur1Bitis: musteri.maliMuhurler?.[0]?.bitisTarihi ?? "",
+        maliMuhur1Bitis: toDateInputValue(musteri.maliMuhurler?.[0]?.bitisTarihi),
         maliMuhur2Sn: musteri.maliMuhurler?.[1]?.sn ?? "",
-        maliMuhur2Bitis: musteri.maliMuhurler?.[1]?.bitisTarihi ?? "",
+        maliMuhur2Bitis: toDateInputValue(musteri.maliMuhurler?.[1]?.bitisTarihi),
         maliMuhur3Sn: musteri.maliMuhurler?.[2]?.sn ?? "",
-        maliMuhur3Bitis: musteri.maliMuhurler?.[2]?.bitisTarihi ?? "",
+        maliMuhur3Bitis: toDateInputValue(musteri.maliMuhurler?.[2]?.bitisTarihi),
         panelGirisAktif: musteri.panelGirisAktif ?? true,
         ikiAdimliDogrulama: musteri.ikiAdimliDogrulama ?? false,
         ikiAdimliYontem: musteri.ikiAdimliYontem ?? "sms",
-        dogumTarihi: musteri.dogumTarihi ?? "",
-        acilisTarihi: musteri.acilisTarihi ?? musteri.kurulusTarihi ?? "",
-        kapanisTarihi: musteri.kapanisTarihi ?? "",
+        dogumTarihi: toDateInputValue(musteri.dogumTarihi),
+        acilisTarihi: toDateInputValue(musteri.acilisTarihi ?? musteri.kurulusTarihi),
+        kapanisTarihi: toDateInputValue(musteri.kapanisTarihi),
         not: musteri.aciklama ?? "",
         girisMailGonder: musteri.girisMailGonder ?? true,
         sorumluPersonelId: eslesen?.id ?? musteri.sorumluPersonelId ?? "",
@@ -313,7 +314,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         posTuru: musteri.posTuru ?? [],
         teknokentMukellef: musteri.teknokentMukellef ?? false,
         teknokentAdi: musteri.teknokentAdi ?? "",
-        teknokentBaslangic: musteri.teknokentBaslangic ?? "",
+        teknokentBaslangic: toDateInputValue(musteri.teknokentBaslangic),
         istisnalar: musteri.istisnalar ?? [],
         istisnaNotu: musteri.istisnaNotu ?? "",
       });

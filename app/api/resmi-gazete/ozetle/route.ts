@@ -217,6 +217,25 @@ function generateHeuristicSummary(title: string): string {
   return "Resmi Gazete'de yayımlanan mevzuat değişikliği/tebliğ. Detaylı bilgi için kaynak bağlantıyı inceleyin.";
 }
 
+/**
+ * RSS maddelerini AI olmadan heuristik özetle GazeteOzetMadde'ye çevirir.
+ * `yedek=true` → mali-müşavirle doğrudan ilgili madde bulunamadı; panel boş
+ * kalmasın diye o günün en son genel maddeleri gösteriliyor.
+ */
+function heuristikMaddeler(maddeler: RSSMadde[], yedek: boolean): GazeteOzetMadde[] {
+  return maddeler.map((m) => ({
+    baslik: m.baslik,
+    aiOzet: generateHeuristicSummary(m.baslik),
+    maliMusavirEtkisi: yedek
+      ? "Resmi Gazete'nin son yayımlanan maddesi."
+      : "AI özeti devre dışı — detay için kaynak linke bakın.",
+    aksiyonGerekiyor: false,
+    maliMusavirEtkiPuani: yedek ? 30 : 35,
+    kaynakLink: m.link,
+    yayinTarihi: m.tarih,
+  }));
+}
+
 export async function POST(req: NextRequest) {
   // Doğrulama: CRON_SECRET veya Firebase Bearer token
   const cronSecret = process.env.CRON_SECRET;
@@ -244,9 +263,13 @@ export async function POST(req: NextRequest) {
     const { maddeler: tumMaddeler } = await fetchGunlukFihrist();
     const ilgiliMaddeler = tumMaddeler.filter(maliMuşavirlikIlgili);
 
-    if (ilgiliMaddeler.length === 0) {
-      // Mali müşavirlikle ilgili madde yok — ilgisiz maddeleri panele taşımayız.
-      // İstemci boş listeyi sessizce yutar (panel gösterilmez).
+    // Mali müşavirlikle ilgili madde yoksa panel BOŞ KALMASIN diye o günün en
+    // son genel maddelerini yedek göster (kullanıcı isteği: "en son verileri göster").
+    const ilgisizYedek = ilgiliMaddeler.length === 0;
+    const kaynakMaddeler = ilgisizYedek ? tumMaddeler.slice(0, 6) : ilgiliMaddeler.slice(0, 10);
+
+    if (kaynakMaddeler.length === 0) {
+      // Fihrist gerçekten boş (tatil / erişilemez) — gösterilecek veri yok.
       return NextResponse.json({
         ok: true,
         maddeler: [],
@@ -256,28 +279,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!geminiApiKey) {
-      // Gemini API key yok — RSS maddelerini AI özeti olmadan doğrudan döndür
-      const maddeler: GazeteOzetMadde[] = ilgiliMaddeler.slice(0, 10).map((m) => ({
-        baslik: m.baslik,
-        aiOzet: generateHeuristicSummary(m.baslik),
-        maliMusavirEtkisi: "AI özeti devre dışı — detay için kaynak linke bakın.",
-        aksiyonGerekiyor: false,
-        maliMusavirEtkiPuani: 35,
-        kaynakLink: m.link,
-        yayinTarihi: m.tarih,
-      }));
-
+    // Gemini yoksa VEYA yedek moddaysak (ilgisiz maddeleri AI'a özetletmeye gerek yok)
+    // → heuristik özetle doğrudan döndür.
+    if (!geminiApiKey || ilgisizYedek) {
       return NextResponse.json({
         ok: true,
-        maddeler,
+        maddeler: heuristikMaddeler(kaynakMaddeler, ilgisizYedek),
         ilgiliMaddeSayisi: ilgiliMaddeler.length,
         toplamMaddeSayisi: tumMaddeler.length,
         tarih: new Date().toISOString(),
       });
     }
 
-    const maddeler = await geminiOzetle(ilgiliMaddeler.slice(0, 10), geminiApiKey);
+    let maddeler = await geminiOzetle(ilgiliMaddeler.slice(0, 10), geminiApiKey);
+    // AI hiçbir madde seçmediyse yine boş bırakma — ilgili maddeleri heuristik göster.
+    if (maddeler.length === 0) {
+      maddeler = heuristikMaddeler(ilgiliMaddeler.slice(0, 6), false);
+    }
 
     // TODO(faz-2): firebase-admin eklenince resmiGazeteOzetleri koleksiyonuna yaz
     return NextResponse.json({

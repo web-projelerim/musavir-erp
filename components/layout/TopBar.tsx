@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Search, ChevronDown, X, Menu } from "lucide-react";
+import { Bell, Search, X, Menu } from "lucide-react";
 import Link from "next/link";
 import { formatSureGecmis } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -236,16 +236,15 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           )}
         </div>
 
-        {/* Profil */}
-        <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+        {/* Profil — statik isim kartı (açılır menü değil) */}
+        <div className="flex items-center gap-2 px-3 py-1.5 select-none">
           <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
             <span className="text-white text-xs font-bold">{initials}</span>
           </div>
           <span className="hidden text-sm font-medium text-slate-700 sm:inline">
             {user ? `${user.ad} ${user.soyad}` : "Ali Müşavir"}
           </span>
-          <ChevronDown className="hidden w-3.5 h-3.5 text-slate-400 sm:block" />
-        </button>
+        </div>
       </div>
     </header>
   );

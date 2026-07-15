@@ -22,7 +22,7 @@ import {
   updateTeknokentProje,
   deleteTeknokentProje,
 } from "@/lib/firebase/repositories";
-import { formatTarih } from "@/lib/utils/format";
+import { formatTarih, toDateInputValue } from "@/lib/utils/format";
 import type { TeknokentProje, TeknokentProjeDurum } from "@/lib/types";
 
 const DURUM_LABELS: Record<TeknokentProjeDurum, string> = {
@@ -117,8 +117,8 @@ export default function TeknokentPage() {
         projeAdi: p.projeAdi,
         projeKodu: p.projeKodu ?? "",
         teknokentAdi: p.teknokentAdi ?? "",
-        baslangicTarihi: p.baslangicTarihi ?? "",
-        bitisTarihi: p.bitisTarihi ?? "",
+        baslangicTarihi: toDateInputValue(p.baslangicTarihi),
+        bitisTarihi: toDateInputValue(p.bitisTarihi),
         durum: p.durum,
         aciklama: p.aciklama ?? "",
       });

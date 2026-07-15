@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/context/AuthContext";
 import { isFirebaseConfigured, authHeaders } from "@/lib/firebase/client";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
 import { createOrtak, updateOrtak } from "@/lib/firebase/repositories";
+import { toDateInputValue } from "@/lib/utils/format";
 import type { Ortak } from "@/lib/types";
 
 interface Props {
@@ -54,7 +55,7 @@ export function OrtakModal({ open, onClose, musteriId, ofisId, ortak, onSuccess 
         ad: ortak.ad ?? "",
         soyad: ortak.soyad ?? "",
         tckn: ortak.tckn ?? "",
-        dogumTarihi: ortak.dogumTarihi ?? "",
+        dogumTarihi: toDateInputValue(ortak.dogumTarihi),
         kimlikSeriNo: ortak.kimlikSeriNo ?? "",
         edevletSifresi: "", // güvenlik: şifre input'a yüklenmez, boşsa korunur
         hisseAdedi: ortak.hisseAdedi?.toString() ?? "",

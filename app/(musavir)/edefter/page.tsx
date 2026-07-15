@@ -1,12 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BookText, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
-import Link from "next/link";
+import { useCallback, useMemo, useState } from "react";
+import { BookText, AlertTriangle, ChevronLeft, ChevronRight, Search, X, BookOpen } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MetricCard } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { InfoBanner } from "@/components/ui/InfoBanner";
 import { useAppData } from "@/lib/hooks/useAppData";
@@ -16,7 +13,17 @@ import { useToast } from "@/lib/context/ToastContext";
 import { useAuditLog } from "@/lib/hooks/useAuditLog";
 import { COLLECTIONS } from "@/lib/firebase/firestore";
 import { createEDefterTakip, updateEDefterTakip } from "@/lib/firebase/repositories";
-import { formatTarih } from "@/lib/utils/format";
+import { edefterBeratPlani, edefterDonemSonTarihi, tarihTR } from "@/lib/domain/edefterPlan";
+import {
+  EDefterTakipGrid,
+  EDefterGridLejant,
+  edefterSorumlu,
+  hucreAnahtar,
+  donemStr,
+  type EDefterSatir,
+} from "@/components/grid/EDefterTakipGrid";
+import { EDefterTakipMobileCard } from "@/components/grid/EDefterTakipMobileCard";
+import { cn } from "@/lib/utils/cn";
 import type { EDefterTakip, EDefterPeriyot, EDefterDurum, Musteri } from "@/lib/types";
 
 /** Mükellefin e-defter periyodu (null → sorumlu değil) */
@@ -28,30 +35,7 @@ function eDefterPeriyot(m: Musteri): EDefterPeriyot | null {
   return null;
 }
 
-function bugununDonemi(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-const PERIYOT_LABEL: Record<EDefterPeriyot, string> = { aylik: "Aylık", "3aylik": "3 Aylık" };
-
-const DURUM_LABELS: Record<EDefterDurum, string> = {
-  gonderilmedi: "Gönderilmedi",
-  gonderildi: "Gönderildi",
-  gecikti: "Gecikti",
-};
-const DURUM_VARIANTS: Record<EDefterDurum, "success" | "neutral" | "danger"> = {
-  gonderilmedi: "neutral",
-  gonderildi: "success",
-  gecikti: "danger",
-};
-
-interface Satir {
-  musteri: Musteri;
-  periyot: EDefterPeriyot;
-  kayit?: EDefterTakip;
-  durum: EDefterDurum;
-}
+type PeriyotFiltre = "tumu" | EDefterPeriyot;
 
 export default function EDefterPage() {
   const { musteriler, loading: appLoading } = useAppData();
@@ -67,286 +51,322 @@ export default function EDefterPage() {
     user?.ofisId
   );
 
-  const [donem, setDonem] = useState<string>(bugununDonemi());
+  const bugun = useMemo(() => new Date(), []);
+  const [yil, setYil] = useState(bugun.getFullYear());
+  const [aramaMetni, setAramaMetni] = useState("");
+  const [periyotFiltre, setPeriyotFiltre] = useState<PeriyotFiltre>("tumu");
+  // İyimser güncellemeler — anahtar: hucreAnahtar(musteriId, donem)
   const [override, setOverride] = useState<Record<string, EDefterDurum>>({});
-  const [filtre, setFiltre] = useState<"tumu" | EDefterDurum>("tumu");
-  const [secili, setSecili] = useState<Set<string>>(new Set());
-  const [topluLoading, setTopluLoading] = useState(false);
 
-  const guncelDonem = bugununDonemi();
-  const gecmisDonem = donem < guncelDonem;
-  const secilenAy = Number(donem.slice(5, 7));
+  const plan = useMemo(() => edefterBeratPlani(bugun), [bugun]);
+  const bugunYmd = useMemo(() => bugun.toISOString().slice(0, 10), [bugun]);
 
-  // Seçili döneme uygun mükellefler + o döneme ait takip kaydı
-  const satirlar = useMemo<Satir[]>(() => {
-    const kayitMap = new Map<string, EDefterTakip>();
-    takipler.data.forEach((k) => {
-      if (k.donem === donem) kayitMap.set(k.musteriId, k);
-    });
+  // e-Defter yükümlüsü aktif mükellefler
+  const tumSatirlar = useMemo<EDefterSatir[]>(
+    () =>
+      musteriler
+        .filter((m) => m.durum === "aktif")
+        .map((m) => ({ musteri: m, periyot: eDefterPeriyot(m) }))
+        .filter((s): s is EDefterSatir => s.periyot !== null)
+        .sort((a, b) => a.musteri.firmaAdi.localeCompare(b.musteri.firmaAdi, "tr")),
+    [musteriler]
+  );
 
-    return musteriler
-      .filter((m) => m.durum === "aktif")
-      .map((m) => ({ m, periyot: eDefterPeriyot(m) }))
-      .filter((x): x is { m: Musteri; periyot: EDefterPeriyot } => x.periyot !== null)
-      // 3 aylık mükellefler yalnızca çeyrek sonu aylarında (Mar/Haz/Eyl/Ara) listelenir
-      .filter((x) => x.periyot === "aylik" || [3, 6, 9, 12].includes(secilenAy))
-      .map(({ m, periyot }): Satir => {
-        const kayit = kayitMap.get(m.id);
-        const kayitliDurum: EDefterDurum = override[m.id] ?? kayit?.durum ?? "gonderilmedi";
-        // Geçmiş dönem + gönderilmedi → görsel olarak "gecikti"
-        const durum: EDefterDurum =
-          kayitliDurum === "gonderilmedi" && gecmisDonem ? "gecikti" : kayitliDurum;
-        return { musteri: m, periyot, kayit, durum };
-      })
-      .sort((a, b) => a.musteri.firmaAdi.localeCompare(b.musteri.firmaAdi, "tr"));
-  }, [musteriler, takipler.data, donem, secilenAy, gecmisDonem, override]);
+  const satirlar = useMemo(() => {
+    let liste = tumSatirlar;
+    if (periyotFiltre !== "tumu") liste = liste.filter((s) => s.periyot === periyotFiltre);
+    if (aramaMetni.trim()) {
+      const aranan = aramaMetni.toLowerCase().trim();
+      liste = liste.filter((s) => s.musteri.firmaAdi.toLowerCase().includes(aranan));
+    }
+    return liste;
+  }, [tumSatirlar, periyotFiltre, aramaMetni]);
 
-  const filtreli = filtre === "tumu" ? satirlar : satirlar.filter((s) => s.durum === filtre);
+  /** Kayıtlı durum + iyimser override + son tarih → hücre durumu */
+  const durumMap = useMemo(() => {
+    const kayitli = new Map<string, EDefterDurum>();
+    for (const k of takipler.data) {
+      if (!k.donem.startsWith(`${yil}-`)) continue;
+      kayitli.set(hucreAnahtar(k.musteriId, k.donem), k.durum);
+    }
+    const map = new Map<string, EDefterDurum>();
+    for (const s of tumSatirlar) {
+      for (let ay = 0; ay < 12; ay++) {
+        if (!edefterSorumlu(s.periyot, ay)) continue;
+        const donem = donemStr(yil, ay);
+        const anahtar = hucreAnahtar(s.musteri.id, donem);
+        const ham = override[anahtar] ?? kayitli.get(anahtar);
+        if (ham === "gonderildi") {
+          map.set(anahtar, "gonderildi");
+          continue;
+        }
+        // Son tarih geçmiş ve gönderilmemiş → gecikti
+        const sonTarih = edefterDonemSonTarihi(yil, ay, s.periyot === "aylik" ? "aylik" : "3aylik");
+        map.set(anahtar, sonTarih && sonTarih < bugunYmd ? "gecikti" : "gonderilmedi");
+      }
+    }
+    return map;
+  }, [takipler.data, tumSatirlar, yil, override, bugunYmd]);
 
   const ozet = useMemo(() => {
-    const gonderildi = satirlar.filter((s) => s.durum === "gonderildi").length;
-    const geciken = satirlar.filter((s) => s.durum === "gecikti").length;
-    const bekleyen = satirlar.filter((s) => s.durum === "gonderilmedi").length;
-    return { toplam: satirlar.length, gonderildi, geciken, bekleyen };
-  }, [satirlar]);
-
-  const toggleSecili = (id: string) => {
-    setSecili((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const durumKaydet = async (satir: Satir, yeni: EDefterDurum) => {
-    setOverride((prev) => ({ ...prev, [satir.musteri.id]: yeni }));
-    try {
-      const gonderimTarihi = yeni === "gonderildi" ? new Date().toISOString() : undefined;
-      if (satir.kayit) {
-        await updateEDefterTakip(satir.kayit.id, { durum: yeni, gonderimTarihi });
-      } else if (user?.ofisId) {
-        await createEDefterTakip({
-          ofisId: user.ofisId,
-          musteriId: satir.musteri.id,
-          musteriAdi: satir.musteri.firmaAdi,
-          donem,
-          periyot: satir.periyot,
-          durum: yeni,
-          gonderimTarihi,
-        });
+    let toplam = 0;
+    let gonderildi = 0;
+    let gecikti = 0;
+    for (const s of satirlar) {
+      for (let ay = 0; ay < 12; ay++) {
+        if (!edefterSorumlu(s.periyot, ay)) continue;
+        toplam++;
+        const d = durumMap.get(hucreAnahtar(s.musteri.id, donemStr(yil, ay)));
+        if (d === "gonderildi") gonderildi++;
+        else if (d === "gecikti") gecikti++;
       }
-    } catch (err) {
-      setOverride((prev) => {
-        const next = { ...prev };
-        delete next[satir.musteri.id];
-        return next;
-      });
-      toast.error("Durum güncellenemedi", err instanceof Error ? err.message : undefined);
     }
-  };
+    return { toplam, gonderildi, gecikti, bekleyen: toplam - gonderildi - gecikti };
+  }, [satirlar, durumMap, yil]);
 
-  const handleTopluGonderildi = async () => {
-    const hedefler = satirlar.filter((s) => secili.has(s.musteri.id) && s.durum !== "gonderildi");
-    if (hedefler.length === 0) {
-      toast.warning("Gönderilmemiş kayıt seçilmedi");
-      return;
-    }
-    setTopluLoading(true);
-    let basarili = 0;
-    for (const s of hedefler) {
+  const yuzde = ozet.toplam > 0 ? Math.round((ozet.gonderildi / ozet.toplam) * 100) : 0;
+
+  const durumKaydet = useCallback(
+    async (satir: EDefterSatir, donem: string, yeni: EDefterDurum) => {
+      if (!user?.ofisId) return;
+      const anahtar = hucreAnahtar(satir.musteri.id, donem);
+      setOverride((prev) => ({ ...prev, [anahtar]: yeni }));
       try {
-        await durumKaydet(s, "gonderildi");
-        basarili += 1;
-      } catch {
-        /* durumKaydet kendi hatasını yönetir */
+        const mevcut = takipler.data.find(
+          (k) => k.musteriId === satir.musteri.id && k.donem === donem
+        );
+        const gonderimTarihi = yeni === "gonderildi" ? new Date().toISOString() : undefined;
+        if (mevcut) {
+          await updateEDefterTakip(mevcut.id, { durum: yeni, gonderimTarihi });
+        } else {
+          await createEDefterTakip({
+            ofisId: user.ofisId,
+            musteriId: satir.musteri.id,
+            musteriAdi: satir.musteri.firmaAdi,
+            donem,
+            periyot: satir.periyot,
+            durum: yeni,
+            gonderimTarihi,
+          });
+        }
+      } catch (err) {
+        setOverride((prev) => {
+          const next = { ...prev };
+          delete next[anahtar];
+          return next;
+        });
+        toast.error("Durum güncellenemedi", err instanceof Error ? err.message : undefined);
       }
-    }
-    logAudit({
-      action: "update",
-      entityType: "edefter",
-      entityId: "toplu",
-      entityLabel: `${basarili} mükellef`,
-      summary: `E-Defter (${donem}): ${basarili} mükellef gönderildi işaretlendi`,
-    }).catch(() => undefined);
-    if (basarili) toast.success("Toplu güncelleme tamam", `${basarili} mükellef gönderildi olarak işaretlendi`);
-    setSecili(new Set());
-    setTopluLoading(false);
-  };
+    },
+    [user, takipler.data, toast]
+  );
+
+  const handleTopluDonem = useCallback(
+    async (donemAy: number) => {
+      const donem = donemStr(yil, donemAy);
+      const hedefler = satirlar.filter(
+        (s) =>
+          edefterSorumlu(s.periyot, donemAy) &&
+          durumMap.get(hucreAnahtar(s.musteri.id, donem)) !== "gonderildi"
+      );
+      if (hedefler.length === 0) {
+        toast.warning("Gönderilmemiş kayıt yok");
+        return;
+      }
+      for (const s of hedefler) {
+        await durumKaydet(s, donem, "gonderildi");
+      }
+      toast.success("Toplu güncelleme", `${donem} — ${hedefler.length} mükellef gönderildi işaretlendi`);
+      logAudit({
+        action: "update",
+        entityType: "edefter",
+        entityId: donem,
+        entityLabel: `${hedefler.length} mükellef`,
+        summary: `E-Defter (${donem}): ${hedefler.length} mükellef gönderildi işaretlendi`,
+      }).catch(() => undefined);
+    },
+    [yil, satirlar, durumMap, durumKaydet, toast, logAudit]
+  );
 
   if (appLoading) return <PageLoading />;
+
+  const ucAylikVar = tumSatirlar.some((s) => s.periyot === "3aylik");
 
   return (
     <div>
       <PageHeader
         title="E-Defter Takip"
-        subtitle={`${satirlar.length} sorumlu mükellef · ${donem}`}
+        subtitle={`${tumSatirlar.length} yükümlü mükellef · ${yil} yılı`}
         breadcrumb={[{ label: "Ana Sayfa", href: "/dashboard" }, { label: "E-Defter Takip" }]}
         action={
-          secili.size > 0 ? (
-            <Button icon={<CheckCircle2 className="w-4 h-4" />} loading={topluLoading} onClick={handleTopluGonderildi}>
-              {secili.size} Seçileni Gönderildi İşaretle
-            </Button>
-          ) : undefined
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setYil((y) => y - 1)}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Önceki yıl"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600" />
+            </button>
+            <span className="text-sm font-semibold text-slate-800 min-w-[60px] text-center">{yil}</span>
+            <button
+              type="button"
+              onClick={() => setYil((y) => y + 1)}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Sonraki yıl"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600" />
+            </button>
+          </div>
         }
       />
 
       <div className="mb-4">
         <InfoBanner variant="info">
-          Yükümlü mükellefler (E-Defter: <strong>Yüklü — Aylık / 3 Aylık</strong>) otomatik listelenir.
-          3 aylık mükellefler yalnızca çeyrek sonu aylarında (Mart · Haziran · Eylül · Aralık) görünür.
+          Sütunlar <strong>dönemi</strong> gösterir, son yükleme tarihini değil. Bu ayın sonunda{" "}
+          <strong>{plan.aylik.donemAdi}</strong> dönemi aylık beratları doluyor (son tarih{" "}
+          {tarihTR(plan.aylik.sonTarih)})
+          {plan.ucAylik ? (
+            <>
+              {" "}ve <strong>{plan.ucAylik.ceyrekAdi}</strong> 3 aylık beratları doluyor.
+            </>
+          ) : (
+            "."
+          )}
+          {ucAylikVar && " 3 aylık mükelleflerin yalnızca çeyrek kapanış dönemleri (Mar · Haz · Eyl · Ara) doludur."}
         </InfoBanner>
-      </div>
-
-      {/* Dönem seçici */}
-      <div className="mb-5 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Dönem</label>
-          <input
-            type="month"
-            value={donem}
-            max={guncelDonem}
-            onChange={(e) => {
-              setDonem(e.target.value || guncelDonem);
-              setSecili(new Set());
-              setOverride({});
-            }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
       </div>
 
       {/* Özet */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-5">
-        <MetricCard title="Sorumlu Mükellef" value={String(ozet.toplam)} subtitle={donem} />
-        <MetricCard title="Gönderildi" value={String(ozet.gonderildi)} variant="success" />
+        <MetricCard title="Toplam Gönderim" value={String(ozet.toplam)} subtitle={`${yil} yılı`} />
+        <MetricCard title="Gönderildi" value={String(ozet.gonderildi)} variant="success" subtitle={`%${yuzde}`} />
         <MetricCard title="Bekleyen" value={String(ozet.bekleyen)} variant="warning" />
-        <MetricCard title="Geciken" value={String(ozet.geciken)} variant="danger" subtitle="Geçmiş dönem, gönderilmedi" />
+        <MetricCard
+          title="Geciken"
+          value={String(ozet.gecikti)}
+          variant="danger"
+          subtitle="Son tarih geçti"
+        />
       </div>
 
-      {/* Filtre */}
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {(["tumu", "gonderilmedi", "gonderildi", "gecikti"] as const).map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setFiltre(d)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
-              filtre === d
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
+      {/* İlerleme */}
+      {ozet.toplam > 0 && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-slate-700">{yil} Yılı İlerlemesi</span>
+            <span className="text-sm font-semibold text-slate-800">
+              %{yuzde}
+              <span className="text-xs font-normal text-slate-400 ml-1">
+                ({ozet.gonderildi}/{ozet.toplam})
+              </span>
+            </span>
+          </div>
+          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                yuzde === 100 ? "bg-emerald-500" : yuzde >= 50 ? "bg-blue-500" : yuzde >= 25 ? "bg-amber-400" : "bg-red-400"
+              )}
+              style={{ width: `${yuzde}%` }}
+            />
+          </div>
+          {ozet.gecikti > 0 && (
+            <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              {ozet.gecikti} gönderimin son tarihi geçti
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Arama + periyot filtresi */}
+      <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={aramaMetni}
+            onChange={(e) => setAramaMetni(e.target.value)}
+            placeholder="Mükellef ara..."
+            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          {aramaMetni && (
+            <button
+              type="button"
+              onClick={() => setAramaMetni("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <BookOpen className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          <select
+            value={periyotFiltre}
+            onChange={(e) => setPeriyotFiltre(e.target.value as PeriyotFiltre)}
+            className={cn(
+              "text-sm rounded-lg border bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer",
+              periyotFiltre !== "tumu" ? "border-blue-300 text-blue-800" : "border-slate-200"
+            )}
           >
-            {d === "tumu" ? "Tümü" : DURUM_LABELS[d]}
-          </button>
+            <option value="tumu">Tüm Periyotlar</option>
+            <option value="aylik">Aylık</option>
+            <option value="3aylik">3 Aylık</option>
+          </select>
+        </div>
+      </div>
+
+      {(aramaMetni || periyotFiltre !== "tumu") && (
+        <p className="text-xs text-slate-500 mb-3">
+          {satirlar.length} mükellef bulundu
+          {satirlar.length === 0 && " — filtreyi değiştirmeyi deneyin"}
+        </p>
+      )}
+
+      {/* Masaüstü matris */}
+      <div className="hidden md:block">
+        <EDefterTakipGrid
+          satirlar={satirlar}
+          durumMap={durumMap}
+          yil={yil}
+          readOnly={!isStaff}
+          onDurumDegistir={durumKaydet}
+          onTopluDonem={isStaff ? handleTopluDonem : undefined}
+        />
+        <EDefterGridLejant />
+      </div>
+
+      {/* Mobil kartlar */}
+      <div className="md:hidden space-y-3">
+        {satirlar.length === 0 && tumSatirlar.length > 0 && (
+          <p className="text-center text-sm text-slate-400 py-8">
+            Filtreyle eşleşen mükellef bulunamadı
+          </p>
+        )}
+        {satirlar.map((s) => (
+          <EDefterTakipMobileCard
+            key={s.musteri.id}
+            satir={s}
+            durumMap={durumMap}
+            yil={yil}
+            readOnly={!isStaff}
+            onDurumDegistir={durumKaydet}
+          />
         ))}
       </div>
 
-      {/* Boş durum */}
-      {satirlar.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+      {tumSatirlar.length === 0 && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
           <BookText className="mx-auto mb-2 h-8 w-8 text-slate-300" />
-          Bu dönemde e-defter yükümlüsü aktif mükellef bulunmuyor.
+          Henüz e-Defter yükümlüsü mükellef yok.
           <p className="mt-1 text-xs text-slate-400">
-            Mükellef kartında E-Defter alanını &quot;Yüklü — Aylık/3 Aylık&quot; olarak işaretleyin.
+            Mükellef kartında <strong>e-Defter</strong> alanını &quot;Yüklü — Aylık&quot; veya &quot;Yüklü — 3 Aylık&quot; seçin.
           </p>
         </div>
-      ) : (
-        <>
-          {/* Masaüstü tablo */}
-          <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
-                  <th className="w-10 px-3 py-2.5"></th>
-                  <th className="px-3 py-2.5">Firma</th>
-                  <th className="px-3 py-2.5">Periyot</th>
-                  <th className="px-3 py-2.5">Durum</th>
-                  <th className="px-3 py-2.5">Gönderim Tarihi</th>
-                  <th className="px-3 py-2.5 text-right">Aksiyon</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtreli.map((s) => (
-                  <tr key={s.musteri.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2.5">
-                      <input
-                        type="checkbox"
-                        checked={secili.has(s.musteri.id)}
-                        disabled={s.durum === "gonderildi"}
-                        onChange={() => toggleSecili(s.musteri.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40"
-                      />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Link href={`/musteriler/${s.musteri.id}`} className="font-medium text-slate-800 hover:text-blue-600">
-                        {s.musteri.firmaAdi}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-600">{PERIYOT_LABEL[s.periyot]}</td>
-                    <td className="px-3 py-2.5">
-                      <Badge variant={DURUM_VARIANTS[s.durum]}>{DURUM_LABELS[s.durum]}</Badge>
-                    </td>
-                    <td className="px-3 py-2.5 text-slate-500">
-                      {s.kayit?.gonderimTarihi ? formatTarih(s.kayit.gonderimTarihi) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      {s.durum === "gonderildi" ? (
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => durumKaydet(s, "gonderilmedi")}>
-                          Geri Al
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" className="text-xs" onClick={() => durumKaydet(s, "gonderildi")}>
-                          <CheckCircle2 className="mr-1 h-3 w-3" />
-                          Gönderildi
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobil kartlar */}
-          <div className="md:hidden space-y-2">
-            {filtreli.map((s) => (
-              <div key={s.musteri.id} className="rounded-xl border border-slate-200 bg-white p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <Link href={`/musteriler/${s.musteri.id}`} className="text-sm font-medium text-slate-800">
-                      {s.musteri.firmaAdi}
-                    </Link>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {PERIYOT_LABEL[s.periyot]}
-                      {s.kayit?.gonderimTarihi ? ` · ${formatTarih(s.kayit.gonderimTarihi)}` : ""}
-                    </p>
-                  </div>
-                  <Badge variant={DURUM_VARIANTS[s.durum]}>{DURUM_LABELS[s.durum]}</Badge>
-                </div>
-                <div className="mt-2.5 flex justify-end">
-                  {s.durum === "gonderildi" ? (
-                    <Button size="sm" variant="ghost" className="text-xs" onClick={() => durumKaydet(s, "gonderilmedi")}>
-                      Geri Al
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" className="text-xs" onClick={() => durumKaydet(s, "gonderildi")}>
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Gönderildi İşaretle
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
       )}
-
-      {/* Alt bilgi */}
-      <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
-        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Bekleyen: {ozet.bekleyen}</span>
-        <span className="flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-red-400" /> Geciken: {ozet.geciken}</span>
-      </div>
     </div>
   );
 }

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { edefterBeratPlani, tarihTR } from "@/lib/domain/edefterPlan";
+import {
+  edefterBeratPlani,
+  edefterDonemSonTarihi,
+  tarihTR,
+  ucAylikDonemMi,
+} from "@/lib/domain/edefterPlan";
 import { getVergiTakvimi } from "@/lib/data/vergiTakvimi";
 
 /**
@@ -93,6 +98,55 @@ describe("edefterBeratPlani — vergiTakvimi ile tutarlılık", () => {
         takvimTarihleri.has(plan.aylik.sonTarih),
         `ay=${ay} son tarih ${plan.aylik.sonTarih} takvimde yok`
       ).toBe(true);
+    }
+  });
+});
+
+describe("edefterDonemSonTarihi — ileri yön (dönem → son tarih)", () => {
+  // NOT: ayinSonGunu hafta sonuna denk gelen son tarihi izleyen Pazartesi'ye kaydırır
+  // (iş günü kuralı) — bu yüzden son tarih bir sonraki aya taşabilir.
+  it("aylık: dönemi izleyen 3. ayın son günü", () => {
+    expect(edefterDonemSonTarihi(2026, 0, "aylik")).toBe("2026-04-30"); // Ocak → Nisan sonu
+    expect(edefterDonemSonTarihi(2026, 3, "aylik")).toBe("2026-07-31"); // Nisan → Temmuz sonu
+    // Ekim → Ocak 2027 sonu; 31.01.2027 Pazar olduğu için 01.02.2027'ye kayar
+    expect(edefterDonemSonTarihi(2026, 9, "aylik")).toBe("2027-02-01");
+  });
+
+  it("3 aylık: yalnızca çeyrek sonu dönemleri sorumlu", () => {
+    for (let ay = 0; ay < 12; ay++) {
+      const beklenen = [2, 5, 8, 11].includes(ay);
+      expect(ucAylikDonemMi(ay), `ay=${ay}`).toBe(beklenen);
+      expect(edefterDonemSonTarihi(2026, ay, "3aylik") !== "", `ay=${ay}`).toBe(beklenen);
+    }
+  });
+
+  it("3 aylık çeyrekleri doğru berat ayına götürür", () => {
+    expect(edefterDonemSonTarihi(2026, 2, "3aylik")).toBe("2026-07-31");  // Q1 → Temmuz sonu
+    // Q2 → Ekim 2026 sonu; 31.10.2026 Cumartesi olduğu için 02.11.2026'ya kayar
+    expect(edefterDonemSonTarihi(2026, 5, "3aylik")).toBe("2026-11-02");
+    expect(edefterDonemSonTarihi(2026, 8, "3aylik")).toBe("2027-02-01");  // Q3 → Ocak sonu (Pazar → 01.02)
+    expect(edefterDonemSonTarihi(2026, 11, "3aylik")).toBe("2027-04-30"); // Q4 → Nisan sonu (izleyen yıl)
+  });
+
+  it("ileri ve ters yön birbiriyle tutarlı — plan ayının dönemi aynı son tarihe döner", () => {
+    for (let ay = 0; ay < 12; ay++) {
+      const plan = edefterBeratPlani(new Date(2026, ay, 26));
+      const [dy, da] = plan.aylik.donem.split("-").map(Number);
+      expect(edefterDonemSonTarihi(dy, da - 1, "aylik"), `ay=${ay}`).toBe(plan.aylik.sonTarih);
+    }
+  });
+
+  it("ürettiği son tarihler takvimdeki e-Defter olaylarıyla örtüşür", () => {
+    const takvim = new Set(
+      [...getVergiTakvimi(2026), ...getVergiTakvimi(2027)]
+        .filter((o) => o.kategori === "edefter")
+        .map((o) => o.tarih)
+    );
+    for (let ay = 0; ay < 12; ay++) {
+      expect(takvim.has(edefterDonemSonTarihi(2026, ay, "aylik")), `aylık ay=${ay}`).toBe(true);
+      if (ucAylikDonemMi(ay)) {
+        expect(takvim.has(edefterDonemSonTarihi(2026, ay, "3aylik")), `3aylık ay=${ay}`).toBe(true);
+      }
     }
   });
 });

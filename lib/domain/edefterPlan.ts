@@ -59,6 +59,36 @@ export function tarihTR(ymd: string): string {
   return `${g}.${a}.${y}`;
 }
 
+/** 3 aylık periyotta dönem ayı (0-tabanlı çeyrek sonu) → berat ayı */
+const CEYREK_SONU_BERAT: Record<number, { ay: number; yilOffset: number }> = {
+  2: { ay: 6, yilOffset: 0 },  // Mart (Q1)   → Temmuz sonu
+  5: { ay: 9, yilOffset: 0 },  // Haziran (Q2)→ Ekim sonu
+  8: { ay: 0, yilOffset: 1 },  // Eylül (Q3)  → Ocak sonu (izleyen yıl)
+  11: { ay: 3, yilOffset: 1 }, // Aralık (Q4) → Nisan sonu (izleyen yıl)
+};
+
+/** 3 aylık yükümlü bu dönemden sorumlu mu? (yalnızca çeyreğin kapandığı aylar) */
+export function ucAylikDonemMi(donemAy: number): boolean {
+  return donemAy in CEYREK_SONU_BERAT;
+}
+
+/**
+ * Bir dönemin berat son tarihi — edefterBeratPlani'nin ileri yönlü karşılığı,
+ * vergiTakvimi.ts ile aynı kural. Dönem 3 aylık periyotta çeyrek sonu değilse "".
+ */
+export function edefterDonemSonTarihi(
+  yil: number,
+  donemAy: number,
+  periyot: "aylik" | "3aylik"
+): string {
+  if (periyot === "aylik") {
+    // İlgili dönemi izleyen 3. ayın son günü
+    return ayinSonGunu(donemAy >= 9 ? yil + 1 : yil, (donemAy + 3) % 12);
+  }
+  const c = CEYREK_SONU_BERAT[donemAy];
+  return c ? ayinSonGunu(yil + c.yilOffset, c.ay) : "";
+}
+
 /**
  * Verilen güne göre, bu ayın sonunda son tarihi dolan e-Defter beratlarını döner.
  * Hatırlatma cron'u ayın 26'sında çalışır → çıktı "bu ay sonuna kadar" demektir.

@@ -306,19 +306,25 @@ export interface Musteri {
   kurulusTarihi?: string;
   aciklama?: string;
   gibIvdKullaniciAdi?: string;
+  /** AES-256-GCM şifreli IVD şifresi — GİB tebligat sync bu alanı okur */
   gibEncryptedIvdSifre?: string;
   bankaGonderenAdlari?: string[];
   sgkSicilNo?: string;
   // Kurum bilgileri (resmi sistem erişimleri)
   kurumVergiDairesi?: string;
   vergiDairesiKodu?: string;
+  // Aşağıdaki şifre alanlarının tamamı AES-256-GCM ŞİFRELİ blob tutar; plaintext
+  // asla Firestore'a yazılmaz (şifreleme /api/secrets/encrypt üzerinde sunucuda
+  // yapılır, başarısız olursa alan hiç yazılmaz — bkz. YeniMusteriModal).
   sgkKullaniciAdi?: string;
-  sgkSifresi?: string; // TODO(faz-2): şifreli sakla (lib/integrations/gib/encrypt.ts gibi)
+  sgkSifresi?: string;
   ebildirgKullaniciAdi?: string;
   ebildirgSifresi?: string;
   edevletKullaniciAdi?: string;
   edevletSifresi?: string;
-  gibSifresi?: string; // gibIvdKullaniciAdi ile birlikte plaintext (geçici; şifreli versiyonu gibEncryptedIvdSifre)
+  /** @deprecated Mükellef kartının eskiden yazdığı GİB şifresi alanı — yerine
+   *  gibEncryptedIvdSifre kullanılır. Eski kayıtlar için okuma yedeği olarak durur. */
+  gibSifresi?: string;
   // Genişletilmiş mükellef alanları
   sahissaVergiNo?: string;
   eposta1?: string; eposta1Ad?: string;

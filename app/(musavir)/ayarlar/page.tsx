@@ -567,9 +567,10 @@ export default function AyarlarPage() {
 
     const aktifMusteriler = musteriler.filter((m) => m.durum === "aktif" && m.vknTckn);
 
-    // Tebligat: mükellefin kendi GİB hesabıyla çekilir
+    // Tebligat: mükellefin kendi GİB hesabıyla çekilir.
+    // gibSifresi — mükellef kartının eskiden yazdığı alan; eski kayıtlar için yedek.
     const tebligatHedefleri = aktifMusteriler.filter(
-      (m) => m.gibIvdKullaniciAdi && m.gibEncryptedIvdSifre
+      (m) => m.gibIvdKullaniciAdi && (m.gibEncryptedIvdSifre || m.gibSifresi)
     );
 
     // Beyanname / tahakkuk: ofis IVD hesabıyla çekilir (.env.local / Ayarlar > GİB)
@@ -581,7 +582,7 @@ export default function AyarlarPage() {
 
     // Erken çıkış: gerekli kreden yoksa uyar
     if (yapilacakTebligat && tebligatHedefleri.length === 0 && !yapilacakBeyanname && !yapilacakTahakkuk) {
-      toast.warning("GİB kredansiyeli bulunan mükellef yok", "Mükellef Excel importu sırasında GİB bilgilerini eşleştirin");
+      toast.warning("GİB kredansiyeli bulunan mükellef yok", "Mükellef kartı → Kurum Bilgileri'nden GİB kullanıcı adı ve şifresini girin (veya Excel importunda eşleştirin)");
       setSyncLoading(false);
       return;
     }

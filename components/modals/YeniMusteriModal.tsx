@@ -481,7 +481,8 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         edevletKullaniciAdi: form.edevletKullaniciAdi || undefined,
         edevletSifresi: encryptedCreds.edevletSifresi || undefined,
         gibIvdKullaniciAdi: form.gibKullaniciAdi || undefined,
-        gibSifresi: encryptedCreds.gibSifresi || undefined,
+        // GİB tebligat sync bu alanı okur — gibSifresi'ne yazmak mükellefi sync dışında bırakıyordu
+        gibEncryptedIvdSifre: encryptedCreds.gibSifresi || undefined,
         // POS / Teknokent / İstisnalar
         posTuru: form.posTuru.length > 0 ? form.posTuru : undefined,
         teknokentMukellef: form.teknokentMukellef || undefined,

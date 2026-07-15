@@ -1,24 +1,21 @@
 "use client";
 
 import { useEffect } from "react";
+import { isChunkError, chunkReloadOnce } from "@/lib/utils/chunkReload";
 
 /**
  * Yeni deployment sonrası eski chunk hash'leri 404 verdiğinde
  * sayfayı otomatik yenileyerek ChunkLoadError'u önler.
+ * Yenileme döngü korumalıdır (bkz. lib/utils/chunkReload.ts).
  */
 export function ChunkErrorHandler() {
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      if (event.error?.name === "ChunkLoadError") {
-        window.location.reload();
-      }
+      if (isChunkError(event.error)) chunkReloadOnce();
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      const reason = event.reason;
-      if (reason?.name === "ChunkLoadError" || reason?.message?.includes("Loading chunk")) {
-        window.location.reload();
-      }
+      if (isChunkError(event.reason)) chunkReloadOnce();
     };
 
     window.addEventListener("error", handleError);

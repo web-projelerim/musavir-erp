@@ -11,7 +11,7 @@ export interface VergiTakvimOlay {
   kategori: "aylik" | "gecici_vergi" | "yillik" | "ucaylik" | "bildirim" | "edefter";
 }
 
-const AY_ADI = [
+export const AY_ADI = [
   "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
   "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
 ];
@@ -30,7 +30,8 @@ function isBgunu(yil: number, ay: number, gun: number): string {
 }
 
 /** Ayın son gününü hesapla (hafta sonu kaydırmalı) */
-function ayinSonGunu(yil: number, ay: number): string {
+/** Ayın son günü — hafta sonuna denk gelirse izleyen Pazartesi'ye kayar */
+export function ayinSonGunu(yil: number, ay: number): string {
   const sonGun = new Date(yil, ay + 1, 0).getDate();
   return isBgunu(yil, ay, sonGun);
 }

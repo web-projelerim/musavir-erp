@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isChunkError, chunkReloadOnce } from "@/lib/utils/chunkReload";
 
 /**
  * En üst seviye hata sınırı: kök layout'un kendisi çökerse burası devreye girer.
@@ -10,20 +11,7 @@ import { useEffect } from "react";
 export default function GlobalError({ error }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("[Global Error]", error);
-
-    const isChunkError =
-      error.name === "ChunkLoadError" ||
-      /loading chunk/i.test(error.message) ||
-      /failed to fetch/i.test(error.message);
-
-    if (isChunkError) {
-      const lastReload = sessionStorage.getItem("last-chunk-error-reload");
-      const now = Date.now();
-      if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
-        sessionStorage.setItem("last-chunk-error-reload", now.toString());
-        window.location.reload();
-      }
-    }
+    if (isChunkError(error)) chunkReloadOnce();
   }, [error]);
 
   return (

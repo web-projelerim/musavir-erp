@@ -12,6 +12,7 @@ import {
   Search,
   ArrowUpDown,
   Filter,
+  BookOpen,
   CheckCheck,
   X,
 } from "lucide-react";
@@ -84,6 +85,7 @@ export default function BeyannameTakipPage() {
   const [aramaMetni, setAramaMetni] = useState("");
   const [siralama, setSiralama] = useState<SiralamaSecenegi>("isim");
   const [aktifGrup, setAktifGrup] = useState<string | null>(null);
+  const [aktifMusteriGrubu, setAktifMusteriGrubu] = useState<string | null>(null);
   const [topluIslemSutun, setTopluIslemSutun] = useState<string | null>(null);
 
   const donem = donemStr(year, month);
@@ -119,6 +121,19 @@ export default function BeyannameTakipPage() {
     return Array.from(grupSet);
   }, [tumKolonlar]);
 
+  // Defter türü filtresi: mükellef kartındaki "gruplar" alanında fiilen kullanılan
+  // değerlerden türetilir (İşletme, Bilanço, Serbest Meslek ...).
+  const mevcutMusteriGruplari = useMemo(() => {
+    const grupSet = new Set<string>();
+    for (const m of musteriler) {
+      if (m.durum !== "aktif") continue;
+      for (const g of m.gruplar ?? []) {
+        if (g.trim()) grupSet.add(g);
+      }
+    }
+    return Array.from(grupSet).sort((a, b) => a.localeCompare(b, "tr"));
+  }, [musteriler]);
+
   const hucreMap = useMemo(() => {
     const map = new Map<string, BeyanTakipHucresi>();
     for (const h of hucreler) {
@@ -145,6 +160,10 @@ export default function BeyannameTakipPage() {
 
   const aktifMusteriler = useMemo(() => {
     let liste = musteriler.filter((m) => m.durum === "aktif");
+
+    if (aktifMusteriGrubu) {
+      liste = liste.filter((m) => m.gruplar?.includes(aktifMusteriGrubu));
+    }
 
     if (aramaMetni.trim()) {
       const aranan = aramaMetni.toLowerCase().trim();
@@ -179,7 +198,7 @@ export default function BeyannameTakipPage() {
     });
 
     return liste;
-  }, [musteriler, aramaMetni, siralama, kolonlar, hucreMap, user]);
+  }, [musteriler, aramaMetni, aktifMusteriGrubu, siralama, kolonlar, hucreMap, user]);
 
   const handleDurumDegistir = useCallback(
     async (musteriId: string, vergiTuruKey: string, durum: BeyanTakipDurum) => {
@@ -526,44 +545,55 @@ export default function BeyannameTakipPage() {
           </select>
         </div>
 
-        {/* Grup Filtre */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Beyanname Grubu Filtresi — sütunları daraltır */}
+        <div className="flex items-center gap-1.5">
           <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <button
-            type="button"
-            onClick={() => setAktifGrup(null)}
+          <select
+            value={aktifGrup ?? ""}
+            onChange={(e) => setAktifGrup(e.target.value || null)}
             className={cn(
-              "px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-              !aktifGrup
-                ? "bg-blue-100 border-blue-300 text-blue-800"
-                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              "text-sm rounded-lg border bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer",
+              aktifGrup ? "border-blue-300 text-blue-800" : "border-slate-200"
             )}
           >
-            Tümü
-          </button>
-          {mevcutGruplar.map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setAktifGrup(aktifGrup === g ? null : g)}
+            <option value="">Tüm Beyannameler</option>
+            {mevcutGruplar.map((g) => (
+              <option key={g} value={g}>
+                {BEYAN_TAKIP_GRUP_LABELS[g] ?? g}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Defter Türü Filtresi — mükellefleri (satırları) daraltır */}
+        {mevcutMusteriGruplari.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <select
+              value={aktifMusteriGrubu ?? ""}
+              onChange={(e) => setAktifMusteriGrubu(e.target.value || null)}
               className={cn(
-                "px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors",
-                aktifGrup === g
-                  ? "bg-blue-100 border-blue-300 text-blue-800"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                "text-sm rounded-lg border bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer",
+                aktifMusteriGrubu ? "border-blue-300 text-blue-800" : "border-slate-200"
               )}
             >
-              {BEYAN_TAKIP_GRUP_LABELS[g] ?? g}
-            </button>
-          ))}
-        </div>
+              <option value="">Tüm Defter Türleri</option>
+              {mevcutMusteriGruplari.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Arama sonuç bilgisi */}
-      {aramaMetni && (
+      {/* Arama / filtre sonuç bilgisi */}
+      {(aramaMetni || aktifMusteriGrubu) && (
         <p className="text-xs text-slate-500 mb-3">
           {aktifMusteriler.length} mükellef bulundu
-          {aktifMusteriler.length === 0 && " — aramayı değiştirmeyi deneyin"}
+          {aktifMusteriGrubu && ` — ${aktifMusteriGrubu}`}
+          {aktifMusteriler.length === 0 && " — filtreyi değiştirmeyi deneyin"}
         </p>
       )}
 

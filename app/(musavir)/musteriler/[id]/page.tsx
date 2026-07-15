@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard, FileText, CheckSquare, CalendarClock, Users, Pencil } from "lucide-react";
+import { ArrowLeft, Phone, Mail, MapPin, Edit, MoreHorizontal, Plus, MessageCircle, Download, Trash2, UserPlus, CreditCard, FileText, CheckSquare, CalendarClock, Users, Pencil, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Badge, TahsilatBadge, TebligatBadge, BeyannameBadge, BeyanWorkflowBadge, GorevDurumBadge, RaporDurumBadge } from "@/components/ui/Badge";
@@ -47,9 +47,21 @@ import { formatTarih, formatPara } from "@/lib/utils/format";
 import { isMusavir } from "@/lib/utils/permissions";
 import { useAuth } from "@/lib/context/AuthContext";
 import { displayVknTckn } from "@/lib/utils/maskData";
-import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Ortak, Tahakkuk, Tahsilat, TahsilatDurum } from "@/lib/types";
+import type { Belge, BeyannameDurum, GibSozlesme, Gorev, GorevNot, Odeme, Ortak, Tahakkuk, Tahsilat, TahsilatDurum, TeknokentProje, TeknokentProjeDurum } from "@/lib/types";
 
-const TABS = ["Özet", "Ortaklar", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+const TABS = ["Özet", "Ortaklar", "Projeler", "Yükümlülükler", "Sözleşmeler", "Görevler", "Belgeler", "Tebligatlar", "Beyannameler", "Raporlar", "Tahsilat", "Tahakkuk"];
+
+const PROJE_DURUM_LABELS: Record<TeknokentProjeDurum, string> = {
+  aktif: "Aktif",
+  tamamlandi: "Tamamlandı",
+  askida: "Askıda",
+};
+
+const PROJE_DURUM_VARIANTS: Record<TeknokentProjeDurum, "info" | "success" | "warning"> = {
+  aktif: "info",
+  tamamlandi: "success",
+  askida: "warning",
+};
 
 const MUSTERI_DURUM_LABEL: Record<string, string> = {
   aktif: "Aktif", pasif: "Pasif", beklemede: "Beklemede",
@@ -129,6 +141,21 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
         .filter((o) => o.musteriId === params.id)
         .sort((a, b) => `${a.ad} ${a.soyad}`.localeCompare(`${b.ad} ${b.soyad}`, "tr")),
     [ortaklar.data, params.id]
+  );
+
+  // Teknokent projeleri — ofis geneli abonelik, bu mükellefe göre filtrelenir (§3)
+  const teknokentProjeler = useCollectionData<TeknokentProje>(
+    COLLECTIONS.teknokentProjeler,
+    [],
+    !!user,
+    user?.ofisId
+  );
+  const musteriProjeleri = useMemo(
+    () =>
+      teknokentProjeler.data
+        .filter((p) => p.musteriId === params.id)
+        .sort((a, b) => a.projeAdi.localeCompare(b.projeAdi, "tr")),
+    [teknokentProjeler.data, params.id]
   );
 
   useEffect(() => {
@@ -746,6 +773,84 @@ export default function MusteriDetayPage({ params }: { params: { id: string } })
               )}
             </Card>
           </div>
+        </div>
+      )}
+
+      {activeTab === "Projeler" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <FolderKanban className="h-4 w-4 text-slate-400" />
+              {musteriProjeleri.length} teknokent projesi
+              {musteriProjeleri.some((p) => p.durum === "aktif") && (
+                <span className="text-slate-400">
+                  · {musteriProjeleri.filter((p) => p.durum === "aktif").length} aktif
+                </span>
+              )}
+            </div>
+            <Link href="/teknokent">
+              <Button size="sm" variant="outline">Teknokent Takibi</Button>
+            </Link>
+          </div>
+
+          {musteriProjeleri.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              <FolderKanban className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+              Bu mükellef için teknokent projesi kaydı yok.
+              <p className="mt-1 text-xs text-slate-400">
+                Proje eklemek için Teknokent Takibi sayfasını kullanın.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
+              {/* Masaüstü tablo */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-500">
+                      <th className="px-3 py-2.5">Proje Adı</th>
+                      <th className="px-3 py-2.5">Proje Kodu</th>
+                      <th className="px-3 py-2.5">Teknokent</th>
+                      <th className="px-3 py-2.5">Başlangıç</th>
+                      <th className="px-3 py-2.5">Bitiş</th>
+                      <th className="px-3 py-2.5">Durum</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {musteriProjeleri.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2.5 font-medium text-slate-800">{p.projeAdi}</td>
+                        <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{p.projeKodu || "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{p.teknokentAdi || "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{p.baslangicTarihi ? formatTarih(p.baslangicTarihi) : "—"}</td>
+                        <td className="px-3 py-2.5 text-slate-500">{p.bitisTarihi ? formatTarih(p.bitisTarihi) : "—"}</td>
+                        <td className="px-3 py-2.5">
+                          <Badge variant={PROJE_DURUM_VARIANTS[p.durum]}>{PROJE_DURUM_LABELS[p.durum]}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobil kartlar */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {musteriProjeleri.map((p) => (
+                  <div key={p.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium text-slate-800">{p.projeAdi}</span>
+                      <Badge variant={PROJE_DURUM_VARIANTS[p.durum]}>{PROJE_DURUM_LABELS[p.durum]}</Badge>
+                    </div>
+                    {p.teknokentAdi && <p className="mt-1 text-xs text-slate-500">{p.teknokentAdi}</p>}
+                    <p className="mt-1 text-xs text-slate-400">
+                      {p.baslangicTarihi ? formatTarih(p.baslangicTarihi) : "—"}
+                      {p.bitisTarihi ? ` → ${formatTarih(p.bitisTarihi)}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -101,18 +101,35 @@ function numberFrom(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Hücre tarih gibi mi görünüyor? (GG.AA.YYYY veya YYYY-AA-GG) */
+/**
+ * Hücre tarih gibi mi görünüyor?
+ * Kabul: GG.AA.YYYY · G.A.YY · GG-AA-YYYY · YYYY-AA-GG · YYYY/AA/GG · Date nesnesi
+ * (bankalar tek haneli gün/ay ve 2 haneli yıl da üretiyor — hepsi tanınmalı)
+ */
 function looksLikeDate(v: unknown): boolean {
   if (v instanceof Date) return true;
   const s = String(v ?? "").trim();
-  return /^\d{2}[./-]\d{2}[./-]\d{4}/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s);
+  return /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}(\s|$)/.test(s) || /^\d{4}[./-]\d{1,2}[./-]\d{1,2}(\s|$)/.test(s);
+}
+
+/** Para birimi eki/önekini atar: "1.500,00 TL" → "1.500,00" · "₺1.500,00" → "1.500,00" */
+function stripCurrency(s: string): string {
+  return s
+    .replace(/^[₺$€]\s*/, "")
+    .replace(/\s*(tl|try|₺|usd|eur)\.?$/i, "")
+    .trim();
 }
 
 /** Hücre para tutarı gibi mi? (2 ondalık basamaklı — dekont no'dan ayırt eder) */
 function looksLikeMoney(v: unknown): boolean {
   if (typeof v === "number") return true;
-  const s = String(v ?? "").trim();
+  const s = stripCurrency(String(v ?? "").trim());
   return /^-?\d{1,3}([.,]\d{3})*[.,]\d{2}$/.test(s) || /^-?\d+[.,]\d{2}$/.test(s);
+}
+
+/** Date → YYYY-MM-DD (yerel saatle; toISOString UTC'ye kaydırıp günü 1 geri alır) */
+function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** Hücre herhangi bir sayı mı? (gevşek — money bulunamazsa yedek) */
@@ -228,14 +245,34 @@ function assertLooksLikeBankaEkstresi(
   indexes: { tarihIdx: number; tutarIdx: number; aciklamaIdx: number; alacakIdx: number }
 ) {
   const { dateHits, amountHits, textHits } = countBankColumnHits(dataRows, indexes);
-  if (dateHits === 0 || amountHits === 0 || textHits === 0) {
+  // Hangi sütunun tanınamadığını söyle — kullanıcı "neden reddedildi" diye kalmasın
+  const eksik: string[] = [];
+  if (dateHits === 0) eksik.push("tarih");
+  if (amountHits === 0) eksik.push("tutar/alacak");
+  if (textHits === 0) eksik.push("açıklama/gönderen");
+  if (eksik.length > 0) {
     throw new Error(
-      "Bu dosya banka ekstresi gibi görünmüyor. Tarih, açıklama/gönderen ve tutar/alacak sütunları olan banka ekstresini yükleyin."
+      `Bu dosya banka ekstresi gibi görünmüyor — ${eksik.join(", ")} sütunu tanınamadı. ` +
+        "Tarih, açıklama/gönderen ve tutar/alacak sütunları olan banka ekstresini yükleyin."
     );
   }
 }
 
 function normalizeDateStr(raw: string): string {
+  const s = raw.trim();
+  // GG.AA.YYYY · G.A.YY · GG-AA-YYYY (TR bağlamı: gün önce). 2 haneli yıl → 2000'li.
+  const dmyLoose = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  if (dmyLoose) {
+    const gun = dmyLoose[1].padStart(2, "0");
+    const ay = dmyLoose[2].padStart(2, "0");
+    const yil = dmyLoose[3].length === 2 ? String(2000 + Number(dmyLoose[3])) : dmyLoose[3];
+    return `${yil}-${ay}-${gun}`;
+  }
+  // YYYY-AA-GG · YYYY/AA/GG · YYYY.AA.GG
+  const ymdLoose = s.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+  if (ymdLoose) {
+    return `${ymdLoose[1]}-${ymdLoose[2].padStart(2, "0")}-${ymdLoose[3].padStart(2, "0")}`;
+  }
   const dmy = raw.match(/^(\d{2})[./-](\d{2})[./-](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
@@ -440,8 +477,19 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-  // Önce raw 2D array olarak oku, başlık satırını dinamik tespit et
-  const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false });
+  // Biçimli metin (raw:false) para/açıklama için doğru olanı verir ("1.500,00").
+  // Ama Excel'in GERÇEK tarih hücreleri bu modda hücrenin biçimine göre metne
+  // döner ("7/13/26" gibi ABD biçimi) ve tanınamaz → dosya haksız yere reddedilirdi.
+  // raw:true bu hücreleri Date olarak verir; tarihleri oradan kurtarıp geri kalan
+  // her şey için biçimli metni koruyoruz.
+  const aoaFmt = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false });
+  const aoaRaw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: true });
+  const aoa = aoaFmt.map((row, r) =>
+    row.map((hucre, c) => {
+      const ham = aoaRaw[r]?.[c];
+      return ham instanceof Date ? ham : hucre;
+    })
+  );
   if (aoa.length === 0) return [];
 
   const headerIdx = detectHeaderRow(aoa);
@@ -476,8 +524,8 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
       const dateValue = cell(arr, tarihIdx);
       const date =
         dateValue instanceof Date
-          ? dateValue.toISOString().slice(0, 10)
-          : normalizeDateStr(String(dateValue || "").trim().slice(0, 10));
+          ? localYmd(dateValue)
+          : normalizeDateStr(String(dateValue || "").trim());
 
       // Alacak (gelen para) sütunu varsa onu, yoksa genel tutar sütununu kullan
       const tutar = numberFrom(cell(arr, alacakIdx)) || numberFrom(cell(arr, tutarIdx));

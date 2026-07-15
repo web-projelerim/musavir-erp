@@ -311,6 +311,7 @@ export interface Musteri {
   sgkSicilNo?: string;
   // Kurum bilgileri (resmi sistem erişimleri)
   kurumVergiDairesi?: string;
+  vergiDairesiKodu?: string;
   sgkKullaniciAdi?: string;
   sgkSifresi?: string; // TODO(faz-2): şifreli sakla (lib/integrations/gib/encrypt.ts gibi)
   ebildirgKullaniciAdi?: string;

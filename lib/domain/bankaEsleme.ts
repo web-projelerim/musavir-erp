@@ -186,7 +186,7 @@ function detectColumnsHeuristic(dataRows: unknown[][]): {
       amountIdx = c;
     }
   }
-  if (amountIdx < 0 || bestMoney === 0) {
+  if ((amountIdx < 0 || bestMoney === 0) && bestDate > 0) {
     for (let c = 0; c < colCount; c++) {
       if (c === dateIdx) continue; // tarih sütununu tutar sanma
       if (score[c].number > bestNumber) {
@@ -196,6 +196,43 @@ function detectColumnsHeuristic(dataRows: unknown[][]): {
     }
   }
   return { dateIdx, amountIdx, descIdx };
+}
+
+function countBankColumnHits(
+  dataRows: unknown[][],
+  indexes: { tarihIdx: number; tutarIdx: number; aciklamaIdx: number; alacakIdx: number }
+) {
+  const sample = dataRows.slice(0, 50);
+  const getCell = (arr: unknown[], idx: number) => (idx >= 0 ? arr[idx] : undefined);
+  let dateHits = 0;
+  let amountHits = 0;
+  let textHits = 0;
+
+  for (const row of sample) {
+    const hasDate = looksLikeDate(getCell(row, indexes.tarihIdx));
+    if (hasDate) dateHits++;
+
+    const amountCell =
+      indexes.alacakIdx >= 0 ? getCell(row, indexes.alacakIdx) : getCell(row, indexes.tutarIdx);
+    if (looksLikeMoney(amountCell) || (hasDate && looksLikeNumber(amountCell))) amountHits++;
+
+    const text = String(getCell(row, indexes.aciklamaIdx) ?? "").trim();
+    if (text.length > 2 && !looksLikeDate(text) && !looksLikeNumber(text)) textHits++;
+  }
+
+  return { dateHits, amountHits, textHits };
+}
+
+function assertLooksLikeBankaEkstresi(
+  dataRows: unknown[][],
+  indexes: { tarihIdx: number; tutarIdx: number; aciklamaIdx: number; alacakIdx: number }
+) {
+  const { dateHits, amountHits, textHits } = countBankColumnHits(dataRows, indexes);
+  if (dateHits === 0 || amountHits === 0 || textHits === 0) {
+    throw new Error(
+      "Bu dosya banka ekstresi gibi görünmüyor. Tarih, açıklama/gönderen ve tutar/alacak sütunları olan banka ekstresini yükleyin."
+    );
+  }
 }
 
 function normalizeDateStr(raw: string): string {
@@ -430,6 +467,8 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
   if (aciklamaIdx < 0) aciklamaIdx = heur.descIdx;
   if (alacakIdx < 0 && tutarIdx < 0) tutarIdx = heur.amountIdx;
 
+  assertLooksLikeBankaEkstresi(dataRows, { tarihIdx, tutarIdx, aciklamaIdx, alacakIdx });
+
   const cell = (arr: unknown[], idx: number) => (idx >= 0 ? arr[idx] : undefined);
 
   return dataRows
@@ -458,7 +497,7 @@ export async function parseBankaEkstresiFile(file: File): Promise<RawBankaSatiri
       };
     })
     // Anlamlı veri içeren satırları tut (tutar VEYA açıklama/gönderen metni)
-    .filter((row) => row.tutar > 0 || row.aciklama.length > 1 || row.gonderen.length > 1);
+    .filter((row) => row.tutar > 0 && (row.aciklama.length > 1 || row.gonderen.length > 1));
 }
 
 function scoreMusteri(raw: RawBankaSatiri, musteri: Musteri) {

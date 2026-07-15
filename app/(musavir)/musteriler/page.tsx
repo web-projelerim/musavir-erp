@@ -22,7 +22,15 @@ import { canViewVknTckn, displayVknTckn } from "@/lib/utils/maskData";
 import { hasPermission } from "@/lib/utils/permissions";
 import { PageLoading } from "@/components/ui/PageLoading";
 import { formatPara, formatTarih } from "@/lib/utils/format";
-import type { Beyanname, Gorev, Tahsilat } from "@/lib/types";
+import { ISTISNA_ETIKETLERI } from "@/lib/types";
+import type { Beyanname, Gorev, Tahsilat, Musteri } from "@/lib/types";
+
+/** Mükellefin birincil (ana faaliyet) NACE kodu — nacKodlari veya eski naceKodu'ndan */
+function anaNaceKodu(m: Musteri): string {
+  const ana = m.nacKodlari?.find((n) => n.anaFaaliyet) ?? m.nacKodlari?.[0];
+  if (ana) return ana.kod;
+  return m.naceKodu ? m.naceKodu.split("–")[0].split("-")[0].trim() : "";
+}
 import Link from "next/link";
 
 // ─── Yaklaşan sorumluluk hesaplama ──────────────────────────────────────────
@@ -110,6 +118,8 @@ export default function MusterilerPage() {
   const [filterDurum, setFilterDurum]   = useState<string>("tumu");
   const [filterSorumlu, setFilterSorumlu] = useState<string>("tumu");
   const [filterTahsilat, setFilterTahsilat] = useState<string>("tumu");
+  const [filterIstisna, setFilterIstisna] = useState<string>("tumu");
+  const [showNace, setShowNace]         = useState<boolean>(false);
   const [sortField, setSortField]       = useState<MusteriSortField>("firmaAdi");
   const [sortDir, setSortDir]           = useState<"asc" | "desc">("asc");
   const [view, setView]                 = useState<"tablo" | "kart">("tablo");
@@ -183,7 +193,9 @@ export default function MusterilerPage() {
           || m.sorumluPersonelId === filterSorumlu
           || m.sorumluPersonel  === filterSorumlu;
         const matchesTahsilat = filterTahsilat === "tumu" || m.tahsilatDurumu   === filterTahsilat;
-        return matchesSearch && matchesDurum && matchesSorumlu && matchesTahsilat;
+        const matchesIstisna  = filterIstisna  === "tumu"
+          || (filterIstisna === "var" ? (m.istisnalar?.length ?? 0) > 0 : m.istisnalar?.includes(filterIstisna as never) ?? false);
+        return matchesSearch && matchesDurum && matchesSorumlu && matchesTahsilat && matchesIstisna;
       })
       .sort((a, b) => {
         if (sortField === "yaklasanSorumluluk") {
@@ -200,7 +212,7 @@ export default function MusterilerPage() {
         const diff = a.musteri.firmaAdi.localeCompare(b.musteri.firmaAdi, "tr");
         return sortDir === "asc" ? diff : -diff;
       }),
-    [kayitlar, aramaText, filterDurum, filterSorumlu, filterTahsilat, sortField, sortDir, user]
+    [kayitlar, aramaText, filterDurum, filterSorumlu, filterTahsilat, filterIstisna, sortField, sortDir, user]
   );
 
   const SortHeader = ({ field, label }: { field: MusteriSortField; label: string }) => (
@@ -297,6 +309,31 @@ export default function MusterilerPage() {
               <option value="gecikti">Gecikti</option>
               <option value="kismi">Kısmi</option>
             </select>
+
+            <select
+              value={filterIstisna}
+              onChange={(e) => setFilterIstisna(e.target.value)}
+              className="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="tumu">Tüm İstisnalar</option>
+              <option value="var">İstisnası Olanlar</option>
+              {ISTISNA_ETIKETLERI.map((i) => (
+                <option key={i.value} value={i.value}>{i.label}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setShowNace((v) => !v)}
+              className={`text-sm rounded-lg border px-3 py-2 transition-colors ${
+                showNace
+                  ? "bg-blue-50 border-blue-300 text-blue-700"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+              title="Tabloda NACE kodu sütununu göster/gizle"
+            >
+              NACE {showNace ? "✓" : ""}
+            </button>
 
             <div className="ml-auto flex items-center gap-3">
               <div className="text-xs text-slate-500">
@@ -476,6 +513,7 @@ export default function MusterilerPage() {
                 <tr>
                   <SortHeader field="firmaAdi" label="Firma" />
                   <TableHeadCell>VKN/TCKN</TableHeadCell>
+                  {showNace && <TableHeadCell>NACE</TableHeadCell>}
                   <SortHeader field="yaklasanSorumluluk" label="Yaklaşan Sorumluluk" />
                   <TableHeadCell>Tahsilat</TableHeadCell>
                   <TableHeadCell>Görev Durumu</TableHeadCell>
@@ -487,7 +525,7 @@ export default function MusterilerPage() {
               </TableHead>
               <TableBody>
                 {filteredKayitlar.length === 0 ? (
-                  <TableEmpty colSpan={9} message="Arama kriterlerine uyan mükellef bulunamadı" />
+                  <TableEmpty colSpan={showNace ? 10 : 9} message="Arama kriterlerine uyan mükellef bulunamadı" />
                 ) : (
                   filteredKayitlar.map(({ musteri: m, sorumluluk }) => {
                     const Icon = sorumluluk.tur ? TUR_ICON[sorumluluk.tur] : null;
@@ -504,6 +542,15 @@ export default function MusterilerPage() {
                             {displayVknTckn(m.vknTckn, user)}
                           </span>
                         </TableCell>
+                        {showNace && (
+                          <TableCell>
+                            {anaNaceKodu(m) ? (
+                              <span className="font-mono text-xs text-slate-600">{anaNaceKodu(m)}</span>
+                            ) : (
+                              <span className="text-xs text-slate-400">—</span>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>
                           {sorumluluk.tarih ? (
                             <div>

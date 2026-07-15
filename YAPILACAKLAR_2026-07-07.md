@@ -316,3 +316,17 @@ pos_takip/        {musteriId, ofisId, donem, zRaporuDurumu, kkSatislariDurumu}
 - ⬜ **Firebase config** — takvim `tur` alanı `vergiTakvimi` dinamik senkronunda da e-defter ayrımını taşımak istenirse `/api/vergi-takvimi/sync` çıktısına kategori eklenebilir (şu an dashboard başlık-tespitiyle çözülüyor)
 
 > ⚠️ **Deploy notu:** `firestore.rules` bu oturumda `ortaklar` dahil 4 yeni koleksiyon için güncellendi — `firebase deploy --only firestore:rules` gerekir. Yeni cron `EDEFTER_HATIRLATMA_SCHEDULE` opsiyonel env ile ayarlanabilir (varsayılan her ayın 26'sı 08:00).
+
+---
+
+## 16. Denetim Sonrası Kapatılan Eksikler — 2026-07-15
+
+Dosya madde-madde kod ile karşılaştırıldı; şu 5 gerçek eksik kapatıldı:
+
+- ✅ **§1.1/§10 Vergi dairesi kodu** — `Musteri.vergiDairesiKodu` + Kurum sekmesinde ayrı input (ad + kod yan yana).
+- ✅ **§1.1 Şifreli alanlar göster/gizle + kopyala** — [SecretInput](components/ui/SecretInput.tsx) bileşeni (göz + kopyala ikonu); GİB/SGK/e-Bildirge/e-Devlet şifre alanları buna çevrildi.
+- ✅ **§1.2 Müşteri listesinde NACE sütunu** — "NACE" göster/gizle butonu + koşullu sütun (ana faaliyet kodu).
+- ✅ **§1.4 Müşteri listesinde istisna filtresi** — "İstisnası Olanlar" + her istisna etiketi için dropdown filtre.
+- ✅ **§3.3 Teknokent faz-2 stub'ları** — teknokent sayfasında "Faz-2 — Yakında" yol haritası kartı (gider/gelir/personel-saat/vergi-avantaj), `// STUB — MVP dışı` işaretli, fonksiyonel değil.
+
+Doğrulama: `npm run verify` (tsc+build) geçti · **155/155 test**. Artık to-do'da fonksiyonel eksik yok; kalan tek şey §6/§7 banka/excel akışının **canlı giriş ile UI testi** (kod tam, kimlik bilgisi gerektirir).

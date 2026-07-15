@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { matchBankaSatirlari, type RawBankaSatiri } from "@/lib/domain/bankaEsleme";
+import * as XLSX from "xlsx";
+import { matchBankaSatirlari, parseBankaEkstresiFile, type RawBankaSatiri } from "@/lib/domain/bankaEsleme";
 import type { Musteri, Tahakkuk } from "@/lib/types";
 
 function raw(p: Partial<RawBankaSatiri>): RawBankaSatiri {
@@ -28,6 +29,16 @@ function hizmetTahakkuk(p: Partial<Tahakkuk>): Tahakkuk {
   } as Tahakkuk;
 }
 
+function xlsxFile(rows: unknown[][], name = "ekstre.xlsx") {
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(workbook, sheet, "Sheet1");
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  return new File([buffer], name, {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
 describe("matchBankaSatirlari — kişi adı eşleşmesi", () => {
   it("gönderen kişi adı yetkili adıyla KISMEN örtüşünce eşleşmedi yerine onay bekliyor olur", () => {
     const m = [musteri({ id: "mx", firmaAdi: "Aslan Gıda", yetkiliAd: "Ayşe Nur Aslan" })];
@@ -52,5 +63,37 @@ describe("matchBankaSatirlari — kişi adı eşleşmesi", () => {
     );
     expect(row.durum).toBe("eslesmedi");
     expect(row.musteriId).toBeUndefined();
+  });
+});
+
+describe("parseBankaEkstresiFile", () => {
+  it("musteri import hata dosyasini banka ekstresi gibi yorumlamaz", async () => {
+    const file = xlsxFile(
+      [
+        ["Satir", "Hatalar"],
+        [8, "Firma/kisi adi ve VKN/TCKN yok - ice aktarilamaz"],
+        [9, "Firma/kisi adi ve VKN/TCKN yok - ice aktarilamaz"],
+      ],
+      "musteri-import-hatalari.xlsx"
+    );
+
+    await expect(parseBankaEkstresiFile(file)).rejects.toThrow("banka ekstresi gibi");
+  });
+
+  it("tarih aciklama ve alacak kolonlari olan banka ekstresini okur", async () => {
+    const file = xlsxFile([
+      ["Banka raporu"],
+      ["Tarih", "Aciklama", "Alacak"],
+      ["14.07.2026", "AYSE ASLAN mali musavirlik ucreti", "1.250,00"],
+    ]);
+
+    const rows = await parseBankaEkstresiFile(file);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      tarih: "2026-07-14",
+      aciklama: "AYSE ASLAN mali musavirlik ucreti",
+      tutar: 1250,
+    });
   });
 });

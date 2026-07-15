@@ -340,6 +340,34 @@ export default function TeknokentPage() {
         </>
       )}
 
+      {/* STUB — MVP dışı: faz-2 proje bazlı finansal takip altyapısı (§3.3).
+          Şimdilik yalnızca yol haritası olarak gösterilir; fonksiyonel değil. */}
+      <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Faz-2</span>
+          Proje Bazlı Takip — Yakında
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Aşağıdaki modüller sonraki fazda eklenecek. Şu an yalnızca planlama amaçlı gösterilir.
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { baslik: "Aylık Gider Takibi", aciklama: "Proje bazlı gider kalemleri ve toplam" },
+            { baslik: "Aylık Gelir Takibi", aciklama: "Proje bazlı hakediş / gelir kaydı" },
+            { baslik: "Personel Saat Girişi", aciklama: "Ar-Ge personeli çalışma saati" },
+            { baslik: "Vergisel Avantaj Raporu", aciklama: "İstisna/teşvik tutar hesaplaması" },
+          ].map((s) => (
+            <div key={s.baslik} className="rounded-lg border border-slate-200 bg-white p-3 opacity-70">
+              <p className="text-xs font-semibold text-slate-600">{s.baslik}</p>
+              <p className="mt-0.5 text-[11px] text-slate-400">{s.aciklama}</p>
+              <span className="mt-2 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
+                Faz-2
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Ekle/Düzenle modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={duzenlenen ? "Proje Düzenle" : "Yeni Teknokent Projesi"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

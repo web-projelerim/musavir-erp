@@ -5,6 +5,7 @@ import { Eye, EyeOff, RefreshCw, ChevronDown, Mail, Phone, CreditCard } from "lu
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { SecretInput } from "@/components/ui/SecretInput";
 import { useToast } from "@/lib/context/ToastContext";
 import { useAuth } from "@/lib/context/AuthContext";
 import { parseFirestoreError } from "@/lib/utils/firebaseErrors";
@@ -114,6 +115,7 @@ const EMPTY_FORM = {
   sgkSicilNo: "",
   // Kurum bilgileri sekmesi
   kurumVergiDairesi: "",
+  vergiDairesiKodu: "",
   sgkKullaniciAdi: "",
   sgkSifresi: "",
   gibKullaniciAdi: "",
@@ -299,6 +301,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         sgkSicilNo: musteri.sgkSicilNo ?? "",
         // Kurum bilgileri (şifreler güvenlik için input'a yüklenmez; boş bırakırsa mevcut korunur)
         kurumVergiDairesi: musteri.kurumVergiDairesi ?? "",
+        vergiDairesiKodu: musteri.vergiDairesiKodu ?? "",
         sgkKullaniciAdi: musteri.sgkKullaniciAdi ?? "",
         sgkSifresi: "",
         ebildirgKullaniciAdi: musteri.ebildirgKullaniciAdi ?? "",
@@ -469,6 +472,7 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
         kurulusTarihi: form.acilisTarihi || undefined,
         // Kurum bilgileri — şifreler şifreli formatta saklanır (plaintext asla Firestore'a girmez)
         kurumVergiDairesi: form.kurumVergiDairesi || undefined,
+        vergiDairesiKodu: form.vergiDairesiKodu || undefined,
         sgkKullaniciAdi: form.sgkKullaniciAdi || undefined,
         sgkSifresi: encryptedCreds.sgkSifresi || undefined,
         ebildirgKullaniciAdi: form.ebildirgKullaniciAdi || undefined,
@@ -1150,14 +1154,22 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
             {/* Vergi Dairesi */}
             <div>
               <SectionHeader>Vergi Dairesi & Mükellefiyet</SectionHeader>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Bağlı Olduğu Vergi Dairesi</label>
-                <input
-                  list="vergi-dairesi-list"
-                  value={form.kurumVergiDairesi}
-                  onChange={(e) => set("kurumVergiDairesi", e.target.value)}
-                  placeholder="İl veya vergi dairesi adı yazın (ör: Ankara, Bornova)..."
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Bağlı Olduğu Vergi Dairesi (Adı)</label>
+                  <input
+                    list="vergi-dairesi-list"
+                    value={form.kurumVergiDairesi}
+                    onChange={(e) => set("kurumVergiDairesi", e.target.value)}
+                    placeholder="İl veya vergi dairesi adı yazın (ör: Ankara, Bornova)..."
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <Input
+                  label="Vergi Dairesi Kodu"
+                  value={form.vergiDairesiKodu}
+                  onChange={(e) => set("vergiDairesiKodu", e.target.value)}
+                  placeholder="ör: 006020"
                 />
               </div>
             </div>
@@ -1172,11 +1184,10 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   onChange={(e) => set("gibKullaniciAdi", e.target.value)}
                   placeholder="İVD kullanıcı kodu"
                 />
-                <Input
+                <SecretInput
                   label="GİB Şifre"
-                  type="password"
                   value={form.gibSifresi}
-                  onChange={(e) => set("gibSifresi", e.target.value)}
+                  onChange={(v) => set("gibSifresi", v)}
                   placeholder="İVD şifresi"
                 />
               </div>
@@ -1192,11 +1203,10 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   onChange={(e) => set("sgkKullaniciAdi", e.target.value)}
                   placeholder="SGK işveren kullanıcı kodu"
                 />
-                <Input
+                <SecretInput
                   label="SGK Şifre"
-                  type="password"
                   value={form.sgkSifresi}
-                  onChange={(e) => set("sgkSifresi", e.target.value)}
+                  onChange={(v) => set("sgkSifresi", v)}
                   placeholder="SGK şifresi"
                 />
                 <Input
@@ -1205,11 +1215,10 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   onChange={(e) => set("ebildirgKullaniciAdi", e.target.value)}
                   placeholder="(SGK ile aynıysa boş bırakın)"
                 />
-                <Input
+                <SecretInput
                   label="e-Bildirge Şifre"
-                  type="password"
                   value={form.ebildirgSifresi}
-                  onChange={(e) => set("ebildirgSifresi", e.target.value)}
+                  onChange={(v) => set("ebildirgSifresi", v)}
                 />
               </div>
             </div>
@@ -1224,11 +1233,10 @@ export function YeniMusteriModal({ open, onClose, onSuccess, musteri, kullanicil
                   onChange={(e) => set("edevletKullaniciAdi", e.target.value)}
                   placeholder="TC kimlik no"
                 />
-                <Input
+                <SecretInput
                   label="e-Devlet Şifre"
-                  type="password"
                   value={form.edevletSifresi}
-                  onChange={(e) => set("edevletSifresi", e.target.value)}
+                  onChange={(v) => set("edevletSifresi", v)}
                 />
               </div>
             </div>
